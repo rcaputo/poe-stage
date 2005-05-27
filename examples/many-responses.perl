@@ -59,14 +59,12 @@ my $req_1_1 = POE::Request->new(
 	_stage   => $app_1,
 	_method  => "run",
 	name     => "req_one",
-	interval => 0.00001,
 );
 
 my $req_1_2 = POE::Request->new(
 	_stage   => $app_1,
 	_method  => "run",
 	name     => "req_two",
-	interval => 0.00001,
 );
 
 my $app_2 = App->new( name => "app_two" );
@@ -75,14 +73,12 @@ my $req_2 = POE::Request->new(
 	_stage   => $app_2,
 	_method  => "run",
 	name     => "req_one",
-	interval => 0.00001,
 );
 
 my $req_2_2 = POE::Request->new(
 	_stage   => $app_2,
 	_method  => "run",
 	name     => "req_two",
-	interval => 0.00001,
 );
 
 POE::Kernel->run();
