@@ -1,0 +1,56 @@
+# make a promise/resolver pair
+
+($promise, $resolver) = Promise->new;
+
+
+# resolve/break the promise:
+
+$resolver->done($value)
+$resolver->die($error)   # $error defaults to "Broken promise"
+
+If $resolver goes unreferenced without a done/die, then an
+implicit ->die is done.
+
+
+# schedule an action on promise resolution:
+
+$retpromise = $promise->when($subref, @args)
+$retpromise = $promise->when($obj, $methodname, @args)
+
+Asynchronously invoke  $subref->($value, @args)  once $value is
+available (being the resolved value of the $promise).
+
+The $retpromise is a promise for the return-value of this call
+to $subref.  If the call to $subref dies, the promise is broken.
+
+Multiple when-calls are allowed on a multiple, and will execute
+in fifo order.
+
+The calling style ->when($obj, $methodname, @args) is syntax
+sugar for  ->when($obj->can($methodname), $obj, @args)
+
+
+# catching errors
+
+$promise->catch($subref, @args)
+
+Similar to ->when but for catching errors.  Maybe not very
+nice, feel free to think of a better error handling system.
+
+
+# convenience method, async call:
+
+$retpromise = Promise->call($subref, @args)
+$retpromise = Promise->call($obj, $methodname, @args)
+
+Asynchronously invoke the sub, returns a promise for the call's
+return value, similar to above.
+
+
+# convenience method, promised method call:
+
+$retpromise = $promise->call($methodname, @args)
+
+short for:
+
+$retpromise = $promise->when(sub { shift->$methodname(@_) }, @args)

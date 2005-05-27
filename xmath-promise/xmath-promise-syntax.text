@@ -1,0 +1,79 @@
+defer <method/block>
+
+Schedule an unconditional event to invoke <method> (with NIL as argument).
+A defer returns a promise for the method/block's return value.
+Multiple defers done within one event are guaranteed in FIFO order.
+
+Example:
+
+    say "foo"
+    defer
+        say "bar"
+    say "quux"
+
+Prints:
+
+    foo
+    quux
+    bar
+
+
+
+when <expr> <method/block>
+
+Schedule an event to invoke <method/block> once <expr> has been resolved,
+with the resolved value of that expr as argument.  A when returns a promise
+for the method/block's return value.
+
+For convenience, if a block is used and <expr> is a single identifier, then
+this identifier will be re-bound to the fulfilled value within that block.
+
+Multiple when-clauses on expressions that all depend on a single promise
+are guaranteed to be in FIFO order.
+
+Example:
+
+    x = defer
+          say "foo"
+          = "bar"
+    say "quux"
+    when x
+          say x
+    say "blah"
+
+Prints:
+
+    quux
+    blah
+    foo
+    bar
+
+Instead of the   when x { say x }   block-construction you could just write
+when x say   instead.
+
+
+
+promise
+
+Returns a [promise, resolver] list.
+
+Example:
+
+    [x, r] = promise
+    say x
+    say "foo"
+    r "bar"
+
+Prints:
+
+    bar
+    foo
+
+Though actual output will be deferred until the call to 'r "bar"' because
+stdout will be temporarily stuck on the promise given to 'say'.
+
+
+
+obj~.bar
+
+Syntax sugar for:  when obj { obj.bar }

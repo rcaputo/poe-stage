@@ -1,0 +1,56 @@
+2005-??-??:
+
+Moved a copy of PoCo::Client::DNS, PoCo::Client::Keepalive, and
+PoCo::Client::HTTP into the project with the intent of porting their
+interfaces to "poecall" style.  Someone (possibly LotR) suggested this
+as a significant test of poecall's pattern, and I agree.
+
+2005-01-31:
+
+This snapshot includes a Delay class.  The Call and Stage classes have
+been expanded, and pattern-many-responses.perl has been modified to
+use Delay instead of POE::Kernel's delay().
+
+Delay implements a subset of POE::Kernel's delay_set().  It's far from
+complete, but it performs what pattern-many-responses.perl needs from
+a Delay class.
+
+Call has been extended to track resources, such as Delay objects.
+When a Delay is created, it calls delay_set() internally and
+associates itself with the currently active Call object.  Canceling a
+Call will automatically cancel any Delay objects associated with it.
+
+Automatic resource cancelation will extend to other resources as
+they're created.  Eventually the resource tracking will be abstracted
+into a base resource class.
+
+The Stage class has been extended with an event handler for Delay's
+internal events.  This hidden event handler massages some parameters
+and passes execution to the event handler associated with a particular
+Delay.  Since Delay objects are one-shots, they are automatically
+dissociated from their Calls after they go off.
+
+The many-responses session interaction pattern runs too slowly to
+detect a memory leak.
+
+2005-01-26:
+
+The biggest obstacle to large-scale programs built on POE components
+is that there's no consistent way to pass messages between them.  Now
+and then I take a stab at a Grand Unified Object Model that throws
+away POE::Component as it is and replaces it with something...
+wonderful.  None of them end up as wonderful as they start, which is
+why you haven't heard of most of them.
+
+While working on my latest GUOM, xmath on efnet #perl pointed me at a
+concept called "promises" from the E programming language.  It turns
+out that a dumbed down form of promises can encapsulate and manage
+asynchronous calls between components.
+
+Here's my attempt at a Call class for POE that encapsulates
+inter-component interaction.  I hope it survives the prototype and
+testing phases and grows into something useful for component writers.
+Please give it a look, and give me some feedback.  Thank you.
+
+-- 
+Rocco Caputo - http://poe.perl.org/
