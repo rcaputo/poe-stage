@@ -1,0 +1,5 @@
+Create a file I/O watcher, and some kind of sample program that uses
+it.
+
+Abstract the common bits from POE::Watcher::IO and POE::Watcher::Delay
+into a common POE::Watcher subclass.

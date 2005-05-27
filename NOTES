@@ -236,8 +236,6 @@ Standard POE::Stage classes.
 
 Request tree implementation.
 
-	POE::Request needs a static tree of request objects.
-
 	Each request has a single parent: The request that begat it, or 0
 	(false) if it is the top-level request.
 
@@ -249,4 +247,5 @@ Request tree implementation.
 	member.
 
 	The reference pointing to the parent is strong.  The parent's
-	references to its children are weak.
+	references to its children are weak.  Or maybe they're all weak.
+	Whatever works. :)
