@@ -21,11 +21,7 @@ sub start_ticking {
 	$self->{_tick_id}  = 0;
 	$self->{_interval} = $args->{interval};
 
-	$self->{_delay} = POE::Watcher::Delay->new(
-		_length  => $args->{interval},
-		_method  => "got_watcher_tick",
-		interval => $args->{interval},
-	);
+	$self->set_delay();
 }
 
 sub got_watcher_tick {
@@ -44,15 +40,19 @@ sub got_watcher_tick {
 		id   => ++$self->{_tick_id},
 	);
 
-	# Otherwise start a new delay.
 	# TODO - Ideally we can restart the existing delay, perhaps with an
 	# again() method.  Meanwhile we just create a new delay object to
 	# replace the old one.
 
+	$self->set_delay();
+}
+
+sub set_delay {
+	my $self = shift;
 	$self->{_delay} = POE::Watcher::Delay->new(
-		_length  => $self->{_interval},
-		_method  => "got_watcher_tick",
-		interval => $args->{interval},
+		_length     => $self->{_interval},
+		_on_success => "got_watcher_tick",
+		interval    => $self->{_interval},
 	);
 }
 
