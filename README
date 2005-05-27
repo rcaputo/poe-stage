@@ -1,0 +1,21 @@
+The notes file is where I'm keeping design notes and my todo list.
+It's pretty messy, but it illustrates my goals.
+
+many-responses.perl exercises the one-request-many-responses pattern.
+A single request to a Ticker object results in many returned values.
+This is similar to the way POE::Component::IRC works.  Ticker also
+illustrates how to use Pow (watcher) objects to manage POE events.  It
+uses delay_set() internally.
+
+ping-pong.perl exercises the one-response-per-request pattern, where
+each response generates another request.  If it weren't for :async
+methods, it would recurse deeply with disastrous results.  The
+ping-pong example uses Echoer, which echoes back whatever it's given.
+
+Some of the classes are documented, but it's all wrong due to a major
+upheaval in the system's design.
+
+-----
+
+This stuff's Copyright 2005 by Rocco Caputo.  All rights reserved.
+Same terms as Perl itself.

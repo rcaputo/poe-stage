@@ -1,0 +1,212 @@
+Stages are just objects.  As much as possible, their namespaces are
+not touched.  POE should try not to introduce any strangeness in the
+package.
+
+Public stage methods may be post()ed or call()ed, but they may not be
+called directly the Perl way.  Private methods may be called directly,
+preferrably from the object itself.
+
+Stage methods work like event handlers, except they're methods,
+inheritable and all that.
+
+Oddness comes into play when the first parameter (ARG0) of an event is
+a POE::Request object.  A new request context is created in the
+receiver, and all that fun stuff I was working on happens there.
+
+No need to mess around with AUTOLOAD and stubs, I think, since the
+magic can be done in a POE::Session subclass.
+
+Needs more thinking, prototypes, coding.  I think this is the start of
+a third sortie.
+
+*****************************************
+Everything past this line is older stuff.
+*****************************************
+
+TODO List:
+
+Test object creation and destruction.
+
+	A TCP server that creates a new object per connection should be nice
+	here.  It also follows the PoCo::Server::TCP pattern.
+
+Test call canceling.
+
+	Have the caller cancel a complex call, and make sure the
+	cancellation propagates through subcalls, cleans up resources, and
+	also triggers object destruction if necessary.
+
+Split call objects into two flyweights, one for the caller and one for
+the callee.
+
+	Will be more useful when calls span processes.
+
+-----
+
+Call syntax.
+
+	$object->$method(@etc);
+	obj("alias")->$method(@etc);
+
+To have this work asynchronously, the original methods must be moved
+out of the way and thunks put in their places.  I think tag published
+something like this.
+
+We can move the methods to a class-scoped (or system-scoped) hash.
+AUTOLOAD (or thunks) can look them up and call them.
+
+This requires even remote classes to be loaded locally.
+
+It also makes the syntax look very much like Perl's.  Perhaps
+confusingly so.  Maybe :sync vs. :async attributes.
+
+	sub get_foo : sync {
+		my $self = shift;
+		return $self->{foo};
+	}
+
+	# Asynchronous.  Calling it begins a new request.
+	sub do_foo : async {
+		my $self = shift;
+		...;
+	}
+
+Synchronous methods are left in the symbol table.  Asynchronous ones
+are replaced by POE post() thunks.
+
+-----
+
+An alternative to method attributes is to specify the asynchronous
+methods in the C<use Stage> statement.  This syntax seems more foreign
+than attributes, so I'm going to leave it for later.
+
+-----
+
+Resources are objects.  This way we can tie the lifetimes of the
+underlying POE resources to the lifetimes of their objects.
+
+Classically one-shot things, like timers, can therefore be restarted.
+
+  my $delay = Delay->new( ... );
+	$delay->again();
+
+would repeat the last delay.
+
+Likewise, letting a resource destruct before it's gone off will clean
+up after it.
+
+-----
+
+Subroutine calling convention.
+
+  sub do_foo {
+		my ($self, $call) = @_;
+
+		$self->{foo} = object_scoped_value;
+		$self->{_foo} = request_scoped_value;
+	}
+
+-----
+
+Calls to asynchronous methods return objects, which are handles to the
+call.  These handles have methods:
+
+On a particular kind of return value, invoke one of my methods.
+
+	$caller_call->on(
+		type => RETURN_TYPE,
+		method => MY_METHOD_TO_CALL,
+	);
+
+Cancel the request.  It has the side effect of canceling all
+sub-requests.
+
+  $caller_call->cancel();
+
+For now, I think Call destruction should not trigger cancel().
+Perhaps it will be useful to add when something really needs it.
+
+-----
+
+Calls that are received by the callee have their own methods, which
+may overlap with calls returned to the caller but don't necessarily.
+
+Return some value to the caller.  This ends the request.
+
+  $call->return(
+	  type => RETURN_TYPE,
+		val => RETURN_VALUE,
+	);
+
+Emit some value to the caller.  This does not end the request.  It's
+used when a single request can generate multiple responses.
+
+  $call->emit(
+	  type => RETURN_TYPE,
+		val  => RETURN_VALUE,
+	);
+
+End the request without sending back a response.  It's similar to
+cancel() and may in fact be an alias for it, but I'm not sure yet.
+
+	$call->end();
+
+-----
+
+Calls have accessors:
+
+  $call->$attribute();
+	$call->$attribute($value);
+
+While I think separate get/set methods are an abomination in
+interpreted and unpolymorphic languages like Perl, I think the syntax
+may be cleaner.
+
+-----
+
+I hope calls can be subclassable.  I like the idea that calls' classes
+can be used as message types, and that interfaces may become type-safe
+by specifying the kinds of messages they receive or emit.
+
+"Poetalk" was an extreme example of this sort of thing.  It was fun
+but fundamentally flawed.  I hope I can reintroduce the concept in a
+mellower form, but I'm going to hold off on it until the pattern
+emerges and can direct me towards the optimal goal.
+
+-----
+
+Ticker.  A clock that ticks periodically depending on requests.
+
+sub start :async {
+	my ($self, $request) = @_;
+
+	$self->{_timer} = Pow::Delay->new(
+		delay => $request->{interval},
+		method => "tick_happened",
+	);
+}
+
+sub tick_happened {
+	my ($self, $delay_info) = @_;
+
+	# This call is a callback from Pow::Delay.
+	# $self must be in the original context as start() was for the
+	# request that created the Pow::Delay object.
+	# Needs a lookup:  delay event -> Pow::Delay object -> context
+	# But: $delay_info must be the delay information, not the original
+	# call parameters in start()'s $request.
+	# Therefore, $self->{_foo} must be used for persistent data.
+}
+
+-----
+
+Contexts.  New contexts are created whenever an :async method is
+called.  Resources and stuff created within that context belong to the
+context.
+
+Something to watch out for: POE stuff belongs to the active session.
+That may not be the session that belongs to an object.
+
+Do I reintroduce "session leader" objects?  That is, the ability to
+flag a new object instance as being in a separate session.  What does
+that give us?
