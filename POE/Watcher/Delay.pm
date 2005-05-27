@@ -18,10 +18,10 @@ sub new {
 	my ($class, %args) = @_;
 
 	my $length = delete $args{_length};
-	croak "$class requires a '_length'" unless defined $length;
+	croak "$class requires a '_length' parameter" unless defined $length;
 
-	my $method = delete $args{_method};
-	croak "$class requires an '_method'" unless defined $method;
+	my $on_success = delete $args{_on_success};
+	croak "$class requires an '_on_success' method" unless defined $on_success;
 
 	my $request = POE::Request->_get_current_request();
 	croak "Can't create a $class without an active request" unless $request;
@@ -33,9 +33,9 @@ sub new {
 	weaken $req_envelope->[0];
 
 	my $self = bless {
-		request   => $req_envelope,
-		method    => $method,
-		args      => \%args,
+		request     => $req_envelope,
+		on_success  => $on_success,
+		args        => \%args,
 	}, $class;
 
 	# Post out a timer.
@@ -60,14 +60,15 @@ sub DESTROY {
 	}
 }
 
-# Resource delivery is like a response.
+# Resource delivery redelivers the request the resource was created
+# in, but to a new method.
 
 sub deliver {
 	my ($self, %args) = @_;
 
 	# Open the envelope.
 	my $request = $self->{request}[0];
-	$request->redeliver($self->{method});
+	$request->redeliver($self->{on_success});
 }
 
 1;
