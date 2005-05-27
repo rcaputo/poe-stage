@@ -1,0 +1,252 @@
+Design goals:
+
+Request-scoped resources.
+
+	Resources are stored as _foo members of $self.  That is, the
+	lifetimes of members with a single leading underscore is that of
+	the request.
+
+	Resources are objects.  It's up to the programmer to store them in
+	$self->{_foo} members.
+
+	Requests are a type of resource.  One must store the request
+	object in a request-scoped data member for it to persist.
+	Otherwise it will be canceled at destruction time.
+
+	The system may provide request-scoped data members.  For instance:
+
+		$self->{_req} is a weak version of the current request.  It's used
+		to call methods such as return() without requiring much additional
+		magic.
+
+Nested requests.
+
+	A request made within the scope of an existing request is a
+	sub-request.
+
+	Sub-requests are canceled if their parent requests end.  The
+	assumption is that a completed request does not need to wait for
+	its sub-requests to finish.
+
+Request lifetimes.
+
+	Requests end when they return something, or when their
+	outer-scoped requests cancel them.
+
+	Requests may also end if they become inactive.  That is, if they
+	contain no live resources or sub-requests.  Requests in these
+	states have become moribund.  Zombies.  They would otherwise
+	linger in a program indefinitely.
+
+Call/return semantics.
+
+	Requests are similar to calls, but they don't pause the current
+	stage's execution.
+
+Cancellable requests.
+
+	The creator of a request may cancel it at any time.  Doing so will
+	cause all sub-requests (however deeply nested) to also be
+	canceled.
+
+	There is no need for a stage to cancel a request made of it.
+	Cancellation is just another form of return from this point of
+	view.
+
+Subclassable.
+
+	Events are mapped directly to method calls without an additional
+	layer of indirection.  See various examples throughout the document.
+
+	Subclass methods automatically become event and message handlers.
+	Perl's OO features can be used to augment or override existing
+	methods.
+
+Syntax should be light and cheap.
+
+	Avoid implicitness.
+
+	Avoid unnecessary magic.
+
+	Avoid cleverness.
+
+POE::Stage method signature:
+
+	sub method {
+		my ($self, $args) = @_;
+		# $self is the current object.  Duh.
+		# $args is a hashref of key/value pairs.
+	}
+
+Basic POE::Watcher constructor signature:
+
+	Watcher objects are the interface between Stages and POE's
+	underlying events system.  They wrap things like timers, selects,
+	and stuff in objects.
+
+	Watchers can't watch for events if they've been destroyed, so
+	triggering a watcher's destruction is a sure way to cancel it.
+	Some watchers only look out for one event.  One-shot delays are a
+	good example.  Others, such as file I/O watchers, are constantly
+	on the lookout for events.
+
+	The best place to put a watcher object is in the Stage's
+	request-scoped storage.  To be sure, you can save them just about
+	anywhere, but keeping them in the request-scoped space means
+	they'll automatically be cleaned up when the request is canceled
+	or returns.
+
+	$self->{_some_watcher} = POE::Watcher::Delay->new(
+		_method => "my_delay_handler",  # method for the callback
+		_time   => 12,                  # time to delay
+
+		parameter_1 => "value_1",       # additional data
+		parameter_2 => "value_2",
+		...,
+	);
+
+	Watcher constructor parameters beginning with a leading underscore
+	are used by the watcher itself.  Unadorned parameters will be
+	passed through to the destination $self->$method() as part of the
+	$args parameter (see the POE::Stage method signature).
+
+	The watcher will probably add other parameters to the callback.
+	They will undoubtedly vary from one watcher to another, but they
+	will always be adorned with a leading underscore.
+
+POE::Request constructor signature:
+
+	$self->{_some_request} = POE::Request->new(
+		_object => $object,
+		_method => $method,
+
+		$param_1 => $value_1,
+		$param_2 => $value_2,
+		...,
+		_on_type_1 => "type_1_return_handler",
+		_on_type_2 => "type_2_return_handler",
+		...,
+	);
+
+	The constructor parameters adorned with a leading underscore are
+	for the Request object's constructor itself.  Unadorned parameters
+	are passed through to the destination $object->$method() call in
+	the $args parameter (see the POE::Stage method signature).
+
+	_object and _method are used by POE::Request to identify the stage
+	that should receive the request.  _object is a POE::Stage object
+	(it should be verified).  _method is the name of its method to
+	call.  It would be nice to verify the _method at request time, but
+	a program might not have that luxury if the requestee lives
+	somewhere remote.
+
+	Parameters of the form /^_on_(\S+)$/ define return types and the
+	methods within the current Stage to call when values of those
+	types are returned from the requestee stage.  More about this in
+	"Returning values".
+
+Returning values.
+
+	A stage can call return() on its $self->{_req} data member.  Doing
+	so passes a return message to the requester and cancels the
+	current request.
+
+		$self->{_req}->return(
+			_type => "type_1",
+			retval_1 => "return_value_1",
+		);
+
+	As everywhere else, the parameters adorned with leading
+	underscores are used by the return() function itself.  In this
+	case, to determine the return message's type.  The unadorned
+	parameters are passed through to the return message's hander.
+
+	Return types are mapped to requestor methods at the time the
+	request is constructed.  See "POE::Request constructor signature"
+	for details about mapping return types to methods.
+
+	The unadorned return() parameters will be passed to the return
+	value handler as its $args parameter.
+
+Canceling a request.
+
+	A requestor can cancel a request that it's no longer interested
+	in.  Cancellation can be triggered one of two ways:
+	
+	Destroy the request object.
+
+		delete $self->{_sub_request};
+	
+	Explicitly call cancel() on it.
+
+		$self->{_sub_request}->cancel();
+
+	As mentioned earlier, a requestee cannot cancel a request, but it
+	can return() a failure or cancellation type of response.
+
+Standard POE::Watcher classes.
+
+  Standard POE watchers should map cleanly to POE's most fundamental
+	features.  Complex watchers should not exist.  Rather, they should
+	be implemented as reusable POE::Stage classes.
+
+	POE::Watcher::Delay
+
+		Wait for a period of time to pass.
+		One-shot by default.
+
+	POE::Watcher::Alarm
+
+		Wait or a specific time to arrive.
+		One-shot by its very nature.
+
+	POE::Watcher::IO
+
+		Generic I/O watcher.
+		Watches filehandles for input and/or output.
+		Might be cleaner to have separate watchers for each mode.
+		Multi-shot.
+
+	POE::Watcher::Signal
+
+		Watch for a signal.
+		Multi-shot.
+
+	...
+
+Standard POE::Stage classes.
+
+	POE::Stage::BufferedIO
+
+		Perform buffered I/O on unbuffered filehandles.
+		Does things similar to POE::Wheel::ReadWrite.
+		Perhaps needs a base POE::Stage::IO class.
+
+	POE::Stage::Server
+
+		Generic server.
+		Performs the tasks of POE::Wheel::SocketFactory, sort of.
+		Subclassable into particular types of server.
+
+  POE::Stage::Process
+
+		Fulfills the purpose of POE::Wheel::Run.
+
+	...
+
+Request tree implementation.
+
+	POE::Request needs a static tree of request objects.
+
+	Each request has a single parent: The request that begat it, or 0
+	(false) if it is the top-level request.
+
+	Each request has a list of child requests.  These are used to chain
+	cancellation down the request tree.
+
+	When a request is created, its parent becomes the currently active
+	request (or zero).  The parent's children gain the new request as a
+	member.
+
+	The reference pointing to the parent is strong.  The parent's
+	references to its children are weak.
