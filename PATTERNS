@@ -174,21 +174,146 @@ Requests as channels or connections.
 	think this invalidates the idea of a "request" since it changes the
 	original request context, losing any original data that might still
 	be worked on.
-
+	
 	The issue I'm seeing is with a UDP producer and its consumer, in a
 	more-or-less 1:1 use pattern.
 	
 		1. The consumer asks the producer to listen on a port.
+
 		2. The producer emits a "datagram" message to the consumer.
-		3. The consumer generates a response.
 
-		TODO:
+		3. The consumer generates a response, sending it to the producer.
 
-			How does the consumer push the response back to the producer so
-			it may be sent to the other end of the UDP session?
+	Some prototypical code:
 
-			And, well, how do we ensure this works for arbitrary levels of
-			nesting of requests and responses?
+		sub handle_datagram {
+			my ($self, $args) = @_;
+
+			my $datagram = $args->{datagram};
+			$datagram =~ tr[a-zA-Z][n-za-mN-ZA-M];
+
+			$self->{_rsp}->recall(
+				_method        => "send",
+				remote_address => $args->{remote_address},
+				datagram       => $datagram,
+			);
+		}
+	
+	This assumes recall() is the method to push another method call into
+	the same request context that generated a response.  Some issues to
+	consider:
+
+		The request's _args will be overwritten by new arguments.  This
+		may be an issue if there are multiple recall()s on the same _rsp.
+		Why?  Subsequent recall()s overwrite previous ones' _args.
+
+		Just as emit() creates a new Request (POE::Request::Response), so
+		should recall().
+
+			TODO: It would be tidily symmetrical if one could call
+			$self->{_rsp}->emit() rather than recall().  Test whether one
+			can.
+
+		The recalled method is called in the context of the _req that
+		generated the response.  That's _rsp at the time recall() is
+		invoked.
+
+	Will this work for arbitrary nesting of requests and responses?  For
+	example, what if a producer wants to respond to a response to a
+	response?
+
+	I first noticed a need for response contexts while writing the
+	Receiver stage and UDP example to use it.  They don't nest
+	arbitrarily, but they do nest a level beyond what I had needed so
+	far.  Here's a synopsis of the interaction between the UDP example
+	and POE::Stage::Receiver.
+
+		1. Consumer requests that the producer listen for datagrams.
+
+			$self->{_udp_peer} = POE::Stage::Receiver->new(...);
+			$self->{_udp_req} = POE::Request->new(
+				_stage          => $self->{_udp_peer},
+				_method         => "listen",
+				_on_datagram    => ...,
+				_on_recv_error  => ...,   # Handle recv() errors.
+				_on_sock_error  => ...,   # Handle socket creation errors.
+				_on_send_error  => ...,   # Handle send() errors.
+			);
+
+			Note: The original listen request maps all interesting return
+			types to methods, including ones like _on_send_error that may
+			never be needed.
+
+		2. Producer may return a fatal socket error.
+
+			$self->{_req}->return(
+				_type => "sock_error",
+				...,
+			);
+
+		3a. Producer may emit a nonfatal recv() error.
+
+			$self->{_req}->emit(
+				_type => "recv_error",
+				...,
+			);
+
+		3b. Producer may return a fatal recv() error.
+
+			$self->{_req}->emit(
+				_type => "recv_error",
+				...,
+			);
+
+		3c. Producer may emit a datagram.
+
+			$self->{_req}->emit(
+				_type     => "datagram",
+				datagram  => $message,
+			);
+
+		4. Consumer generates a datagram in response.
+
+			$self->{_rsp}->recall(
+				_method         => "send",
+				datagram        => $response,
+				_on_send_error  => ...,  # Handle send() errors.
+			);
+
+			Note: Sending a response also specifies a handler for send()
+			errors.
+
+			TODO:
+
+				The new _on_send_error is evaluated in the same context as the
+				original one in the first "listen" request.  What is the scope
+				of this subsequent _on_send_error?
+
+				a. Does it override _on_send_error for the remaining life of
+				the producer's _req?
+
+				b. Does it override _on_send_error for the lifetime of the
+				send() method's invocation?
+
+				c. Does it do something else entirely?
+
+		5a. Producer emits a nonfatal send() error.
+
+			$self->{_req}->emit(
+				_type => "send_error",
+				...
+			);
+
+		5b. Producer returns a fatal send() error.
+
+			$self->{_req}->return(
+				_type => "send_error",
+				...
+			);
+
+	It seems like we don't need an arbitrary level of nesting.  The act
+	of recall()ing a producer pops off a nesting level, just as emit()
+	or return() do when the producer calls them.
 
 Connections as shared memory.
 
