@@ -175,15 +175,55 @@ Requests as channels or connections.
 	original request context, losing any original data that might still
 	be worked on.
 
-	So TODO: How do we handle the producer's context when a subsequent
-	request is pushed down the same connection.  Does it become a new
-	request?  How does it augment or modify the existing request on the
-	provider's end?
+	The issue I'm seeing is with a UDP producer and its consumer, in a
+	more-or-less 1:1 use pattern.
+	
+		1. The consumer asks the producer to listen on a port.
+		2. The producer emits a "datagram" message to the consumer.
+		3. The consumer generates a response.
 
-Requests as shared memory.
+		TODO:
 
-  TODO: This is a half-tired, half-baked idea.  Flesh it out.
+			How does the consumer push the response back to the producer so
+			it may be sent to the other end of the UDP session?
 
-	Storage to either end of the request silently propagates changes to
-	the other, possibly emitting an "hey, I changed" event to trigger
-	activity.
+			And, well, how do we ensure this works for arbitrary levels of
+			nesting of requests and responses?
+
+Connections as shared memory.
+
+	The poetalk project implemented a different type of connection
+	between objects.  Its connections were essentially shared data
+	members.  A producer defines a data member.  Zero or more consumers
+	watch the data member.  Consumers are notified when the data they're
+	watching are modified.
+
+	An object in poecall can watch its own data members, triggering
+	methods when watched data changes.
+
+	POE::Stage and POE::Request might mimic this behavior with one new
+	facility:  Allow one object to watch another's data.  This can be
+	simulated with a regular request and some code in the base
+	POE::Stage class.
+	
+	One object requests notification when another object changes a data
+	member.
+
+		$self->{_foo_watcher} = POE::Request->new(
+			_stage      => $some_object,      # The object to watch.
+			_method     => "watch",           # I'm watching you!
+			member      => "foo",             # This is what I'm watching.
+			_on_change  => "catch_change",    # Call my method on change.
+		);
+
+	Now my catch_change() method will be called when the remote object
+	changes its "foo" data member.
+
+	POE::Stage requires a watch() method to record which requests are
+	watching certain data members.  When those members change, it can
+	emit responses to the associated requests.
+
+	There is a subtle issue when watching context-scoped data.  That's
+	because _foo is scoped beneath the request that watches it.  The
+	watcher will not notice changes to _foo in any other request
+	context.
