@@ -1,0 +1,189 @@
+$Id$
+
+It's very difficult to grow an object environment from basic
+principles.  The rules eventually reach a point where new extensions
+don't work, and the cause is usually some fundamental rule that hasn't
+anticipated everything in advance.
+
+So I'm never getting anywhere if I don't document some use patterns.
+
+Providers and consumers.
+
+	Providers and consumers are things on either side of a transaction.
+	A provider is usually a component, and a consumer is usually a
+	session that requires something from the component.
+
+	Consumers can also be components, in the case where one component
+	needs a service from another.  POE::Component::Client::HTTP is a
+	consumer of POE::Component::Client::DNS services.
+
+Provider/consumer relationships.
+
+	One provider, one consumer.
+
+		The consumer has created a provider for its exclusive use.
+
+		POE::Wheel classes are built for this type of pattern.  A Wheel
+		instance acts as a provider for a single Session (its creator).
+		Many POE::Component::IRC use cases also follow this pattern: An
+		IRC bot instance creates and interacts with a single IRC
+		connection instance.
+
+		I'm temporarily ignoring the case where a POE::Session has more
+		than one POE::Wheel.
+
+		One solution to the 1:1 relationship is to subclass the provider
+		with consumer features.  This sounds extremely convenient for
+		small, quick programs.
+
+		In the 1:1 case, an object may use $self for its context rather
+		than some request or transaction.  This is impractical, however,
+		since the object can't tell the number of consumers it will handle
+		ahead of time.
+		
+		Therefore the contextual mechanism should be the same as
+		one-provider/many-consumers, even in the one-provider/one-consumer
+		mode.
+
+	One provider, many consumers.
+
+		Consumers make transactional requests of the provider.  The
+		provider maintains a separate request context for each consumer
+		with a pending request.
+
+		POE::Component::Client::DNS and Client::HTTP follow this pattern.
+		A single component instance provides responses to one or more
+		concurrent consumers.
+
+	Many providers, one consumer.
+
+		A consumer creates instances of many providers and talks to them
+		in parallel.  For example, an IRC bot that bounces mesages between
+		two servers would be implemented as a single bot Session and two
+		POE::Component::IRC sessions.  Messages that arrive from one IRC
+		session are bounced to the other.
+
+		Each provider can use its instance as a context since it will only
+		interact with one consumer.
+
+		The consumer can address individual providers because it has
+		instances of each.  Something third-sortie POE::Stage does not
+		address, however, is a method for determining which provider sent
+		it a message.  This becomes an issue when a single consumer holds
+		multiple instances of the same type of provider.  Which provider
+		sent a message of type X?
+
+	Many providers, many consumers.
+
+		Consumers and providers should be prepared for many/many
+		situations by default.
+
+		Each provider must keep transactional requests to differentiate
+		between consumers.
+
+		Consumers make transactional requests, holding onto transaction
+		objects until they're no longer needed.
+
+Stage lifetimes.
+
+	The Stage lives to handle a single request.
+
+		Create a Stage.
+		Create the Request for it.
+		Upon completion of the Request, destroy the Stage.
+
+		What existing POE::Components do this?
+
+		This would be expensive if POE::Stage objects mapped one-to-one to
+		POE::Session instances.
+
+	The Stage lives to handle many requests.
+
+		Create a Stage.
+		Create several Requests for it.
+		Keep the Stage around to handle them all.
+
+		Most POE::Components do this, but maybe it's an artifact of
+		POE::Session creation and destruction being relatively
+		heavyweight.  The pressure to reuse components would ease in
+		POE::Stage, as creating and destroying them isn't nearly as
+		expensive.
+
+Requests as channels or connections.
+
+	Requests are similar to connections between objects.  The owner and
+	receiver are in a dialog as long as the request remains active.
+
+  Third-sortie POE::Stage focused on creating requests and ferrying
+	them to their receivers.  It didn't anticipate the issues and
+	semantics of receiving responses and dealing with them.
+
+	The current context has a member, _req.  It identifies the request
+	that is a parent of the current context.
+
+	Perhaps what's needed is a new special member, _rsp or something,
+	that identifies the request that is the parent of a response.  This
+	would still leave a disconnect between _rsp and the contextual
+	member a program stored the main response in.
+
+	For example:
+
+	  $self->{_some_request} = POE::Request->new(...);
+
+	Receiving a response from _some_request sets _rsp = $request_object.
+	There still is no conventient way to determine that $self->{_rsp}
+	represents the request in $self->{_some_request}.  To be sure, they
+	are equal, but it's inconvenient to determine which member to delete
+	when ending a request:
+
+	  sub handle_response {
+			my ($self, $args) = @_;
+			my $responding_request = $self->{_rsp};
+
+			... How do I know to delete $self->{_some_request} vs. any of
+			the arbitrary other requests I may be holding?
+		}
+	
+	$self is a magical tied hash thing.  It could cross-reference
+	request references to the members stored in them:
+
+		sub STORE {
+			my ($self, $key, $value) = @_;
+
+			if (ref($value) and blessed($value) and $value->isa("POE::Request")) {
+				$self->[XREF]{$value}{$key} = 1;
+			}
+
+			...;
+		}
+
+	Caveat: This only tracks cross-references when POE::Request objects
+	are stode as simple scalars.  Hiding them in complex data structures
+	will thwart cross-referencing.
+
+	Now it's possible for a Stage to connect _rsp to the original
+	member(s) where the response is stored:
+
+		sub destroy_request {
+			my ($self, $request) = @_;
+			my @members = $self->_find_member_names($request);
+			delete @$self{@members};
+		}
+
+	We also need a way to post new requests down the old request.  I
+	think this invalidates the idea of a "request" since it changes the
+	original request context, losing any original data that might still
+	be worked on.
+
+	So TODO: How do we handle the producer's context when a subsequent
+	request is pushed down the same connection.  Does it become a new
+	request?  How does it augment or modify the existing request on the
+	provider's end?
+
+Requests as shared memory.
+
+  TODO: This is a half-tired, half-baked idea.  Flesh it out.
+
+	Storage to either end of the request silently propagates changes to
+	the other, possibly emitting an "hey, I changed" event to trigger
+	activity.
