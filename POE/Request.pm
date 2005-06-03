@@ -5,10 +5,14 @@ package POE::Request;
 use warnings;
 use strict;
 
-use Carp qw(croak);
+use Carp qw(croak confess);
 use POE::Kernel;
 use Scalar::Util qw(weaken);
-use POE::Request::Response;
+use POE::Request::Return;
+use POE::Request::Emit;
+use POE::Request::Recall;
+
+use constant DEBUG => 0;
 
 my @request_stack;
 
@@ -21,20 +25,29 @@ sub _get_current_request {
 # current.
 
 sub _push {
-	my $self = shift;
-	push @request_stack, $self;
-	$self->{_target_stage}{_req} = $self;
+	my ($self, $request) = @_;
+	push @request_stack, $request;
 }
 
 sub _invoke {
 	my ($self, $method) = @_;
+
+	DEBUG and warn(
+		"\t$self invoking $self->{_target_stage} method $method:\n",
+		"\t\tMy _req = $self->{_target_stage}{_req}\n",
+		"\t\tMy _rsp = $self->{_target_stage}{_rsp}\n",
+		"\t\tPar req = $self->{_parent_request}\n",
+		"\t\tContext = $self->{_context}\n",
+	);
+
 	$self->{_target_stage}->$method($self->{_args});
 }
 
 sub _pop {
-	my $self = shift;
-	die unless delete($self->{_target_stage}{_req}) == $self;
-	die unless pop(@request_stack) == $self;
+	my ($self, $request) = @_;
+	confess "not defined?!" unless defined $request;
+	my $pop = pop @request_stack;
+	confess "bad pop($pop) not request($request)" unless $pop == $request;
 }
 
 sub _get_context {
@@ -54,16 +67,15 @@ sub _base_constructor {
 	# clashing in Perl?
 
 	my $self = bless {
-		_target_stage   => delete $args->{_stage},
-		_target_method  => delete $args->{_method},
-		_child_requests => { },
-		_resources      => { },
-		_create_pkg     => $package,
+		_target_stage   => delete $args->{_stage},  # Stage to be invoked.
+		_target_method  => delete $args->{_method}, # Method to invoke.
+		_child_requests => { },         # Requests begotten from this one.
+		_resources      => { },         # Resources created in this request.
+		_create_pkg     => $package,    # Debugging.
 		_create_fil     => $filename,
 		_create_lin     => $line,
 		_create_stage   => 0,
-		_args           => { },
-		_context        => { },
+		_args           => { },         # For passing down.
 	}, $class;
 
 	return $self;
@@ -72,6 +84,7 @@ sub _base_constructor {
 # Send the request to its destination.
 sub _send_to_target {
 	my $self = shift;
+	Carp::confess "whoops" unless $self->{_target_stage};
 	$poe_kernel->post(
 		$self->{_target_stage}->_get_session_id(), "stage_request", $self
 	);
@@ -92,24 +105,32 @@ sub new {
 	}
 	$self->{_returns} = \%returns;
 
-	# The parent request is the one that creates this one.  This is
-	# split out of the request because a response won't have a parent.
+	# Set the parent request to be the currently active request.
+	# New request = new context.
 
-	my $parent_request = POE::Request->_get_current_request();
-	$self->{_parent_request} = $parent_request;
+	$self->{_parent_request} = POE::Request->_get_current_request();
+	$self->{_context} = { };
 
 	# If we have a parent request, then we need to associate this new
 	# request with it.  The references between parent and child requests
 	# are all weak because it's up to the creator to decide when
 	# destruction happens.
 
-	if ($parent_request) {
-		$self->{_create_stage} = $parent_request->{_target_stage};
+	if ($self->{_parent_request}) {
+		$self->{_create_stage} = $self->{_parent_request}{_target_stage};
 		weaken $self->{_create_stage};
 
-		$parent_request->{_child_requests}{$self} = $self;
-		weaken $parent_request->{_child_requests}{$self};
+		$self->{_parent_request}{_child_requests}{$self} = $self;
+		weaken $self->{_parent_request}{_child_requests}{$self};
 	}
+
+	DEBUG and warn(
+		"$self->{_parent_request} created $self:\n",
+		"\tMy parent request = $self->{_parent_request}\n",
+		"\tDelivery request  = $self\n",
+		"\tDelivery response = 0\n",
+		"\tDelivery context  = $self->{_context}\n",
+	);
 
 	$self->_assimilate_args(%args);
 	$self->_send_to_target();
@@ -139,22 +160,27 @@ sub init {
 	# Virtual base method.  Do nothing by default.
 }
 
-# Deliver the request to its destination.
+# Deliver the request to its destination.  Requesting down into a
+# stage, so _req is the request that invoked the method, and _rsp is
+# zero because there's no downward path from here.
+
 sub deliver {
-	my $self = shift;
-	$self->_push();
-	$self->_invoke($self->{_target_method});
-	$self->_pop();
-}
-
-# Deliver the request to some other method than the one it was
-# originally sent to.  This is used for POE callbacks.
-
-sub redeliver {
 	my ($self, $method) = @_;
-	$self->_push();
-	$self->_invoke($method);
-	$self->_pop();
+
+	$self->_push($self);
+
+	$self->{_target_stage}{_req} = $self;
+	$self->{_target_stage}{_rsp} = 0;
+
+	$self->_invoke($method || $self->{_target_method});
+
+	my $old_rsp = delete $self->{_target_stage}{_rsp};
+	my $old_req = delete $self->{_target_stage}{_req};
+
+	die "bad _rsp" unless $old_rsp == 0;
+	die "bad _req" unless $old_req == $self;
+
+	$self->_pop($self);
 }
 
 # Return a response to the requester.  The response occurs in the
@@ -162,14 +188,13 @@ sub redeliver {
 
 sub return {
 	my ($self, %args) = @_;
-
-	$self->emit(%args);
+	$self->_emit("POE::Request::Return", %args);
 	$self->cancel();
 }
 
-sub DESTROY {
-	my $self = shift;
-	$self->cancel();
+sub emit {
+	my ($self, %args) = @_;
+	$self->_emit("POE::Request::Emit", %args);
 }
 
 sub cancel {
@@ -192,18 +217,18 @@ sub cancel {
 
 	if ($self->{_parent_request}) {
 		delete $self->{_parent_request}{_child_requests}{$self};
-		$self->{_parent_request} = undef;
+		$self->{_parent_request} = 0;
 	}
 }
 
-sub emit {
-	my ($self, %args) = @_;
+sub _emit {
+	my ($self, $class, %args) = @_;
 
 	# Where does the message go?
 	# TODO - Have croak() reference the proper package/file/line.
 
 	my $parent_stage = $self->{_create_stage};
-	croak "Cannot emit message: The requester is not a POE::Stage class" unless (
+	confess "Cannot emit message: The requester is not a POE::Stage class" unless (
 		$parent_stage
 	);
 
@@ -224,12 +249,40 @@ sub emit {
 		$parent_request
 	);
 
-	my $response = POE::Request::Response->new(
+	my $response = $class->new(
 		%args,
 		_stage   => $parent_stage,
 		_method  => $message_method,
 		_type    => $message_type,
-		_context => $parent_request->_get_context(),
+	);
+}
+
+sub _recall {
+	my ($self, %args) = @_;
+
+	# Where does the message go?
+	# TODO - Have croak() reference the proper package/file/line.
+
+	my $parent_stage = $self->{_create_stage};
+	unless ($parent_stage) {
+		confess "Cannot recall message: The requester is not a POE::Stage class";
+	}
+
+	# Validate the method.
+	my $message_method = delete $args{_method};
+	croak "Message must have a _method parameter" unless defined $message_method;
+
+	# Reconstitute the parent's context.
+	my $parent_context;
+	my $parent_request = $self->{_parent_request};
+	croak "Cannot recall message: The requester has no context" unless (
+		$parent_request
+	);
+
+	my $response = POE::Request::Recall->new(
+		%args,
+		_stage   => $parent_stage,
+		_method  => $message_method,
 	);
 }
 

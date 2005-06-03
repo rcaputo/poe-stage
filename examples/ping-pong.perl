@@ -38,7 +38,7 @@ use strict;
 
 		# Comment out this line to run indefinitely.  Great for checking
 		# for memory leaks.
-		return if $self->{_i} > 10;
+#		return if $self->{_i} > 10;
 
 		$self->send_request();
 	}

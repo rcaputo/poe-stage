@@ -31,8 +31,18 @@ my $singleton_session_id = POE::Session->create(
 		},
 
 		# Handle a timer.  Deliver it to its resource.
+		# $resource is an envelope around a weak POE::Watcher reference.
 		stage_timer => sub {
 			my $resource = $_[ARG0];
+			eval {
+				$resource->[0]->deliver();
+			};
+		},
+
+		# Handle an I/O event.  Deliver it to its resource.
+		# $resource is an envelope around a weak POE::Watcher reference.
+		stage_io => sub {
+			my $resource = $_[ARG2];
 			eval {
 				$resource->[0]->deliver();
 			};

@@ -272,7 +272,7 @@ Requests as channels or connections.
 				datagram  => $message,
 			);
 
-		4. Consumer generates a datagram in response.
+		4. Consumer recall()s the producer with a response.
 
 			$self->{_rsp}->recall(
 				_method         => "send",
@@ -314,6 +314,10 @@ Requests as channels or connections.
 	It seems like we don't need an arbitrary level of nesting.  The act
 	of recall()ing a producer pops off a nesting level, just as emit()
 	or return() do when the producer calls them.
+
+	_req always points up the request tree, into requests made of you.
+
+	_rsp always points down, into requests you've made.
 
 Connections as shared memory.
 

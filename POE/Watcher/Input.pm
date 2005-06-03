@@ -1,11 +1,11 @@
 # $Id$
 
-# A simple Delay class.
-#
-# This is a first stab at the third version of POE::Watcher::Delay.
-# TODO - Abstract a lot of the details into a base POE::Watcher class.
+# A simple watcher that looks for input on a filehandle.
 
-package POE::Watcher::Delay;
+package POE::Watcher::IO;
+
+
+package POE::Watcher::Input;
 
 use warnings;
 use strict;
@@ -17,11 +17,11 @@ use POE::Kernel;
 sub new {
 	my ($class, %args) = @_;
 
-	my $length = delete $args{_length};
-	croak "$class requires a '_length' parameter" unless defined $length;
+	my $handle = delete $args{_handle};
+	croak "$class requires a '_handle'" unless defined $handle;
 
-	my $on_success = delete $args{_on_success};
-	croak "$class requires an '_on_success' method" unless defined $on_success;
+	my $input_method = delete $args{_on_input};
+	croak "$class requires an '_on_input'" unless defined $input_method;
 
 	my $request = POE::Request->_get_current_request();
 	croak "Can't create a $class without an active request" unless $request;
@@ -35,20 +35,18 @@ sub new {
 	weaken $req_envelope->[0];
 
 	my $self = bless {
-		request     => $req_envelope,
-		on_success  => $on_success,
-		args        => \%args,
+		request   => $req_envelope,
+		on_input  => $input_method,
+		handle    => $handle,
+		args      => \%args,
 	}, $class;
 
-	# Post out a timer.
 	# Wrap a weak $self in a strong envelope for passing around.
 
 	my $self_envelope = [ $self ];
 	weaken $self_envelope->[0];
 
-	$self->{delay_id} = $poe_kernel->delay_set(
-		stage_timer => $length, $self_envelope
-	);
+	$poe_kernel->select_read($handle, "stage_io", $self_envelope);
 
 	# Owner gets a strong reference.
 	return $self;
@@ -57,8 +55,8 @@ sub new {
 sub DESTROY {
 	my $self = shift;
 
-	if (exists $self->{delay_id}) {
-		$poe_kernel->alarm_remove(delete $self->{delay_id});
+	if (exists $self->{handle}) {
+		$poe_kernel->select_read(delete($self->{handle}), undef);
 	}
 }
 
@@ -70,7 +68,7 @@ sub deliver {
 
 	# Open the envelope.
 	my $request = $self->{request}[0];
-	$request->deliver($self->{on_success});
+	$request->deliver($self->{on_input});
 }
 
 1;

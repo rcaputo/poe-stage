@@ -14,6 +14,7 @@ sub SELF_DATA     () { 0 }  # Out-of-band data for POE::Stage.
 sub STAGE_DATA    () { 1 }  # Subclass data members.
 sub COMBINED_KEYS () { 2 }  # Temporary space for iteration.
 sub REQUEST       () { 3 }  # Currently active request.
+sub RESPONSE      () { 4 }  # Currently active response.
 
 sub TIEHASH {
 	my $class = shift;
@@ -22,6 +23,7 @@ sub TIEHASH {
 		{ },    # STAGE_DATA
 		[ ],    # COMBINED_KEYS
 		undef,  # REQUEST
+		undef,  # RESPONSE
 	], $class;
 	return $self;
 }
@@ -32,7 +34,8 @@ sub STORE {
 	return $self->[SELF_DATA]{$key}  = $value if     $key =~ /^__/;
 	return $self->[STAGE_DATA]{$key} = $value unless $key =~ /^_/;
 
-	return $self->[REQUEST] = $value if $key eq "_req";
+	return $self->[REQUEST]  = $value if $key eq "_req";
+	return $self->[RESPONSE] = $value if $key eq "_rsp";
 	croak "Cannot store '$key' outside of a request" unless $self->[REQUEST];
 
 	return $self->[REQUEST]->_get_context()->{$key} = $value;
@@ -48,7 +51,8 @@ sub FETCH {
 		$self->[REQUEST]
 	);
 
-	return $self->[REQUEST] if $key eq "_req";
+	return $self->[REQUEST]  if $key eq "_req";
+	return $self->[RESPONSE] if $key eq "_rsp";
 	return $self->[REQUEST]->_get_context()->{$key};
 }
 
@@ -65,6 +69,7 @@ sub FIRSTKEY {
 		my $context = $self->[REQUEST]->_get_context();
 		my $a = keys %$context;
 		push @keys, "_req", keys(%$context);
+		push @keys, "_rsp" if $self->[RESPONSE];
 	}
 
 	$self->[COMBINED_KEYS] = [ sort @keys ];
@@ -81,7 +86,8 @@ sub EXISTS {
 
 	return exists $self->[SELF_DATA]{$key}  if     $key =~ /^__/;
 	return exists $self->[STAGE_DATA]{$key} unless $key =~ /^_/;
-	return defined $self->[REQUEST] if $key eq "_req";
+	return defined $self->[REQUEST]  if $key eq "_req";
+	return defined $self->[RESPONSE] if $key eq "_rsp";
 
 	return exists $self->[REQUEST]->_get_context()->{$key};
 }
@@ -98,6 +104,13 @@ sub DELETE {
 	if ($key eq "_req") {
 		my $old_val = $self->[REQUEST];
 		$self->[REQUEST] = undef;
+		return $old_val;
+	}
+
+	# TODO - Can we use the newfangled delete-on-array here?
+	if ($key eq "_rsp") {
+		my $old_val = $self->[RESPONSE];
+		$self->[RESPONSE] = undef;
 		return $old_val;
 	}
 
