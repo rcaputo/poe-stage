@@ -1,9 +1,6 @@
 # $Id$
 
 # A simple Delay class.
-#
-# This is a first stab at the third version of POE::Watcher::Delay.
-# TODO - Abstract a lot of the details into a base POE::Watcher class.
 
 package POE::Watcher::Delay;
 

@@ -17,8 +17,11 @@ use constant DEBUG => 0;
 sub new {
 	my ($class, %args) = @_;
 
-	my $self = $class->_base_constructor(\%args);
+	my $self = $class->_request_constructor(\%args);
 
+	# Recalling downward, there should always be a current request.
+	# TODO: This may not always hold true, as when recallding from
+	# "main" back into the main application stage.
 	my $current_request = POE::Request->_get_current_request();
 	confess "should always have a current request" unless $current_request;
 
@@ -30,14 +33,17 @@ sub new {
 		$self->{_parent_request}
 	);
 
+	# Recall targets the current response's parent request.
 	$self->{_delivery_req} = $current_rsp->{_parent_request};
 	confess "rsp should always have a parent request" unless (
 		$self->{_delivery_req}
 	);
 
+	# Record the stage that created this request.
 	$self->{_create_stage} = $current_request->{_target_stage};
 	weaken $self->{_create_stage};
 
+	# Context is the delivery _req's context.
 	$self->{_context} = $self->{_delivery_req}{_context};
 	confess "delivery request should always have a context" unless (
 		$self->{_context}
@@ -55,27 +61,6 @@ sub new {
 	$self->_send_to_target();
 
 	return $self;
-}
-
-# Deliver the request to its destination.
-# TODO - Does this need to be different from the base?
-sub deliver {
-	my $self = shift;
-
-	$self->_push($self);
-
-	$self->{_target_stage}{_req} = $self;
-	$self->{_target_stage}{_rsp} = 0;
-
-	$self->_invoke($self->{_target_method});
-
-	my $old_rsp = delete $self->{_target_stage}{_rsp};
-	my $old_req = delete $self->{_target_stage}{_req};
-
-	die "bad _rsp" unless $old_rsp == 0;
-	die "bad _req" unless $old_req == $self;
-
-	$self->_pop($self);
 }
 
 sub recall {

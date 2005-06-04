@@ -54,7 +54,7 @@ sub _get_context {
 	return shift()->{_context};
 }
 
-sub _base_constructor {
+sub _request_constructor {
 	my ($class, $args) = @_;
 	my ($package, $filename, $line) = caller(1);
 
@@ -93,7 +93,7 @@ sub _send_to_target {
 sub new {
 	my ($class, %args) = @_;
 
-	my $self = $class->_base_constructor(\%args);
+	my $self = $class->_request_constructor(\%args);
 
 	# Gather up the type/method mapping for any responses to this
 	# request.
@@ -228,7 +228,7 @@ sub _emit {
 	# TODO - Have croak() reference the proper package/file/line.
 
 	my $parent_stage = $self->{_create_stage};
-	confess "Cannot emit message: The requester is not a POE::Stage class" unless (
+	confess "Can't emit message: Requester is not a POE::Stage class" unless (
 		$parent_stage
 	);
 
@@ -254,35 +254,6 @@ sub _emit {
 		_stage   => $parent_stage,
 		_method  => $message_method,
 		_type    => $message_type,
-	);
-}
-
-sub _recall {
-	my ($self, %args) = @_;
-
-	# Where does the message go?
-	# TODO - Have croak() reference the proper package/file/line.
-
-	my $parent_stage = $self->{_create_stage};
-	unless ($parent_stage) {
-		confess "Cannot recall message: The requester is not a POE::Stage class";
-	}
-
-	# Validate the method.
-	my $message_method = delete $args{_method};
-	croak "Message must have a _method parameter" unless defined $message_method;
-
-	# Reconstitute the parent's context.
-	my $parent_context;
-	my $parent_request = $self->{_parent_request};
-	croak "Cannot recall message: The requester has no context" unless (
-		$parent_request
-	);
-
-	my $response = POE::Request::Recall->new(
-		%args,
-		_stage   => $parent_stage,
-		_method  => $message_method,
 	);
 }
 

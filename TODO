@@ -4,8 +4,24 @@ they would work.
 
 Now that they do:
 
-1. Abstract common bits from the various watchers and requests into
-base classes.
+DONE: Abstract common bits from the various watchers into a base
+class.
+
+	So far there have been insufficient common bits to abstract.  The
+	closest thing to a common bit of code has been deliver() and even
+	then it differs enough not to bother.
+
+DONE: Abstract common bits from the requests into base classes.
+
+	The upward-facing requests (Return, Emit) are almost identical.
+	Abstracted their common bits into POE::Request::Upward, which is a
+	subclass of POE::Request.
+
+	Request and Recall are suffuciently different as to make an abstract
+	common class unnecessary at this time.  I did remove Recall's
+	deliver() because it was identical to Request's.  I also moved
+	_recall up to Emit's recall() because Emit is the only request that
+	can be recalled.
 
 2. Document what exists so far.
 

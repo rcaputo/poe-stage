@@ -2,9 +2,6 @@
 
 # A simple watcher that looks for input on a filehandle.
 
-package POE::Watcher::IO;
-
-
 package POE::Watcher::Input;
 
 use warnings;
