@@ -1,2 +1,25 @@
-Abstract the common bits from POE::Watcher::IO and POE::Watcher::Delay
-into a common POE::Watcher subclass.
+The recent massive commit includes duplicated and sometimes crude and
+ugly code because it was hard to align all the fiddly little bits so
+they would work.
+
+Now that they do:
+
+1. Abstract common bits from the various watchers and requests into
+base classes.
+
+2. Document what exists so far.
+
+3. Create a POE::Stage::Resolver that is analogous to
+POE::Component::Client::DNS
+
+	a. Add any new watchers we'll need.
+
+4. Create a POE::Stage::KeepaliveClient that is analogous to
+POE::Component::Client::Keepalive.
+
+	a. Add any new watchers we'll need.
+
+5. Create a POE::Stage::HttpClient that is analogous to
+POE::Component::Client::HTTP
+
+	a. Add any new watchers we'll need.
