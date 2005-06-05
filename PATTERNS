@@ -121,24 +121,31 @@ Requests as channels or connections.
 	The current context has a member, _req.  It identifies the request
 	that is a parent of the current context.
 
-	Perhaps what's needed is a new special member, _rsp or something,
-	that identifies the request that is the parent of a response.  This
-	would still leave a disconnect between _rsp and the contextual
+	Now there is also a _rsp object, but it is not useful in this
+	situation.  _rsp is either the Emit object or 0 in the case of a
+	Request object.
+
+	What's needed is a third field that identifies the request object
+	that is the parent of the _rsp.  This third field would be the
+	original request that the current stage sent.  Call it _moo for want
+	of a better name.
+
+	This would still leave a disconnect between _moo and the contextual
 	member a program stored the main response in.
 
 	For example:
 
 	  $self->{_some_request} = POE::Request->new(...);
 
-	Receiving a response from _some_request sets _rsp = $request_object.
-	There still is no conventient way to determine that $self->{_rsp}
+	Receiving a response from _some_request sets _moo = $request_object.
+	There still is no conventient way to determine that $self->{_moo}
 	represents the request in $self->{_some_request}.  To be sure, they
 	are equal, but it's inconvenient to determine which member to delete
 	when ending a request:
 
 	  sub handle_response {
 			my ($self, $args) = @_;
-			my $responding_request = $self->{_rsp};
+			my $responding_request = $self->{_moo};
 
 			... How do I know to delete $self->{_some_request} vs. any of
 			the arbitrary other requests I may be holding?
@@ -158,10 +165,10 @@ Requests as channels or connections.
 		}
 
 	Caveat: This only tracks cross-references when POE::Request objects
-	are stode as simple scalars.  Hiding them in complex data structures
+	are stored as simple scalars.  Hiding them in complex structures
 	will thwart cross-referencing.
 
-	Now it's possible for a Stage to connect _rsp to the original
+	Now it's possible for a Stage to connect _moo to the original
 	member(s) where the response is stored:
 
 		sub destroy_request {
@@ -169,6 +176,10 @@ Requests as channels or connections.
 			my @members = $self->_find_member_names($request);
 			delete @$self{@members};
 		}
+
+Re-triggering existing requests.
+
+	DONE.
 
 	We also need a way to post new requests down the old request.  I
 	think this invalidates the idea of a "request" since it changes the
@@ -209,10 +220,6 @@ Requests as channels or connections.
 
 		Just as emit() creates a new Request (POE::Request::Response), so
 		should recall().
-
-			TODO: It would be tidily symmetrical if one could call
-			$self->{_rsp}->emit() rather than recall().  Test whether one
-			can.
 
 		The recalled method is called in the context of the _req that
 		generated the response.  That's _rsp at the time recall() is
@@ -356,3 +363,29 @@ Connections as shared memory.
 	because _foo is scoped beneath the request that watches it.  The
 	watcher will not notice changes to _foo in any other request
 	context.
+
+	Todo: Make a sample program where this works.  That would be SO
+	cool!
+
+Catching emitted and returned data.
+
+	The next pattern to consider is what to do with emitted and returned
+	data once it's caught.  In POE components, one keeps track of
+	requests in a couple ways.
+
+		1. Pass all the data about the request down with the request
+		event.  Responses include the request data when they come back.
+		Caveat: If they don't come back, you forget you made the request.
+
+		2. Save the request data keyed on a request handle.  When the
+		response comes back, its copy of the request handle is used to
+		look up the original request data.
+
+	Both methods seem like more work than necessary.  My current thought
+	on this is to create a third scope in $self that indicates request
+	parameters.  The scope would start when a Request is created, and
+	upward responses would repopulate the scope with the proper data
+	members.
+
+	This is an alternative to the idea outline in "Requests as
+	channels...."
