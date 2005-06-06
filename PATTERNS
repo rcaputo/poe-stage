@@ -147,8 +147,8 @@ Requests as channels or connections.
 			my ($self, $args) = @_;
 			my $responding_request = $self->{_moo};
 
-			... How do I know to delete $self->{_some_request} vs. any of
-			the arbitrary other requests I may be holding?
+			# How do I know to delete $self->{_some_request} vs. any of
+			# the arbitrary other requests I may be holding?
 		}
 	
 	$self is a magical tied hash thing.  It could cross-reference
@@ -381,11 +381,149 @@ Catching emitted and returned data.
 		response comes back, its copy of the request handle is used to
 		look up the original request data.
 
-	Both methods seem like more work than necessary.  My current thought
-	on this is to create a third scope in $self that indicates request
-	parameters.  The scope would start when a Request is created, and
-	upward responses would repopulate the scope with the proper data
-	members.
+	Both methods seem like more work than necessary.
 
-	This is an alternative to the idea outline in "Requests as
-	channels...."
+	Stages currently have two kinds of scope:
+
+		$self->{unadorned_member}.  Members without a leading underscore
+		are associated with the stage's instance.  They are accessible
+		from every request made of the stage.
+
+		$self->{_single_underscore}.  Members with a single leading
+		underscore are associated with the current request being made of a
+		stage.  POE::Stage always makes sure that single-underscored
+		members point to the proper request.
+
+	My current thought on this is to create a third scope in $self that
+	associates data with requests made by the current stage.  I'll call
+	this a sub-request scope, since it applies to a request made during
+	a request.
+	
+	The scope would be active in two places:
+
+		1. It would start when a request is created, and it would end when
+		another request was created (which starts a new scope), or when
+		the current method ended.
+
+		2. It would start when a method is called to handle a response,
+		and it would end when another request was created (which starts a
+		new scope), or when the current method ended.
+
+	Both cases are problematic, but I'll address #2 first because it's
+	worse.  Creating a new request invalidates the response's scope,
+	which is probably not desirable.  Programs can work around the
+	problem by extracting data from the current sub-request scope before
+	creating new ones:
+
+		my $x = $self->{__x};
+		my $y = $self->{__y};
+		etc.
+
+	I hate this.  It feels forced and ugly.
+
+	The first situation has a similar problem.  Creating new sub-request
+	scopes invalidates previous ones, and it's not always apparent
+	what's going on.  For example, rearranging code can silently move
+	data to different scopes.  This WILL bite someone, probably sooner
+	than later.
+
+	An obvious solution is to key data members on request objects.  My
+	design test case is a parallel log resolver that juggles a number of
+	parallel requests to a hypothetical POE::Stage::Resolver:
+
+		sub run {
+			my ($self, $args) = @_;
+			open $self->{_log}, "<$args->{input_file}" or die $!;
+			$self->{_resolver} = POE::Stage::Resolver->new();
+			$self->start_requests();
+		}
+
+		sub start_requests {
+			my ($self, $args) = @_;
+
+			while ($self->{_request_count} < 10) {
+				my $log = $self->{_log};
+				my $next_line = <$log>;
+				return unless $next_line;
+
+				my $address = $next_line =~ /^(\d+\.\d+\.\d+\.\d+) /;
+				next unless $address;
+
+				my $request = POE::Request->new(
+					_stage => $self->{_resolver},
+					_method => "resolve",
+					address => $address,
+					type    => "PTR",
+					_on_ptr => "handle_ptr",
+				);
+
+	Here we're tracking the subrequest beneath a request.
+
+				$self->{_requests}{$request} = {
+					addr => $address,
+					line => $next_line,
+				};
+			}
+		}
+
+		sub handle_ptr {
+			my ($self, $args) = @_;
+
+			my $request = some_magic_here();
+			my $req_rec = delete $self->{_requests}{$request};
+
+	Here we have access to $req_rec->{addr} and "line".
+
+		}
+
+	This STILL seems like excessive effort, but it does have the benefit
+	of being explicit.
+
+	The double-underscore version would look something like this:
+
+		sub start_requests {
+			my ($self, $args) = @_;
+
+	Up here, $self->{__moo} refers to the moo member of the request
+	we're currently servicing.
+
+			while ($self->{_request_count} < 10) {
+				...;
+
+				my $request = POE::Request->new(
+					_stage => $self->{_resolver},
+					_method => "resolve",
+					address => $address,
+					type    => "PTR",
+					_on_ptr => "handle_ptr",
+				);
+
+	Here __addr and __line (and __moo, if we chose to use it) are
+	associated with the request we built just above.  At this point we
+	cannot access the original __moo given to us.
+
+				$self->{__addr} = $address;
+				$self->{__line} = $next_line;
+			}
+		}
+
+		sub handle_ptr {
+			my ($self, $args) = @_;
+
+	We have magic access to $self->{__addr} and __line here.
+	I think this is pretty nice, actually.
+
+		}
+
+	A combination of the two might be better.  How about these two
+	rules:
+
+		1. At sub-request creation time, certain conventions are used to
+		store requests and associated data.
+
+			Todo: Determine some sexy syntax.
+
+		2. At sub-request return/emit time, the doubly-adorned member
+		syntax refers to the request returning or emitting a value.  New
+		sub-requests follow rule #1, so they don't conflict with our
+		doubly-adorned members.
