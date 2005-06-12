@@ -527,3 +527,112 @@ Catching emitted and returned data.
 		syntax refers to the request returning or emitting a value.  New
 		sub-requests follow rule #1, so they don't conflict with our
 		doubly-adorned members.
+
+	Integral suggested some ideas.
+
+		Partition $self based on accessors:
+
+			$self->req->{member}
+			$self->rsp->{member}
+			$self->{member}
+
+			This pollutes the namespace with accessors [req(), rsp()] that
+			limit what subclasses can do.  It's not so bad if the pollution
+			is kept small, however.
+
+		Pass scopes as parameters.
+
+			my ($self, $args, $req) = @_;
+
+			This leads to large call signatures and the need for key/value
+			pairs, either by passing hash references or declaring offsets
+			into @_.  We end up with OMFGBBQLOL! @_ ARRAY SLICES! CONSTANTS!
+
+		Invert $self and nested scopes.
+
+			Current design considers scopes to be nested like this:
+
+				$self
+					requests made of me
+						requests I'm making
+
+			Integral suggests inverting that:
+
+				requests I'm making
+					requests made of me
+						$self
+
+			Therefore:
+
+				my ($request, $args) = @_;
+				$request->self->moo();
+
+		Localise a member to a request.
+
+			$self->localise(member => $request_object);
+
+			Scopes a localised version of "member" to a $request_object.
+			Localised members resume their previous values whenever members
+			of the current POE::Stage are invoked by the $request_object.
+			This provides continuation between method invocations.
+
+Localise a member to a request.
+
+	Trying integral's suggestion here.
+
+		sub run {
+			my ($self, $args) = @_;
+
+			$self->localise(
+				$self->req(),
+				qw( log resolver request_count )
+			);
+
+			open $self->{log}, "<$args->{input_file}" or die $!;
+			$self->{resolver} = POE::Stage::Resolver->new();
+			$self->start_requests();
+		}
+
+		sub start_requests {
+			my ($self, $args) = @_;
+
+			while ($self->{request_count} < 10) {
+				my $log = $self->{_log};
+				my $next_line = <$log>;
+				return unless $next_line;
+
+				my $address = $next_line =~ /^(\d+\.\d+\.\d+\.\d+) /;
+				next unless $address;
+
+				my $request = POE::Request->new(
+					_stage => $self->{resolver},
+					_method => "resolve",
+					address => $address,
+					type    => "PTR",
+					_on_ptr => "handle_ptr",
+				);
+
+	Here we're tracking the subrequest beneath a request.
+
+				$self->localise(
+					$request,
+					qw( addr line )
+				);
+
+				$self->{addr} = $address;
+				$self->{line} = $next_line;
+			}
+		}
+
+		sub handle_ptr {
+			my ($self, $args) = @_;
+
+			my $request = some_magic_here();
+			my $req_rec = delete $self->{_requests}{$request};
+
+	Here we have access to $req_rec->{addr} and "line".
+
+		}
+
+	I think it's a lot more work than I want to do all the time.  This
+	level of development should be relatively simple.
