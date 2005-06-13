@@ -9,14 +9,21 @@ package POE::Request::Emit;
 use warnings;
 use strict;
 use Carp qw(croak confess);
+
+use POE::Request::Upward qw(
+	REQ_DELIVERY_RSP
+	REQ_PARENT_REQUEST
+	REQ_CREATE_STAGE
+);
+
 use base qw(POE::Request::Upward);
 
 # Emitted requests may be recall()ed.  Therefore they need parentage.
 
 sub _init_subclass {
 	my ($self, $current_request) = @_;
-	$self->{_parent_request} = $current_request;
-	$self->{_delivery_rsp}   = $self;
+	$self->[REQ_PARENT_REQUEST] = $current_request;
+	$self->[REQ_DELIVERY_RSP]   = $self;
 }
 
 # Override recall() because we can do that from Emit.
@@ -27,7 +34,7 @@ sub recall {
 	# Where does the message go?
 	# TODO - Have croak() reference the proper package/file/line.
 
-	my $parent_stage = $self->{_create_stage};
+	my $parent_stage = $self->[REQ_CREATE_STAGE];
 	unless ($parent_stage) {
 		confess "Cannot recall message: The requester is not a POE::Stage class";
 	}
@@ -38,7 +45,7 @@ sub recall {
 
 	# Reconstitute the parent's context.
 	my $parent_context;
-	my $parent_request = $self->{_parent_request};
+	my $parent_request = $self->[REQ_PARENT_REQUEST];
 	croak "Cannot recall message: The requester has no context" unless (
 		$parent_request
 	);

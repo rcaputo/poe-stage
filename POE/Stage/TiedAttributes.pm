@@ -31,11 +31,11 @@ sub TIEHASH {
 sub STORE {
 	my ($self, $key, $value) = @_;
 
-	return $self->[SELF_DATA]{$key}  = $value if     $key =~ /^__/;
-	return $self->[STAGE_DATA]{$key} = $value unless $key =~ /^_/;
+	return $self->[REQUEST]  = $value if $key eq "req";
+	return $self->[RESPONSE] = $value if $key eq "rsp";
 
-	return $self->[REQUEST]  = $value if $key eq "_req";
-	return $self->[RESPONSE] = $value if $key eq "_rsp";
+	return $self->[STAGE_DATA]{$key} = $value unless $key =~ /^req_/;
+
 	croak "Cannot store '$key' outside of a request" unless $self->[REQUEST];
 
 	return $self->[REQUEST]->_get_context()->{$key} = $value;
@@ -44,15 +44,15 @@ sub STORE {
 sub FETCH {
 	my ($self, $key) = @_;
 
-	return $self->[SELF_DATA]{$key}  if     $key =~ /^__/;
-	return $self->[STAGE_DATA]{$key} unless $key =~ /^_/;
+	return $self->[REQUEST]  if $key eq "req";
+	return $self->[RESPONSE] if $key eq "rsp";
+
+	return $self->[STAGE_DATA]{$key} unless $key =~ /^req_/;
 
 	croak "Attempting to fetch '$key' from outside a request" unless (
 		$self->[REQUEST]
 	);
 
-	return $self->[REQUEST]  if $key eq "_req";
-	return $self->[RESPONSE] if $key eq "_rsp";
 	return $self->[REQUEST]->_get_context()->{$key};
 }
 
@@ -68,8 +68,8 @@ sub FIRSTKEY {
 	if ($self->[REQUEST]) {
 		my $context = $self->[REQUEST]->_get_context();
 		my $a = keys %$context;
-		push @keys, "_req", keys(%$context);
-		push @keys, "_rsp" if $self->[RESPONSE];
+		push @keys, "req", keys(%$context);
+		push @keys, "rsp" if $self->[RESPONSE];
 	}
 
 	$self->[COMBINED_KEYS] = [ sort @keys ];
@@ -84,10 +84,10 @@ sub NEXTKEY {
 sub EXISTS {
 	my ($self, $key) = @_;
 
-	return exists $self->[SELF_DATA]{$key}  if     $key =~ /^__/;
-	return exists $self->[STAGE_DATA]{$key} unless $key =~ /^_/;
-	return defined $self->[REQUEST]  if $key eq "_req";
-	return defined $self->[RESPONSE] if $key eq "_rsp";
+	return defined $self->[REQUEST]  if $key eq "req";
+	return defined $self->[RESPONSE] if $key eq "rsp";
+
+	return exists $self->[STAGE_DATA]{$key} unless $key =~ /^req_/;
 
 	return exists $self->[REQUEST]->_get_context()->{$key};
 }
@@ -95,24 +95,23 @@ sub EXISTS {
 sub DELETE {
 	my ($self, $key) = @_;
 
-	# TODO - Some things should not be deletable in some contexts.
-
-	return delete $self->[SELF_DATA]{$key}  if     $key =~ /^__/;
-	return delete $self->[STAGE_DATA]{$key} unless $key =~ /^_/;
-
 	# TODO - Can we use the newfangled delete-on-array here?
-	if ($key eq "_req") {
+	if ($key eq "req") {
 		my $old_val = $self->[REQUEST];
 		$self->[REQUEST] = undef;
 		return $old_val;
 	}
 
 	# TODO - Can we use the newfangled delete-on-array here?
-	if ($key eq "_rsp") {
+	if ($key eq "rsp") {
 		my $old_val = $self->[RESPONSE];
 		$self->[RESPONSE] = undef;
 		return $old_val;
 	}
+
+	# TODO - Some things should not be deletable in some contexts.
+
+	return delete $self->[STAGE_DATA]{$key} unless $key =~ /^req_/;
 
 	return delete $self->[REQUEST]->_get_context()->{$key};
 }

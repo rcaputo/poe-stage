@@ -24,9 +24,9 @@ use strict;
 		# TODO - The next two statements seem unnecessarily cumbersome.
 		# What can be done to simplify them?
 
-		$self->{_receiver} = POE::Stage::Receiver->new();
-		$self->{_receiver_run} = POE::Request->new(
-			_stage         => $self->{_receiver},
+		$self->{req_receiver} = POE::Stage::Receiver->new();
+		$self->{req_receiver_run} = POE::Request->new(
+			_stage         => $self->{req_receiver},
 			_method        => "listen",
 			bind_port      => $args->{bind_port},
 			_on_datagram   => "handle_datagram",
@@ -41,7 +41,7 @@ use strict;
 		my $datagram = $args->{datagram};
 		$datagram =~ tr[a-zA-Z][n-za-mN-ZA-M];
 
-		$self->{_rsp}->recall(
+		$self->{rsp}->recall(
 			_method        => "send",
 			remote_address => $args->{remote_address},
 			datagram       => $datagram,

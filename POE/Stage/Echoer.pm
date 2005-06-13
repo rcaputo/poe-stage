@@ -12,7 +12,7 @@ use base qw(POE::Stage);
 sub echo {
 	my ($self, $args) = @_;
 
-	$self->{_req}->return(
+	$self->{req}->return(
 		_type => "echo",
 		echo  => $args->{message},
 	);

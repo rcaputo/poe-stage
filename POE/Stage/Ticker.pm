@@ -18,8 +18,8 @@ sub start_ticking {
 	# Since a single request can generate many ticks, keep a counter so
 	# we can tell one from another.
 
-	$self->{_tick_id}  = 0;
-	$self->{_interval} = $args->{interval};
+	$self->{req_tick_id}  = 0;
+	$self->{req_interval} = $args->{interval};
 
 	$self->set_delay();
 }
@@ -33,11 +33,11 @@ sub got_watcher_tick {
 	# POE::Watcher::Delay object.  We can use either one, but I thought
 	# it would be nice for testing and illustrative purposes to make
 	# sure they both agree.
-	die unless $self->{_interval} == $args->{interval};
+	die unless $self->{req_interval} == $args->{interval};
 
-	$self->{_req}->emit(
+	$self->{req}->emit(
 		_type => "tick",
-		id   => ++$self->{_tick_id},
+		id   => ++$self->{req_tick_id},
 	);
 
 	# TODO - Ideally we can restart the existing delay, perhaps with an
@@ -49,10 +49,10 @@ sub got_watcher_tick {
 
 sub set_delay {
 	my $self = shift;
-	$self->{_delay} = POE::Watcher::Delay->new(
-		_length     => $self->{_interval},
+	$self->{req_delay} = POE::Watcher::Delay->new(
+		_length     => $self->{req_interval},
 		_on_success => "got_watcher_tick",
-		interval    => $self->{_interval},
+		interval    => $self->{req_interval},
 	);
 }
 

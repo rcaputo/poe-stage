@@ -10,6 +10,10 @@ use POE::Session;
 use Scalar::Util qw(blessed);
 use Carp qw(croak);
 use POE::Stage::TiedAttributes;
+
+use POE::Request::Emit;
+use POE::Request::Return;
+use POE::Request::Recall;
 use POE::Request;
 
 # An internal singleton POE::Session that will drive all the stages

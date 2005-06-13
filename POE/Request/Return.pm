@@ -8,6 +8,12 @@ package POE::Request::Return;
 
 use warnings;
 use strict;
+
+use POE::Request::Upward qw(
+	REQ_PARENT_REQUEST
+	REQ_DELIVERY_RSP
+);
+
 use base qw(POE::Request::Upward);
 
 # Return requests are defunct.  They may not be recalled.  Even though
@@ -17,8 +23,8 @@ use base qw(POE::Request::Upward);
 
 sub _init_subclass {
 	my ($self, $current_request) = @_;
-	$self->{_parent_request} = 0;
-	$self->{_delivery_rsp}   = 0;
+	$self->[REQ_PARENT_REQUEST] = 0;
+	$self->[REQ_DELIVERY_RSP]   = 0;
 }
 
 1;

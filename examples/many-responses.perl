@@ -25,14 +25,14 @@ use strict;
 	sub run {
 		my ($self, $args) = @_;
 
-		$self->{_ticker}   = POE::Stage::Ticker->new();
-		$self->{_name}     = $args->{name} || "unnamed";
-		$self->{_interval} = $args->{interval} || 1;
+		$self->{req_ticker}   = POE::Stage::Ticker->new();
+		$self->{req_name}     = $args->{name} || "unnamed";
+		$self->{req_interval} = $args->{interval} || 1;
 
-		$self->{_ticker_request} = POE::Request->new(
-			_stage   => $self->{_ticker},
+		$self->{req_ticker_request} = POE::Request->new(
+			_stage   => $self->{req_ticker},
 			_method  => "start_ticking",
-			interval => $self->{_interval},
+			interval => $self->{req_interval},
 			_on_tick => "handle_tick",
 		);
 	}
@@ -40,7 +40,7 @@ use strict;
 	sub handle_tick {
 		my ($self, $args) = @_;
 		print(
-			"app($self->{name}) request($self->{_name}) handled tick $args->{id}\n"
+			"app($self->{name}) request($self->{req_name}) handled tick $args->{id}\n"
 		);
 	}
 }

@@ -8,9 +8,19 @@ package POE::Request::Recall;
 
 use warnings;
 use strict;
-use base qw(POE::Request);
 use Carp qw(croak confess);
 use Scalar::Util qw(weaken);
+
+use POE::Request qw(
+	REQ_CONTEXT
+	REQ_CREATE_STAGE
+	REQ_DELIVERY_REQ
+	REQ_DELIVERY_REQ
+	REQ_PARENT_REQUEST
+	REQ_TARGET_STAGE
+);
+
+use base qw(POE::Request);
 
 use constant DEBUG => 0;
 
@@ -25,36 +35,36 @@ sub new {
 	my $current_request = POE::Request->_get_current_request();
 	confess "should always have a current request" unless $current_request;
 
-	my $current_rsp = $current_request->{_target_stage}{_rsp};
+	my $current_rsp = $current_request->[REQ_TARGET_STAGE]{rsp};
 	confess "should always have a current rsp" unless $current_rsp;
 
-	$self->{_parent_request} = $current_rsp->{_delivery_req};
+	$self->[REQ_PARENT_REQUEST] = $current_rsp->[REQ_DELIVERY_REQ];
 	confess "rsp should always have a delivery request" unless (
-		$self->{_parent_request}
+		$self->[REQ_PARENT_REQUEST]
 	);
 
 	# Recall targets the current response's parent request.
-	$self->{_delivery_req} = $current_rsp->{_parent_request};
+	$self->[REQ_DELIVERY_REQ] = $current_rsp->[REQ_PARENT_REQUEST];
 	confess "rsp should always have a parent request" unless (
-		$self->{_delivery_req}
+		$self->[REQ_DELIVERY_REQ]
 	);
 
 	# Record the stage that created this request.
-	$self->{_create_stage} = $current_request->{_target_stage};
-	weaken $self->{_create_stage};
+	$self->[REQ_CREATE_STAGE] = $current_request->[REQ_TARGET_STAGE];
+	weaken $self->[REQ_CREATE_STAGE];
 
-	# Context is the delivery _req's context.
-	$self->{_context} = $self->{_delivery_req}{_context};
+	# Context is the delivery req's context.
+	$self->[REQ_CONTEXT] = $self->[REQ_DELIVERY_REQ][REQ_CONTEXT];
 	confess "delivery request should always have a context" unless (
-		$self->{_context}
+		$self->[REQ_CONTEXT]
 	);
 
 	DEBUG and warn(
-		"$self->{_parent_request} created $self:\n",
-		"\tMy parent request = $self->{_parent_request}\n",
+		"$self->[REQ_PARENT_REQUEST] created $self:\n",
+		"\tMy parent request = $self->[REQ_PARENT_REQUEST]\n",
 		"\tDelivery request  = $self\n",
 		"\tDelivery response = 0\n",
-		"\tDelivery context  = $self->{_context}\n",
+		"\tDelivery context  = $self->[REQ_CONTEXT]\n",
 	);
 
 	$self->_assimilate_args(%args);

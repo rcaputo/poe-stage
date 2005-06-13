@@ -23,8 +23,8 @@ use strict;
 	sub run {
 		my ($self, $args) = @_;
 
-		$self->{_echoer} = POE::Stage::Echoer->new();
-		$self->{_i} = 1;
+		$self->{req_echoer} = POE::Stage::Echoer->new();
+		$self->{req_i} = 1;
 
 		$self->send_request();
 	}
@@ -34,11 +34,11 @@ use strict;
 
 		print "got echo: $args->{echo}\n";
 
-		$self->{_i}++;
+		$self->{req_i}++;
 
 		# Comment out this line to run indefinitely.  Great for checking
 		# for memory leaks.
-#		return if $self->{_i} > 10;
+#		return if $self->{req_i} > 10;
 
 		$self->send_request();
 	}
@@ -46,11 +46,11 @@ use strict;
 	sub send_request {
 		my $self = shift;
 
-		$self->{_echo_request} = POE::Request->new(
-			_stage   => $self->{_echoer},
+		$self->{req_echo_request} = POE::Request->new(
+			_stage   => $self->{req_echoer},
 			_method  => "echo",
 
-			message  => "request " . $self->{_i},
+			message  => "request " . $self->{req_i},
 
 			_on_echo => "got_echo",
 		);
