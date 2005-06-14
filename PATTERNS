@@ -186,14 +186,14 @@ Re-triggering existing requests.
 	original request context, losing any original data that might still
 	be worked on.
 	
-	The issue I'm seeing is with a UDP producer and its consumer, in a
+	The issue I'm seeing is with a UDP provider and its consumer, in a
 	more-or-less 1:1 use pattern.
 	
-		1. The consumer asks the producer to listen on a port.
+		1. The consumer asks the provider to listen on a port.
 
-		2. The producer emits a "datagram" message to the consumer.
+		2. The provider emits a "datagram" message to the consumer.
 
-		3. The consumer generates a response, sending it to the producer.
+		3. The consumer generates a response, sending it to the provider.
 
 	Some prototypical code:
 
@@ -226,7 +226,7 @@ Re-triggering existing requests.
 		invoked.
 
 	Will this work for arbitrary nesting of requests and responses?  For
-	example, what if a producer wants to respond to a response to a
+	example, what if a provider wants to respond to a response to a
 	response?
 
 	I first noticed a need for response contexts while writing the
@@ -235,7 +235,7 @@ Re-triggering existing requests.
 	far.  Here's a synopsis of the interaction between the UDP example
 	and POE::Stage::Receiver.
 
-		1. Consumer requests that the producer listen for datagrams.
+		1. Consumer requests that the provider listen for datagrams.
 
 			$self->{_udp_peer} = POE::Stage::Receiver->new(...);
 			$self->{_udp_req} = POE::Request->new(
@@ -251,35 +251,35 @@ Re-triggering existing requests.
 			types to methods, including ones like _on_send_error that may
 			never be needed.
 
-		2. Producer may return a fatal socket error.
+		2. Provider may return a fatal socket error.
 
 			$self->{_req}->return(
 				_type => "sock_error",
 				...,
 			);
 
-		3a. Producer may emit a nonfatal recv() error.
+		3a. Provider may emit a nonfatal recv() error.
 
 			$self->{_req}->emit(
 				_type => "recv_error",
 				...,
 			);
 
-		3b. Producer may return a fatal recv() error.
+		3b. Provider may return a fatal recv() error.
 
 			$self->{_req}->emit(
 				_type => "recv_error",
 				...,
 			);
 
-		3c. Producer may emit a datagram.
+		3c. Provider may emit a datagram.
 
 			$self->{_req}->emit(
 				_type     => "datagram",
 				datagram  => $message,
 			);
 
-		4. Consumer recall()s the producer with a response.
+		4. Consumer recall()s the provider with a response.
 
 			$self->{_rsp}->recall(
 				_method         => "send",
@@ -297,21 +297,21 @@ Re-triggering existing requests.
 				of this subsequent _on_send_error?
 
 				a. Does it override _on_send_error for the remaining life of
-				the producer's _req?
+				the provider's _req?
 
 				b. Does it override _on_send_error for the lifetime of the
 				send() method's invocation?
 
 				c. Does it do something else entirely?
 
-		5a. Producer emits a nonfatal send() error.
+		5a. Provider emits a nonfatal send() error.
 
 			$self->{_req}->emit(
 				_type => "send_error",
 				...
 			);
 
-		5b. Producer returns a fatal send() error.
+		5b. Provider returns a fatal send() error.
 
 			$self->{_req}->return(
 				_type => "send_error",
@@ -319,8 +319,8 @@ Re-triggering existing requests.
 			);
 
 	It seems like we don't need an arbitrary level of nesting.  The act
-	of recall()ing a producer pops off a nesting level, just as emit()
-	or return() do when the producer calls them.
+	of recall()ing a provider pops off a nesting level, just as emit()
+	or return() do when the provider calls them.
 
 	_req always points up the request tree, into requests made of you.
 
@@ -330,7 +330,7 @@ Connections as shared memory.
 
 	The poetalk project implemented a different type of connection
 	between objects.  Its connections were essentially shared data
-	members.  A producer defines a data member.  Zero or more consumers
+	members.  A provider defines a data member.  Zero or more consumers
 	watch the data member.  Consumers are notified when the data they're
 	watching are modified.
 
@@ -636,3 +636,99 @@ Localise a member to a request.
 
 	I think it's a lot more work than I want to do all the time.  This
 	level of development should be relatively simple.
+
+Separate scopes for sub-request data?
+
+	POE components often must deal with a pattern where requests and
+	responses must be matched up, often with associated data provided by
+	the requester.
+
+	In traditional POE programs, the associated data is stored in the
+	consumer's heap, keyed on some arbitrary value or unique request
+	field.  The key is passed in the provider's request as a magic
+	cookie.  When the response comes back from the provider, the
+	associated data is fetched by the key that was passed back.
+
+	The preceding document talked about request-scoped data from the
+	provider's point of view.  The provider receives a request, and its
+	specially-prefixed data members belong to that request's scope.
+
+	This section focuses on a different kind of request scope: That of
+	the requests made by a consumer.  Requests made by this stage also
+	have unique scopes, one per outstanding request.  Those scopes
+	should automagically resurrect when corresponding responses come
+	back.
+
+	For example:
+
+		$self->{req_foo} = POE::Request->new(
+			_stage  => $target_stage,
+			_method => $target_method,
+			...,
+		);
+
+	creates a new scope in the $target_stage when the request is
+	delivered.  It should also create a scope in the current stage.  To
+	associate (some_data => "Whooie!") with the request in
+	$self->{req_foo}:
+
+		$self->{req_foo}{some_data} = "Whooie!";
+
+	Or some other syntax.  Seriously looking for suggestions here.
+
+	When a response arrives, the special $self->{rsp} member refers to
+	the response that has arrived.  Hash sub-members of "rsp" are the
+	same ones associated with the corresponding request:
+
+		print $self->{rsp}{some_data}, "\n";
+	
+	would print 
+
+		Whooie!
+
+	The magic is that this works for every request.  $self->{rsp} is
+	different for each response, and $self->{rsp}{some_data} contains
+	the same "some_data" value as the corresponding request.
+
+	Furthermore, the special "req" member should also work, except that
+	"req" is the request being made of the current (provider) stage.
+	This way the stage can store things that should only live as long as
+	the request it's handling:
+
+		print $self->{req}{some_data};
+
+	Shortcuts.
+
+		$self->{req}{foo} could be shortened to $self->{req_foo}
+		$self->{rsp}{foo} could be shortened to $self->{rsp_foo}
+
+	This brings the idea full-circle, since $self->{req_foo} is already
+	legal syntax, and POE::Stage::TiedAttributes already has stubs for
+	rsp_foo members.
+
+	Implementation strategy:
+
+		1. Use a tied hash to map POE::Request STORE/FETCH into the proper
+		places in the current (consumer's) POE::Stage object.  Reasons to
+		keep the data in the consumer's Stage:
+
+			a. Requests may travel across processes or networks in the
+			future.
+
+			b. Associated data may include strange and often difficult to
+			serialize data, such as code references or file handles.
+
+			c. Rude Stages could break the request's encapsulation, changing
+			your data as it passes through them.
+
+		2. Map $self->{req}{foo} and $self->{rsp}{foo} to the proper
+		Request objects.  This is probably the hardest part of the whole
+		scheme.
+
+		3. Map $self->{req_foo} and $self->{rsp_foo} to the proper Request
+		objects.  This might be harder than #2.
+
+	Questions:
+
+		Should $self->{req}{foo} and $self->{req_foo} be supported?  If
+		not, which option's better?  Why's that?
