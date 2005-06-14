@@ -23,19 +23,26 @@ DONE: Abstract common bits from the requests into base classes.
 	_recall up to Emit's recall() because Emit is the only request that
 	can be recalled.
 
-2. Document what exists so far.
+2. Define sub-request scoping rules.  These are /^rsp_/ data members
+of POE::Stage classes.  They let a stage track information about
+sub-requests and automagically map the response data back to the
+proper request.
 
-3. Create a POE::Stage::Resolver that is analogous to
+	POE::Stage::TiedAttributes has stubs for /^rsp_/ data members.
+
+3. Document what exists so far.
+
+4. Create a POE::Stage::Resolver that is analogous to
 POE::Component::Client::DNS
 
 	a. Add any new watchers we'll need.
 
-4. Create a POE::Stage::KeepaliveClient that is analogous to
+5. Create a POE::Stage::KeepaliveClient that is analogous to
 POE::Component::Client::Keepalive.
 
 	a. Add any new watchers we'll need.
 
-5. Create a POE::Stage::HttpClient that is analogous to
+6. Create a POE::Stage::HttpClient that is analogous to
 POE::Component::Client::HTTP
 
 	a. Add any new watchers we'll need.

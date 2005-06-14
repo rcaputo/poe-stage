@@ -94,15 +94,15 @@ sub _request_constructor {
 	# clashing in Perl?
 
 	my $self = bless [
-		delete $args->{_stage},   # REQ_TARGET_STAGE
-		delete $args->{_method},  # REQ_TARGET_METHOD
-		{ },                      # REQ_CHILD_REQUESTS
-		{ },                      # REQ_RESOURCES
-		$package,                 # REQ_CREATE_PKG
-		$filename,                # REQ_CREATE_FILE
-		$line,                    # REQ_CREATE_LINE
-		0,                        # REQ_CREATE_STAGE
-		{ },                      # REQ_ARGS
+		delete $args->{_stage},       # REQ_TARGET_STAGE
+		delete $args->{_method},      # REQ_TARGET_METHOD
+		{ },                          # REQ_CHILD_REQUESTS
+		{ },                          # REQ_RESOURCES
+		$package,                     # REQ_CREATE_PKG
+		$filename,                    # REQ_CREATE_FILE
+		$line,                        # REQ_CREATE_LINE
+		0,                            # REQ_CREATE_STAGE
+		{ },                          # REQ_ARGS
 	], $class;
 
 	return $self;

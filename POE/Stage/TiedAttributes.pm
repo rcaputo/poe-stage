@@ -34,11 +34,18 @@ sub STORE {
 	return $self->[REQUEST]  = $value if $key eq "req";
 	return $self->[RESPONSE] = $value if $key eq "rsp";
 
-	return $self->[STAGE_DATA]{$key} = $value unless $key =~ /^req_/;
+	if ($key =~ /^req_/) {
+		croak "Cannot store '$key' outside of a request" unless $self->[REQUEST];
+		return $self->[REQUEST]->_get_context()->{$key} = $value;
+	}
 
-	croak "Cannot store '$key' outside of a request" unless $self->[REQUEST];
+	if ($key =~ /^rsp_/) {
+		croak "Cannot store '$key' outside of a response" unless $self->[RESPONSE];
+		die "Not sure how to define response contexts";
+		return $self->[RESPONSE]->_get_context()->{$key} = $value;
+	}
 
-	return $self->[REQUEST]->_get_context()->{$key} = $value;
+	return $self->[STAGE_DATA]{$key} = $value;
 }
 
 sub FETCH {
@@ -47,13 +54,22 @@ sub FETCH {
 	return $self->[REQUEST]  if $key eq "req";
 	return $self->[RESPONSE] if $key eq "rsp";
 
-	return $self->[STAGE_DATA]{$key} unless $key =~ /^req_/;
+	if ($key =~ /^req_/) {
+		croak "Attempting to fetch '$key' from outside a request" unless (
+			$self->[REQUEST]
+		);
+		return $self->[REQUEST]->_get_context()->{$key};
+	}
 
-	croak "Attempting to fetch '$key' from outside a request" unless (
-		$self->[REQUEST]
-	);
+	if ($key =~ /^rsp_/) {
+		croak "Attempting to fetch '$key' from outside a response" unless (
+			$self->[RESPONSE]
+		);
+		die "Not sure how to define response contexts";
+		return $self->[RESPONSE]->_get_context()->{$key};
+	}
 
-	return $self->[REQUEST]->_get_context()->{$key};
+	return $self->[STAGE_DATA]{$key};
 }
 
 sub FIRSTKEY {
@@ -87,9 +103,22 @@ sub EXISTS {
 	return defined $self->[REQUEST]  if $key eq "req";
 	return defined $self->[RESPONSE] if $key eq "rsp";
 
-	return exists $self->[STAGE_DATA]{$key} unless $key =~ /^req_/;
+	if ($key =~ /^req_/) {
+		croak "Cannot tests existence of '$key' outside of a request" unless (
+			$self->[REQUEST]
+		);
+		return exists $self->[REQUEST]->_get_context()->{$key};
+	}
 
-	return exists $self->[REQUEST]->_get_context()->{$key};
+	if ($key =~ /^rsp_/) {
+		croak "Cannot tests existence of '$key' outside of a response" unless (
+			$self->[RESPONSE]
+		);
+		die "Not sure how to define response contexts";
+		return exists $self->[RESPONSE]->_get_context()->{$key};
+	}
+
+	return exists $self->[STAGE_DATA]{$key};
 }
 
 sub DELETE {
@@ -111,9 +140,18 @@ sub DELETE {
 
 	# TODO - Some things should not be deletable in some contexts.
 
-	return delete $self->[STAGE_DATA]{$key} unless $key =~ /^req_/;
+	if ($key =~ /^req_/) {
+		croak "Cannot delete '$key' outside of a request" unless $self->[REQUEST];
+		return delete $self->[REQUEST]->_get_context()->{$key};
+	}
 
-	return delete $self->[REQUEST]->_get_context()->{$key};
+	if ($key =~ /^rsp_/) {
+		croak "Cannot delete '$key' outside of a response" unless $self->[RESPONSE];
+		die "Not sure how to define response contexts";
+		return delete $self->[RESPONSE]->_get_context()->{$key};
+	}
+
+	return delete $self->[STAGE_DATA]{$key};
 }
 
 1;
