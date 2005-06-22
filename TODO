@@ -1,3 +1,5 @@
+$Id$
+
 The recent massive commit includes duplicated and sometimes crude and
 ugly code because it was hard to align all the fiddly little bits so
 they would work.
