@@ -16,16 +16,16 @@ use constant DATAGRAM_MAXLEN => 1024;
 sub listen {
 	my ($self, $args) = @_;
 
-	$self->{req_bind_port} = delete $args->{bind_port};
+	$self->{req}{bind_port} = delete $args->{bind_port};
 
-	$self->{req_socket} = IO::Socket::INET->new(
+	$self->{req}{socket} = IO::Socket::INET->new(
 		Proto     => 'udp',
-		LocalPort => $self->{req_bind_port},
+		LocalPort => $self->{req}{bind_port},
 	);
-	die "Can't create UDP socket: $!" unless $self->{req_socket};
+	die "Can't create UDP socket: $!" unless $self->{req}{socket};
 
-	$self->{req_udp_watcher} = POE::Watcher::Input->new(
-		_handle   => $self->{req_socket},
+	$self->{req}{udp_watcher} = POE::Watcher::Input->new(
+		_handle   => $self->{req}{socket},
 		_on_input => "handle_input"
 	);
 }
@@ -34,7 +34,7 @@ sub handle_input {
 	my ($self, $args) = @_;
 
 	my $remote_address = recv(
-		$self->{req_socket},
+		$self->{req}{socket},
 		my $datagram = "",
 		DATAGRAM_MAXLEN,
 		0
@@ -60,7 +60,7 @@ sub send {
 	my ($self, $args) = @_;
 
 	return if send(
-		$self->{req_socket},
+		$self->{req}{socket},
 		$args->{datagram},
 		0,
 		$args->{remote_address},

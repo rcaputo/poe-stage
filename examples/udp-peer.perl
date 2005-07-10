@@ -24,9 +24,9 @@ use strict;
 		# TODO - The next two statements seem unnecessarily cumbersome.
 		# What can be done to simplify them?
 
-		$self->{req_receiver} = POE::Stage::Receiver->new();
-		$self->{req_receiver_run} = POE::Request->new(
-			_stage         => $self->{req_receiver},
+		$self->{req}{receiver} = POE::Stage::Receiver->new();
+		$self->{req}{receiver_run} = POE::Request->new(
+			_stage         => $self->{req}{receiver},
 			_method        => "listen",
 			bind_port      => $args->{bind_port},
 			_on_datagram   => "handle_datagram",

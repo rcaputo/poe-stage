@@ -8,6 +8,8 @@ use strict;
 use Carp qw(croak confess);
 use POE::Kernel;
 use Scalar::Util qw(weaken);
+use POE::Request::TiedAttributes;
+use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
 
 use constant DEBUG => 0;
 
@@ -58,16 +60,17 @@ sub _push {
 
 sub _invoke {
 	my ($self, $method) = @_;
+	my $self_data = tied(%$self);
 
 	DEBUG and warn(
-		"\t$self invoking $self->[REQ_TARGET_STAGE] method $method:\n",
-		"\t\tMy req  = $self->[REQ_TARGET_STAGE]{req}\n",
-		"\t\tMy rsp  = $self->[REQ_TARGET_STAGE]{rsp}\n",
-		"\t\tPar req = $self->[REQ_PARENT_REQUEST]\n",
-		"\t\tContext = $self->[REQ_CONTEXT]\n",
+		"\t$self invoking $self_data->[REQ_TARGET_STAGE] method $method:\n",
+		"\t\tMy req  = $self_data->[REQ_TARGET_STAGE]{req}\n",
+		"\t\tMy rsp  = $self_data->[REQ_TARGET_STAGE]{rsp}\n",
+		"\t\tPar req = $self_data->[REQ_PARENT_REQUEST]\n",
+		"\t\tContext = $self_data->[REQ_CONTEXT]\n",
 	);
 
-	$self->[REQ_TARGET_STAGE]->$method($self->[REQ_ARGS]);
+	$self_data->[REQ_TARGET_STAGE]->$method($self_data->[REQ_ARGS]);
 }
 
 sub _pop {
@@ -78,7 +81,7 @@ sub _pop {
 }
 
 sub _get_context {
-	return shift()->[REQ_CONTEXT];
+	return tied(%{shift()})->[REQ_CONTEXT];
 }
 
 sub _request_constructor {
@@ -93,7 +96,7 @@ sub _request_constructor {
 	# TODO - What's the "right" way to make fields inheritable without
 	# clashing in Perl?
 
-	my $self = bless [
+	tie my (%self), "POE::Request::TiedAttributes", [
 		delete $args->{_stage},       # REQ_TARGET_STAGE
 		delete $args->{_method},      # REQ_TARGET_METHOD
 		{ },                          # REQ_CHILD_REQUESTS
@@ -103,7 +106,9 @@ sub _request_constructor {
 		$line,                        # REQ_CREATE_LINE
 		0,                            # REQ_CREATE_STAGE
 		{ },                          # REQ_ARGS
-	], $class;
+	];
+
+	my $self = bless \%self, $class;
 
 	return $self;
 }
@@ -111,9 +116,10 @@ sub _request_constructor {
 # Send the request to its destination.
 sub _send_to_target {
 	my $self = shift;
-	Carp::confess "whoops" unless $self->[REQ_TARGET_STAGE];
+	my $self_data = tied(%$self);
+	Carp::confess "whoops" unless $self_data->[REQ_TARGET_STAGE];
 	$poe_kernel->post(
-		$self->[REQ_TARGET_STAGE]->_get_session_id(), "stage_request", $self
+		$self_data->[REQ_TARGET_STAGE]->_get_session_id(), "stage_request", $self
 	);
 }
 
@@ -121,6 +127,7 @@ sub new {
 	my ($class, %args) = @_;
 
 	my $self = $class->_request_constructor(\%args);
+	my $self_data = tied(%$self);
 
 	# Gather up the type/method mapping for any responses to this
 	# request.
@@ -130,33 +137,35 @@ sub new {
 		next unless /^_on_(\S+)$/;
 		$returns{$1} = delete $args{$_};
 	}
-	$self->[REQ_RETURNS] = \%returns;
+
+	$self_data->[REQ_RETURNS] = \%returns;
 
 	# Set the parent request to be the currently active request.
 	# New request = new context.
 
-	$self->[REQ_PARENT_REQUEST] = POE::Request->_get_current_request();
-	$self->[REQ_CONTEXT] = { };
+	$self_data->[REQ_PARENT_REQUEST] = POE::Request->_get_current_request();
+	$self_data->[REQ_CONTEXT] = { };
 
 	# If we have a parent request, then we need to associate this new
 	# request with it.  The references between parent and child requests
 	# are all weak because it's up to the creator to decide when
 	# destruction happens.
 
-	if ($self->[REQ_PARENT_REQUEST]) {
-		$self->[REQ_CREATE_STAGE] = $self->[REQ_PARENT_REQUEST][REQ_TARGET_STAGE];
-		weaken $self->[REQ_CREATE_STAGE];
+	if ($self_data->[REQ_PARENT_REQUEST]) {
+		my $parent_data = tied(%{$self_data->[REQ_PARENT_REQUEST]});
+		$self_data->[REQ_CREATE_STAGE] = $parent_data->[REQ_TARGET_STAGE];
+		weaken $self_data->[REQ_CREATE_STAGE];
 
-		$self->[REQ_PARENT_REQUEST][REQ_CHILD_REQUESTS]{$self} = $self;
-		weaken $self->[REQ_PARENT_REQUEST][REQ_CHILD_REQUESTS]{$self};
+		$parent_data->[REQ_CHILD_REQUESTS]{$self} = $self;
+		weaken $parent_data->[REQ_CHILD_REQUESTS]{$self};
 	}
 
 	DEBUG and warn(
-		"$self->[REQ_PARENT_REQUEST] created $self:\n",
-		"\tMy parent request = $self->[REQ_PARENT_REQUEST]\n",
+		"$self_data->[REQ_PARENT_REQUEST] created $self:\n",
+		"\tMy parent request = $self_data->[REQ_PARENT_REQUEST]\n",
 		"\tDelivery request  = $self\n",
 		"\tDelivery response = 0\n",
-		"\tDelivery context  = $self->[REQ_CONTEXT]\n",
+		"\tDelivery context  = $self_data->[REQ_CONTEXT]\n",
 	);
 
 	$self->_assimilate_args(%args);
@@ -180,7 +189,8 @@ sub _assimilate_args {
 
 	# Copy the remaining arguments into the object.
 
-	$self->[REQ_ARGS] = { %args };
+	my $self_data = tied(%$self);
+	$self_data->[REQ_ARGS] = { %args };
 }
 
 sub init {
@@ -193,16 +203,18 @@ sub init {
 
 sub deliver {
 	my ($self, $method) = @_;
+	my $self_data = tied(%$self);
 
 	$self->_push($self);
 
-	$self->[REQ_TARGET_STAGE]{req} = $self;
-	$self->[REQ_TARGET_STAGE]{rsp} = 0;
+	my $target_stage_data = tied(%{$self_data->[REQ_TARGET_STAGE]});
+	$target_stage_data->[REQUEST]  = $self;
+	$target_stage_data->[RESPONSE] = 0;
 
-	$self->_invoke($method || $self->[REQ_TARGET_METHOD]);
+	$self->_invoke($method || $self_data->[REQ_TARGET_METHOD]);
 
-	my $old_rsp = delete $self->[REQ_TARGET_STAGE]{rsp};
-	my $old_req = delete $self->[REQ_TARGET_STAGE]{req};
+	my $old_rsp = delete $target_stage_data->[RESPONSE];
+	my $old_req = delete $target_stage_data->[REQUEST];
 
 	die "bad rsp" unless $old_rsp == 0;
 	die "bad req" unless $old_req == $self;
@@ -226,10 +238,11 @@ sub emit {
 
 sub cancel {
 	my $self = shift;
+	my $self_data = tied(%$self);
 
 	# Cancel all the children first.
 
-	foreach my $child (values %{$self->[REQ_CHILD_REQUESTS]}) {
+	foreach my $child (values %{$self_data->[REQ_CHILD_REQUESTS]}) {
 		eval {
 			$child->cancel();
 		};
@@ -238,25 +251,27 @@ sub cancel {
 	# A little sanity check.  We should have no children once they're
 	# canceled.
 	die "canceled parent has children left" if (
-		keys %{$self->[REQ_CHILD_REQUESTS]}
+		keys %{$self_data->[REQ_CHILD_REQUESTS]}
 	);
 
 	# Disengage from our parent.
 	# TODO - Use a mutator rather than grope inside the parent object.
 
-	if ($self->[REQ_PARENT_REQUEST]) {
-		delete $self->[REQ_PARENT_REQUEST][REQ_CHILD_REQUESTS]{$self};
-		$self->[REQ_PARENT_REQUEST] = 0;
+	if ($self_data->[REQ_PARENT_REQUEST]) {
+		my $parent_data = tied(%{$self_data->[REQ_PARENT_REQUEST]});
+		delete $parent_data->[REQ_CHILD_REQUESTS]{$self};
+		$self_data->[REQ_PARENT_REQUEST] = 0;
 	}
 }
 
 sub _emit {
 	my ($self, $class, %args) = @_;
+	my $self_data = tied(%$self);
 
 	# Where does the message go?
 	# TODO - Have croak() reference the proper package/file/line.
 
-	my $parent_stage = $self->[REQ_CREATE_STAGE];
+	my $parent_stage = $self_data->[REQ_CREATE_STAGE];
 	confess "Can't emit message: Requester is not a POE::Stage class" unless (
 		$parent_stage
 	);
@@ -266,14 +281,14 @@ sub _emit {
 	my $message_type = delete $args{_type};
 	croak "Message must have a _type parameter" unless defined $message_type;
 	my $message_method = (
-		(exists $self->[REQ_RETURNS]{$message_type})
-		? $self->[REQ_RETURNS]{$message_type}
+		(exists $self_data->[REQ_RETURNS]{$message_type})
+		? $self_data->[REQ_RETURNS]{$message_type}
 		: "unknown_type"
 	);
 
 	# Reconstitute the parent's context.
 	my $parent_context;
-	my $parent_request = $self->[REQ_PARENT_REQUEST];
+	my $parent_request = $self_data->[REQ_PARENT_REQUEST];
 	croak "Cannot emit message: The requester has no context" unless (
 		$parent_request
 	);

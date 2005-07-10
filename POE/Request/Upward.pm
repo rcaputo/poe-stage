@@ -23,6 +23,7 @@ use POE::Request qw(
 use base qw(POE::Request);
 use Carp qw(croak confess);
 use Scalar::Util qw(weaken);
+use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
 
 use constant DEBUG => 0;
 
@@ -38,11 +39,13 @@ sub new {
 	confess "should always have a current request" unless $current_request;
 
 	# Record the stage that created this request.
-	$self->[REQ_CREATE_STAGE] = $current_request->[REQ_TARGET_STAGE];
-	weaken $self->[REQ_CREATE_STAGE];
+	my $self_data = tied(%$self);
+	my $current_data = tied(%$current_request);
+	$self_data->[REQ_CREATE_STAGE] = $current_data->[REQ_TARGET_STAGE];
+	weaken $self_data->[REQ_CREATE_STAGE];
 
 	# Upward requests target the current request's parent request.
-	$self->[REQ_DELIVERY_REQ] = $current_request->[REQ_PARENT_REQUEST];
+	$self_data->[REQ_DELIVERY_REQ] = $current_data->[REQ_PARENT_REQUEST];
 
 	# The main difference between upward requests is their parents.
 	$self->_init_subclass($current_request);
@@ -50,22 +53,23 @@ sub new {
 	# Context is the delivery req's context.  It may not always exist,
 	# as in the case of an upward request leaving the top-level
 	# "application" stage and returning to the outside.
-	if ($self->[REQ_DELIVERY_REQ]) {
-		$self->[REQ_CONTEXT] = $self->[REQ_DELIVERY_REQ][REQ_CONTEXT];
+	if ($self_data->[REQ_DELIVERY_REQ]) {
+		my $delivery_data = tied(%{$self_data->[REQ_DELIVERY_REQ]});
+		$self_data->[REQ_CONTEXT] = $delivery_data->[REQ_CONTEXT];
 	}
 	else {
-		$self->[REQ_CONTEXT] = { };
+		$self_data->[REQ_CONTEXT] = { };
 	}
 
 	# Upward requests can be of various types.
-	$self->[REQ_TYPE] = delete $args{_type};
+	$self_data->[REQ_TYPE] = delete $args{_type};
 
 	DEBUG and warn(
 		"$current_request created $self:\n",
-		"\tMy parent request = $self->[REQ_PARENT_REQUEST]\n",
-		"\tDelivery request  = $self->[REQ_DELIVERY_REQ]\n",
+		"\tMy parent request = $self_data->[REQ_PARENT_REQUEST]\n",
+		"\tDelivery request  = $self_data->[REQ_DELIVERY_REQ]\n",
 		"\tDelivery response = 0\n",
-		"\tDelivery context  = $self->[REQ_CONTEXT]\n",
+		"\tDelivery context  = $self_data->[REQ_CONTEXT]\n",
 	);
 
 	$self->_assimilate_args(%args);
@@ -80,25 +84,27 @@ sub new {
 sub deliver {
 	my $self = shift;
 
-	$self->_push($self->[REQ_DELIVERY_REQ]);
+	my $self_data = tied(%$self);
+	$self->_push($self_data->[REQ_DELIVERY_REQ]);
 
-	$self->[REQ_TARGET_STAGE]{req} = $self->[REQ_DELIVERY_REQ];
-	$self->[REQ_TARGET_STAGE]{rsp} = $self->[REQ_DELIVERY_RSP];
+	my $target_stage_data = tied(%{$self_data->[REQ_TARGET_STAGE]});
+	$target_stage_data->[REQUEST]  = $self_data->[REQ_DELIVERY_REQ];
+	$target_stage_data->[RESPONSE] = $self_data->[REQ_DELIVERY_RSP];
 
-	$self->_invoke($self->[REQ_TARGET_METHOD]);
+	$self->_invoke($self_data->[REQ_TARGET_METHOD]);
 
-	my $old_rsp = delete $self->[REQ_TARGET_STAGE]{rsp};
-	my $old_req = delete $self->[REQ_TARGET_STAGE]{req};
+	my $old_rsp = delete $target_stage_data->[RESPONSE];
+	my $old_req = delete $target_stage_data->[REQUEST];
 
-	die "bad rsp" unless $old_rsp == $self->[REQ_DELIVERY_RSP];
-	die "bad req" unless $old_req == $self->[REQ_DELIVERY_REQ];
+	die "bad rsp" unless $old_rsp == $self_data->[REQ_DELIVERY_RSP];
+	die "bad req" unless $old_req == $self_data->[REQ_DELIVERY_REQ];
 
-	$self->_pop($self->[REQ_DELIVERY_REQ]);
+	$self->_pop($self_data->[REQ_DELIVERY_REQ]);
 
 	# Break circular references.
-	delete $self->[REQ_DELIVERY_RSP];
-	delete $self->[REQ_DELIVERY_REQ];
-	delete $self->[REQ_CONTEXT];
+	delete $self_data->[REQ_DELIVERY_RSP];
+	delete $self_data->[REQ_DELIVERY_REQ];
+	delete $self_data->[REQ_CONTEXT];
 }
 
 # Rules for all upward messages.
