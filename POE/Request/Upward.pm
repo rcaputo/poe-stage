@@ -93,8 +93,8 @@ sub deliver {
 
 	$self->_invoke($self_data->[REQ_TARGET_METHOD]);
 
-	my $old_rsp = delete $target_stage_data->[RESPONSE];
-	my $old_req = delete $target_stage_data->[REQUEST];
+	my $old_rsp = splice( @$target_stage_data, RESPONSE, 1, 0 );
+	my $old_req = splice( @$target_stage_data, REQUEST,  1, 0 );
 
 	die "bad rsp" unless $old_rsp == $self_data->[REQ_DELIVERY_RSP];
 	die "bad req" unless $old_req == $self_data->[REQ_DELIVERY_REQ];
@@ -102,9 +102,9 @@ sub deliver {
 	$self->_pop($self_data->[REQ_DELIVERY_REQ]);
 
 	# Break circular references.
-	delete $self_data->[REQ_DELIVERY_RSP];
-	delete $self_data->[REQ_DELIVERY_REQ];
-	delete $self_data->[REQ_CONTEXT];
+	$self_data->[REQ_DELIVERY_RSP] = undef;
+	$self_data->[REQ_DELIVERY_REQ] = undef;
+	$self_data->[REQ_CONTEXT]      = undef;
 }
 
 # Rules for all upward messages.
