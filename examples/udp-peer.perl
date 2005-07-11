@@ -33,12 +33,15 @@ use strict;
 			_on_recv_error => "handle_error",
 			_on_send_error => "handle_error",
 		);
+
+		$self->{req}{receiver_run}{name} = "testname";
 	}
 
 	sub handle_datagram {
 		my ($self, $args) = @_;
 
 		my $datagram = $args->{datagram};
+		print "$self->{rsp}{name} received datagram: $datagram\n";
 		$datagram =~ tr[a-zA-Z][n-za-mN-ZA-M];
 
 		$self->{rsp}->recall(

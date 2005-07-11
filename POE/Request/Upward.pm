@@ -13,6 +13,7 @@ use POE::Request qw(
 	REQ_CREATE_STAGE
 	REQ_DELIVERY_REQ
 	REQ_DELIVERY_RSP
+	REQ_ID
 	REQ_PARENT_REQUEST
 	REQ_TARGET_METHOD
 	REQ_TARGET_STAGE
@@ -47,6 +48,10 @@ sub new {
 	# Upward requests target the current request's parent request.
 	$self_data->[REQ_DELIVERY_REQ] = $current_data->[REQ_PARENT_REQUEST];
 
+	# Upward requests' "rsp" values point to the current request at the
+	# time the upward one is created.
+	$self_data->[REQ_DELIVERY_RSP] = $self;
+
 	# The main difference between upward requests is their parents.
 	$self->_init_subclass($current_request);
 
@@ -55,21 +60,22 @@ sub new {
 	# "application" stage and returning to the outside.
 	if ($self_data->[REQ_DELIVERY_REQ]) {
 		my $delivery_data = tied(%{$self_data->[REQ_DELIVERY_REQ]});
-		$self_data->[REQ_CONTEXT] = $delivery_data->[REQ_CONTEXT];
+		$self_data->[REQ_CONTEXT] = $current_data->[REQ_CONTEXT];
 	}
 	else {
 		$self_data->[REQ_CONTEXT] = { };
 	}
 
+	$self_data->[REQ_ID] = tied(%$current_request)->[REQ_ID];
+
 	# Upward requests can be of various types.
 	$self_data->[REQ_TYPE] = delete $args{_type};
 
 	DEBUG and warn(
-		"$current_request created $self:\n",
+		"$current_request created ", ref($self), " $self:\n",
 		"\tMy parent request = $self_data->[REQ_PARENT_REQUEST]\n",
 		"\tDelivery request  = $self_data->[REQ_DELIVERY_REQ]\n",
-		"\tDelivery response = 0\n",
-		"\tDelivery context  = $self_data->[REQ_CONTEXT]\n",
+		"\tDelivery response = $self_data->[REQ_DELIVERY_RSP]\n",
 	);
 
 	$self->_assimilate_args(%args);
@@ -96,8 +102,8 @@ sub deliver {
 	my $old_rsp = splice( @$target_stage_data, RESPONSE, 1, 0 );
 	my $old_req = splice( @$target_stage_data, REQUEST,  1, 0 );
 
-	die "bad rsp" unless $old_rsp == $self_data->[REQ_DELIVERY_RSP];
-	die "bad req" unless $old_req == $self_data->[REQ_DELIVERY_REQ];
+#	die "bad rsp" unless $old_rsp == $self_data->[REQ_DELIVERY_RSP];
+#	die "bad req" unless $old_req == $self_data->[REQ_DELIVERY_REQ];
 
 	$self->_pop($self_data->[REQ_DELIVERY_REQ]);
 

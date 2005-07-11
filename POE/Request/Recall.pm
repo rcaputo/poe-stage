@@ -18,6 +18,7 @@ use POE::Request qw(
 	REQ_DELIVERY_REQ
 	REQ_PARENT_REQUEST
 	REQ_TARGET_STAGE
+	REQ_ID
 );
 
 use base qw(POE::Request);
@@ -30,15 +31,17 @@ sub new {
 	my $self = $class->_request_constructor(\%args);
 
 	# Recalling downward, there should always be a current request.
-	# TODO: This may not always hold true, as when recallding from
-	# "main" back into the main application stage.
+	# TODO: Does this always hold true?  For example, wehn recalling
+	# from "main" back into the main application stage?
 	my $current_request = POE::Request->_get_current_request();
 	confess "should always have a current request" unless $current_request;
 
+	# Current RSP is a POE::Request::Emit.
 	my $current_req_data = tied(%$current_request);
 	my $current_rsp = $current_req_data->[REQ_TARGET_STAGE]{rsp};
 	confess "should always have a current rsp" unless $current_rsp;
 
+	# Recall's parent is RSP's delivery REQ.
 	my $self_data = tied(%$self);
 	my $current_rsp_data = tied(%$current_rsp);
 	$self_data->[REQ_PARENT_REQUEST] = $current_rsp_data->[REQ_DELIVERY_REQ];
@@ -62,6 +65,7 @@ sub new {
 	confess "delivery request should always have a context" unless (
 		$self_data->[REQ_CONTEXT]
 	);
+	$self_data->[REQ_ID] = $delivery_data->[REQ_ID];
 
 	DEBUG and warn(
 		"$self_data->[REQ_PARENT_REQUEST] created $self:\n",

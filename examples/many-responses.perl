@@ -27,7 +27,7 @@ use strict;
 
 		$self->{req}{ticker}   = POE::Stage::Ticker->new();
 		$self->{req}{name}     = $args->{name} || "unnamed";
-		$self->{req}{interval} = $args->{interval} || 1;
+		$self->{req}{interval} = $args->{interval} || 0.001;
 
 		$self->{req}{ticker_request} = POE::Request->new(
 			_stage   => $self->{req}{ticker},

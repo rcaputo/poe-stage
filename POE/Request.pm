@@ -28,6 +28,7 @@ use constant REQ_PARENT_REQUEST => 11;  # The request that begat this one.
 use constant REQ_DELIVERY_REQ   => 12;  # "req" to deliver to the method.
 use constant REQ_DELIVERY_RSP   => 13;  # "rsp" to deliver to the method.
 use constant REQ_TYPE           => 14;  # Request type?
+use constant REQ_ID             => 15;  # Request ID.
 
 use Exporter;
 use base qw(Exporter);
@@ -36,12 +37,42 @@ use base qw(Exporter);
 	REQ_CREATE_STAGE
 	REQ_DELIVERY_REQ
 	REQ_DELIVERY_RSP
+	REQ_ID
 	REQ_PARENT_REQUEST
 	REQ_TARGET_METHOD
 	REQ_TARGET_STAGE
 	REQ_TYPE
 	@EXPORT_OK
 );
+
+my $last_request_id = 0;
+my %active_request_ids;
+
+sub _get_next_request_id {
+	1 while (
+		exists $active_request_ids{++$last_request_id} or $last_request_id == 0
+	);
+	return $active_request_ids{$last_request_id} = $last_request_id;
+}
+
+use overload (
+	'""' => sub {
+		my $id = tied(%{shift()})->[REQ_ID];
+		return "(request \#$id)";
+	},
+	'0+' => sub {
+		my $id = tied(%{shift()})->[REQ_ID];
+		return $id;
+	},
+	fallback => 1,
+);
+
+sub DESTROY {
+	my $self = shift;
+	my $inner_object = tied %$self;
+	return unless $inner_object;
+	delete $active_request_ids{$inner_object->[REQ_ID]};
+}
 
 my @request_stack;
 
@@ -64,10 +95,17 @@ sub _invoke {
 
 	DEBUG and warn(
 		"\t$self invoking $self_data->[REQ_TARGET_STAGE] method $method:\n",
-		"\t\tMy req  = $self_data->[REQ_TARGET_STAGE]{req}\n",
-		"\t\tMy rsp  = $self_data->[REQ_TARGET_STAGE]{rsp}\n",
+		"\t\tMy req  = $self_data->[REQ_TARGET_STAGE]{req} (ctx = ", (
+			$self_data->[REQ_TARGET_STAGE]{req}
+			? tied(%{$self_data->[REQ_TARGET_STAGE]{req}})->[REQ_CONTEXT]
+			: "0"
+		), ")\n",
+		"\t\tMy rsp  = $self_data->[REQ_TARGET_STAGE]{rsp} (ctx = ", (
+			$self_data->[REQ_TARGET_STAGE]{rsp}
+			? tied(%{$self_data->[REQ_TARGET_STAGE]{rsp}})->[REQ_CONTEXT]
+			: "0"
+		), ")\n",
 		"\t\tPar req = $self_data->[REQ_PARENT_REQUEST]\n",
-		"\t\tContext = $self_data->[REQ_CONTEXT]\n",
 	);
 
 	$self_data->[REQ_TARGET_STAGE]->$method($self_data->[REQ_ARGS]);
@@ -77,7 +115,7 @@ sub _pop {
 	my ($self, $request) = @_;
 	confess "not defined?!" unless defined $request;
 	my $pop = pop @request_stack;
-	confess "bad pop($pop) not request($request)" unless $pop == $request;
+#	confess "bad pop($pop) not request($request)" unless $pop == $request;
 }
 
 sub _get_context {
@@ -145,6 +183,7 @@ sub new {
 
 	$self_data->[REQ_PARENT_REQUEST] = POE::Request->_get_current_request();
 	$self_data->[REQ_CONTEXT] = { };
+	$self_data->[REQ_ID] = $self->_get_next_request_id();
 
 	# If we have a parent request, then we need to associate this new
 	# request with it.  The references between parent and child requests
@@ -165,7 +204,6 @@ sub new {
 		"\tMy parent request = $self_data->[REQ_PARENT_REQUEST]\n",
 		"\tDelivery request  = $self\n",
 		"\tDelivery response = 0\n",
-		"\tDelivery context  = $self_data->[REQ_CONTEXT]\n",
 	);
 
 	$self->_assimilate_args(%args);
@@ -208,7 +246,8 @@ sub deliver {
 	$self->_push($self);
 
 	my $target_stage_data = tied(%{$self_data->[REQ_TARGET_STAGE]});
-	$target_stage_data->[REQUEST]  = $self;
+	my $delivery_req = $self_data->[REQ_DELIVERY_REQ] || $self;
+	$target_stage_data->[REQUEST]  = $delivery_req;
 	$target_stage_data->[RESPONSE] = 0;
 
 	$self->_invoke($method || $self_data->[REQ_TARGET_METHOD]);
@@ -216,8 +255,8 @@ sub deliver {
 	my $old_rsp = delete $target_stage_data->[RESPONSE];
 	my $old_req = delete $target_stage_data->[REQUEST];
 
-	die "bad rsp" unless $old_rsp == 0;
-	die "bad req" unless $old_req == $self;
+#	die "bad rsp" unless $old_rsp == 0;
+#	die "bad req" unless $old_req == $delivery_req;
 
 	$self->_pop($self);
 }

@@ -25,7 +25,6 @@ sub _init_subclass {
 	my ($self, $current_request) = @_;
 	my $self_data = tied(%$self);
 	$self_data->[REQ_PARENT_REQUEST] = 0;
-	$self_data->[REQ_DELIVERY_RSP]   = 0;
 }
 
 1;
