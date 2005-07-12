@@ -5,6 +5,9 @@ package POE::Stage;
 use warnings;
 use strict;
 
+use vars qw($VERSION);
+$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"0.%04d",$r};
+
 use POE::Session;
 
 use Scalar::Util qw(blessed);
