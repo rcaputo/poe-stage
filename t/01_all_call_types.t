@@ -20,7 +20,6 @@ my $key_value;
 
 	sub do_emit {
 		my ($self, $args) = @_;
-		diag "Something.do_emit";
 
 		ok(
 			ref($self->{req}) eq "POE::Request",
@@ -55,7 +54,6 @@ my $key_value;
 
 	sub do_return {
 		my ($self, $args) = @_;
-		diag "Something.do_return";
 
 		ok(
 			ref($self->{req}) eq "POE::Request",
@@ -102,7 +100,7 @@ my $key_value;
 
 	sub run {
 		my ($self, $args) = @_;
-		diag("App.run");
+
 		$self->{req}{something} = Something->new();
 		$self->{req}{go} = POE::Request->new(
 			_stage     => $self->{req}{something},
@@ -120,7 +118,6 @@ my $key_value;
 
 	sub do_recall {
 		my ($self, $args) = @_;
-		diag("App.do_recall");
 
 		ok(
 			ref($self->{req}) eq "POE::Request",
@@ -153,7 +150,6 @@ my $key_value;
 
 	sub do_return {
 		my ($self, $args) = @_;
-		diag("App.do_return");
 
 		ok(
 			ref($self->{req}) eq "POE::Request",
