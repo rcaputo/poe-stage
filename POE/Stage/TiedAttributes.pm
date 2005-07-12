@@ -3,6 +3,9 @@
 # Tied interface to a Stage's data.  Used to transparently fetch
 # contextual data for members with a leading underscore ("_foo").
 
+# POE::Stage's internal methods live in here so they don't clash with
+# subclasses'.
+
 package POE::Stage::TiedAttributes;
 
 use warnings;
