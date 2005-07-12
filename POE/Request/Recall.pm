@@ -12,7 +12,6 @@ use Carp qw(croak confess);
 use Scalar::Util qw(weaken);
 
 use POE::Request qw(
-	REQ_CONTEXT
 	REQ_CREATE_STAGE
 	REQ_DELIVERY_REQ
 	REQ_DELIVERY_REQ
@@ -61,18 +60,20 @@ sub new {
 
 	# Context is the delivery req's context.
 	my $delivery_data = tied(%{$self_data->[REQ_DELIVERY_REQ]});
-	$self_data->[REQ_CONTEXT] = $delivery_data->[REQ_CONTEXT];
-	confess "delivery request should always have a context" unless (
-		$self_data->[REQ_CONTEXT]
+#	$self_data->[REQ_CONTEXT] = $delivery_data->[REQ_CONTEXT];
+#	confess "delivery request should always have a context" unless (
+#		$self_data->[REQ_CONTEXT]
+#	);
+	$self_data->[REQ_ID] = $self->_reallocate_request_id(
+		$delivery_data->[REQ_ID]
 	);
-	$self_data->[REQ_ID] = $delivery_data->[REQ_ID];
 
 	DEBUG and warn(
 		"$self_data->[REQ_PARENT_REQUEST] created $self:\n",
 		"\tMy parent request = $self_data->[REQ_PARENT_REQUEST]\n",
 		"\tDelivery request  = $self\n",
 		"\tDelivery response = 0\n",
-		"\tDelivery context  = $self_data->[REQ_CONTEXT]\n",
+#		"\tDelivery context  = $self_data->[REQ_CONTEXT]\n",
 	);
 
 	$self->_assimilate_args(%args);

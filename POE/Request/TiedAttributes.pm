@@ -11,7 +11,7 @@ use strict;
 
 use Carp qw(croak);
 
-use constant REQ_CONTEXT => 10;  # This request's context.
+use POE::Request qw(REQ_ID);
 
 sub TIEHASH {
 	my ($class, $self) = @_;
@@ -20,33 +20,44 @@ sub TIEHASH {
 
 sub STORE {
 	my ($self, $key, $value) = @_;
-	return $self->[REQ_CONTEXT]{$key} = $value;
+	my $stage = POE::Request->_get_current_stage();
+	croak "store to request context requires an active stage" unless $stage;
+	return tied(%$stage)->_request_context_store($self->[REQ_ID], $key, $value);
 }
 
 sub FETCH {
 	my ($self, $key) = @_;
-	return $self->[REQ_CONTEXT]{$key};
+	my $stage = POE::Request->_get_current_stage();
+	croak "fetch from request context requires an active stage" unless $stage;
+	return tied(%$stage)->_request_context_fetch($self->[REQ_ID], $key);
 }
 
 sub FIRSTKEY {
 	my $self = shift;
-	my $a = keys %{$self->[REQ_CONTEXT]};   # Reset each() iterator.
-	return each %{$self->[REQ_CONTEXT]};
+	my $stage = POE::Request->_get_current_stage();
+	croak "firstkey in request context requires an active stage" unless $stage;
+	return tied(%$stage)->_request_context_firstkey($self->[REQ_ID]);
 }
 
 sub NEXTKEY {
 	my $self = shift;
-	return each %{$self->[REQ_CONTEXT]};
+	my $stage = POE::Request->_get_current_stage();
+	croak "nextkey in request context requires an active stage" unless $stage;
+	return tied(%$stage)->_request_context_nextkey($self->[REQ_ID]);
 }
 
 sub EXISTS {
 	my ($self, $key) = @_;
-	return exists $self->[REQ_CONTEXT]{$key};
+	my $stage = POE::Request->_get_current_stage();
+	croak "exists in request context requires an active stage" unless $stage;
+	return tied(%$stage)->_request_context_exists($self->[REQ_ID], $key);
 }
 
 sub DELETE {
 	my ($self, $key) = @_;
-	return delete $self->[REQ_CONTEXT]{$key};
+	my $stage = POE::Request->_get_current_stage();
+	croak "delete from request context requires an active stage" unless $stage;
+	return tied(%$stage)->_request_context_delete($self->[REQ_ID], $key);
 }
 
 1;

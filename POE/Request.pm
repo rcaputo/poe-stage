@@ -8,8 +8,6 @@ use strict;
 use Carp qw(croak confess);
 use POE::Kernel;
 use Scalar::Util qw(weaken);
-use POE::Request::TiedAttributes;
-use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
 
 use constant DEBUG => 0;
 
@@ -23,36 +21,56 @@ use constant REQ_CREATE_LINE    =>  6;  # ... more debugging.
 use constant REQ_CREATE_STAGE   =>  7;  # ... more debugging.
 use constant REQ_ARGS           =>  8;  # Parameters of this request.
 use constant REQ_RETURNS        =>  9;  # Return type/method map.
-use constant REQ_CONTEXT        => 10;  # Request storage scope.
-use constant REQ_PARENT_REQUEST => 11;  # The request that begat this one.
-use constant REQ_DELIVERY_REQ   => 12;  # "req" to deliver to the method.
-use constant REQ_DELIVERY_RSP   => 13;  # "rsp" to deliver to the method.
-use constant REQ_TYPE           => 14;  # Request type?
-use constant REQ_ID             => 15;  # Request ID.
+use constant REQ_PARENT_REQUEST => 10;  # The request that begat this one.
+use constant REQ_DELIVERY_REQ   => 11;  # "req" to deliver to the method.
+use constant REQ_DELIVERY_RSP   => 12;  # "rsp" to deliver to the method.
+use constant REQ_TYPE           => 13;  # Request type?
+use constant REQ_ID             => 14;  # Request ID.
 
 use Exporter;
 use base qw(Exporter);
-@POE::Request::EXPORT_OK = qw(
-	REQ_CONTEXT
-	REQ_CREATE_STAGE
-	REQ_DELIVERY_REQ
-	REQ_DELIVERY_RSP
-	REQ_ID
-	REQ_PARENT_REQUEST
-	REQ_TARGET_METHOD
-	REQ_TARGET_STAGE
-	REQ_TYPE
-	@EXPORT_OK
-);
+BEGIN {
+	@POE::Request::EXPORT_OK = qw(
+		REQ_CREATE_STAGE
+		REQ_DELIVERY_REQ
+		REQ_DELIVERY_RSP
+		REQ_ID
+		REQ_PARENT_REQUEST
+		REQ_TARGET_METHOD
+		REQ_TARGET_STAGE
+		REQ_TYPE
+		@EXPORT_OK
+	);
+}
+
+use POE::Request::TiedAttributes;
+use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
 
 my $last_request_id = 0;
 my %active_request_ids;
 
-sub _get_next_request_id {
+sub _allocate_request_id {
 	1 while (
 		exists $active_request_ids{++$last_request_id} or $last_request_id == 0
 	);
-	return $active_request_ids{$last_request_id} = $last_request_id;
+	$active_request_ids{$last_request_id} = 1;
+	return $last_request_id;
+}
+
+sub _reallocate_request_id {
+	my ($self, $id) = @_;
+	croak "id $id can't be reallocated if it isn't allocated" unless (
+		$active_request_ids{$id}++
+	);
+	return $id;
+}
+
+# Returns true if the ID is freed.
+sub _free_request_id {
+	my $id = shift;
+	return 0 if --$active_request_ids{$id};
+	delete $active_request_ids{$id};
+	return 1;
 }
 
 use overload (
@@ -71,22 +89,43 @@ sub DESTROY {
 	my $self = shift;
 	my $inner_object = tied %$self;
 	return unless $inner_object;
-	delete $active_request_ids{$inner_object->[REQ_ID]};
+	my $id = $inner_object->[REQ_ID];
+	delete $active_request_ids{$id};
+
+	if (_free_request_id($id)) {
+		tied(%{$inner_object->[REQ_CREATE_STAGE]})->_request_context_destroy($id)
+			if $inner_object->[REQ_CREATE_STAGE];
+		tied(%{$inner_object->[REQ_TARGET_STAGE]})->_request_context_destroy($id)
+			if $inner_object->[REQ_TARGET_STAGE];
+	}
 }
+
+use constant RS_REQUEST => 0;
+use constant RS_STAGE   => 1;
+use constant RS_METHOD  => 2;
 
 my @request_stack;
 
 sub _get_current_request {
 	return 0 unless @request_stack;
-	return $request_stack[-1];
+	return $request_stack[-1][RS_REQUEST];
+}
+
+sub _get_current_stage {
+	return 0 unless @request_stack;
+	return $request_stack[-1][RS_STAGE];
 }
 
 # Push the request on the request stack, making this one active or
 # current.
 
 sub _push {
-	my ($self, $request) = @_;
-	push @request_stack, $request;
+	my ($self, $request, $stage, $method) = @_;
+	push @request_stack, [
+		$request,     # RS_REQUEST
+		$stage,       # RS_STAGE
+		$method,      # RS_METHOD
+	];
 }
 
 sub _invoke {
@@ -95,16 +134,8 @@ sub _invoke {
 
 	DEBUG and warn(
 		"\t$self invoking $self_data->[REQ_TARGET_STAGE] method $method:\n",
-		"\t\tMy req  = $self_data->[REQ_TARGET_STAGE]{req} (ctx = ", (
-			$self_data->[REQ_TARGET_STAGE]{req}
-			? tied(%{$self_data->[REQ_TARGET_STAGE]{req}})->[REQ_CONTEXT]
-			: "0"
-		), ")\n",
-		"\t\tMy rsp  = $self_data->[REQ_TARGET_STAGE]{rsp} (ctx = ", (
-			$self_data->[REQ_TARGET_STAGE]{rsp}
-			? tied(%{$self_data->[REQ_TARGET_STAGE]{rsp}})->[REQ_CONTEXT]
-			: "0"
-		), ")\n",
+		"\t\tMy req  = $self_data->[REQ_TARGET_STAGE]{req}\n",
+		"\t\tMy rsp  = $self_data->[REQ_TARGET_STAGE]{rsp}\n",
 		"\t\tPar req = $self_data->[REQ_PARENT_REQUEST]\n",
 	);
 
@@ -112,14 +143,12 @@ sub _invoke {
 }
 
 sub _pop {
-	my ($self, $request) = @_;
+	my ($self, $request, $stage, $method) = @_;
 	confess "not defined?!" unless defined $request;
-	my $pop = pop @request_stack;
-#	confess "bad pop($pop) not request($request)" unless $pop == $request;
-}
-
-sub _get_context {
-	return tied(%{shift()})->[REQ_CONTEXT];
+	my ($pop_request, $pop_stage, $pop_method) = @{pop @request_stack};
+#	confess "bad pop($pop_request) not request($request)" unless (
+#		$pop_request == $request
+#	};
 }
 
 sub _request_constructor {
@@ -182,8 +211,7 @@ sub new {
 	# New request = new context.
 
 	$self_data->[REQ_PARENT_REQUEST] = POE::Request->_get_current_request();
-	$self_data->[REQ_CONTEXT] = { };
-	$self_data->[REQ_ID] = $self->_get_next_request_id();
+	$self_data->[REQ_ID] = $self->_allocate_request_id();
 
 	# If we have a parent request, then we need to associate this new
 	# request with it.  The references between parent and child requests
@@ -243,22 +271,25 @@ sub deliver {
 	my ($self, $method) = @_;
 	my $self_data = tied(%$self);
 
-	$self->_push($self);
+	my $target_stage = $self_data->[REQ_TARGET_STAGE];
+	my $target_stage_data = tied(%$target_stage);
 
-	my $target_stage_data = tied(%{$self_data->[REQ_TARGET_STAGE]});
 	my $delivery_req = $self_data->[REQ_DELIVERY_REQ] || $self;
 	$target_stage_data->[REQUEST]  = $delivery_req;
 	$target_stage_data->[RESPONSE] = 0;
 
-	$self->_invoke($method || $self_data->[REQ_TARGET_METHOD]);
+	my $target_method = $method || $self_data->[REQ_TARGET_METHOD];
+	$self->_push($self, $target_stage, $target_method);
+
+	$self->_invoke($target_method);
+
+	$self->_pop($self, $target_stage, $target_method);
 
 	my $old_rsp = delete $target_stage_data->[RESPONSE];
 	my $old_req = delete $target_stage_data->[REQUEST];
 
 #	die "bad rsp" unless $old_rsp == 0;
 #	die "bad req" unless $old_req == $delivery_req;
-
-	$self->_pop($self);
 }
 
 # Return a response to the requester.  The response occurs in the

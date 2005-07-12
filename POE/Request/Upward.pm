@@ -9,7 +9,6 @@ use warnings;
 use strict;
 
 use POE::Request qw(
-	REQ_CONTEXT
 	REQ_CREATE_STAGE
 	REQ_DELIVERY_REQ
 	REQ_DELIVERY_RSP
@@ -60,13 +59,15 @@ sub new {
 	# "application" stage and returning to the outside.
 	if ($self_data->[REQ_DELIVERY_REQ]) {
 		my $delivery_data = tied(%{$self_data->[REQ_DELIVERY_REQ]});
-		$self_data->[REQ_CONTEXT] = $current_data->[REQ_CONTEXT];
+#		$self_data->[REQ_CONTEXT] = $current_data->[REQ_CONTEXT];
 	}
-	else {
-		$self_data->[REQ_CONTEXT] = { };
-	}
+#	else {
+#		$self_data->[REQ_CONTEXT] = { };
+#	}
 
-	$self_data->[REQ_ID] = tied(%$current_request)->[REQ_ID];
+	$self_data->[REQ_ID] = $self->_reallocate_request_id(
+		tied(%$current_request)->[REQ_ID]
+	);
 
 	# Upward requests can be of various types.
 	$self_data->[REQ_TYPE] = delete $args{_type};
@@ -91,13 +92,24 @@ sub deliver {
 	my $self = shift;
 
 	my $self_data = tied(%$self);
-	$self->_push($self_data->[REQ_DELIVERY_REQ]);
 
 	my $target_stage_data = tied(%{$self_data->[REQ_TARGET_STAGE]});
 	$target_stage_data->[REQUEST]  = $self_data->[REQ_DELIVERY_REQ];
 	$target_stage_data->[RESPONSE] = $self_data->[REQ_DELIVERY_RSP];
 
+	$self->_push(
+		$self_data->[REQ_DELIVERY_REQ],
+		$self_data->[REQ_TARGET_STAGE],
+		$self_data->[REQ_TARGET_METHOD],
+	);
+
 	$self->_invoke($self_data->[REQ_TARGET_METHOD]);
+
+	$self->_pop(
+		$self_data->[REQ_DELIVERY_REQ],
+		$self_data->[REQ_TARGET_STAGE],
+		$self_data->[REQ_TARGET_METHOD],
+	);
 
 	my $old_rsp = splice( @$target_stage_data, RESPONSE, 1, 0 );
 	my $old_req = splice( @$target_stage_data, REQUEST,  1, 0 );
@@ -105,12 +117,10 @@ sub deliver {
 #	die "bad rsp" unless $old_rsp == $self_data->[REQ_DELIVERY_RSP];
 #	die "bad req" unless $old_req == $self_data->[REQ_DELIVERY_REQ];
 
-	$self->_pop($self_data->[REQ_DELIVERY_REQ]);
 
 	# Break circular references.
 	$self_data->[REQ_DELIVERY_RSP] = undef;
 	$self_data->[REQ_DELIVERY_REQ] = undef;
-	$self_data->[REQ_CONTEXT]      = undef;
 }
 
 # Rules for all upward messages.
