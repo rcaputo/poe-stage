@@ -1,0 +1,20 @@
+$Id$
+
+POE::Stage is a temporary, experimental project to formalize POE
+components and provide a base class to make their creation and use a
+lot easier and cleaner.  The project's Subversion repository is hosted
+at https://thirdlobe.com/svn/poe-stage/trunk/ .
+
+Please poke around in the code.  Think about how it may help or hinder
+your development efforts.  Let me know what I'm doing right.  Explain
+the errors of my ways when I get something wrong.  Request features.
+Send patches.
+
+The project's name may change in the near future, but your guess is as
+good as mine what it will become.  Maybe your guess is better.  Send
+in your spiffy suggestions.
+
+Thanks for your interest.
+
+-- 
+Rocco Caputo - http://poe.perl.org/
