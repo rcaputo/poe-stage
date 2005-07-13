@@ -1,5 +1,14 @@
 $Id$
 
+Fix bugs:
+
+	xantus:
+
+		Failed test (t/01_all_call_types.t at line 137)
+		Failed test (t/01_all_call_types.t at line 169)
+
+Other stuff:
+
 The recent massive commit includes duplicated and sometimes crude and
 ugly code because it was hard to align all the fiddly little bits so
 they would work.
@@ -25,12 +34,19 @@ DONE: Abstract common bits from the requests into base classes.
 	_recall up to Emit's recall() because Emit is the only request that
 	can be recalled.
 
-2. Define sub-request scoping rules.  These are /^rsp_/ data members
-of POE::Stage classes.  They let a stage track information about
-sub-requests and automagically map the response data back to the
-proper request.
+DONE: Define sub-request scoping rules.
 
-	POE::Stage::TiedAttributes has stubs for /^rsp_/ data members.
+	Storing directly to a request object tucks the data away within a
+	special place in the Stage.  This enables
+
+		$self->{req}{key} = $value;
+
+	and
+
+		$self->{req}{foo} = POE::Request->new();
+		$self->{req}{foo}{key} = $value;
+
+	as well as $self->{rsp} stuff.
 
 3. Document what exists so far.
 
