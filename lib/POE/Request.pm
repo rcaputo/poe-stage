@@ -23,7 +23,7 @@ POE::Request - a message class for requesting POE::Stage services
 		...;
 	}
 
-=description
+=head1 DESCRIPTION
 
 POE::Request objects are created to initiate dialogues between
 POE::Stage objects.  Subclasses of POE::Request are used to continue

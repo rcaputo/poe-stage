@@ -1,6 +1,36 @@
 # $Id$
 
-# A simple watcher that looks for input on a filehandle.
+=head1 NAME
+
+POE::Watcher::Input - watch a socket or other handle for input readiness
+
+=head1 SYNOPSIS
+
+	# Note, this is not a complete program.
+	# See the distribution's examples directory.
+
+	# Request a delay notification.
+	$self->{req}{socket} = $socket_handle;
+	$self->{req}{input} = POE::Watcher::Input->new(
+		_handle   => $self->{req}{socket},
+		_on_input => "read_from_socket",
+	);
+
+	# Handle the delay notification.
+	sub read_from_socket {
+		my ($self, $args) = @_;
+		my $octets = sysread($self->{req}{handle}, my $buf = "", 65536);
+		...;
+	}
+
+=head1 DESCRIPTION
+
+POE::Watcher::Input watches a socket or other handle and delivers a
+message whenever the handle becomes ready for reading.  Bot the handle
+and the method to call are passed to POE::Watcher::Input objects at
+construction time.
+
+=cut
 
 package POE::Watcher::Input;
 
@@ -10,6 +40,14 @@ use strict;
 use Scalar::Util qw(weaken);
 use Carp qw(croak);
 use POE::Kernel;
+
+=head2 new _handle => HANDLE, _on_input => METHOD_NAME
+
+Begin waiting for data to arrive on a socket or other HANDLE.  When
+the handle becomes ready for reading, alert the watcher's creator
+stage by calling its METHOD_NAME method.
+
+=cut
 
 sub new {
 	my ($class, %args) = @_;
@@ -69,3 +107,26 @@ sub deliver {
 }
 
 1;
+
+=head1 BUGS
+
+The watcher seems overly simple.  It probably has a large number of
+nasty edge cases in its design.
+
+=head1 SEE ALSO
+
+POE::Watcher describes concepts that are common to all POE::Watcher
+classes.  It's required reading in order to understand fully what's
+going on.
+
+=head1 AUTHORS
+
+Rocco Caputo <rcaputo@cpan.org>.
+
+=head1 LICENSE
+
+POE::Watcher::Input is Copyright 2005 by Rocco Caputo.  All rights are
+reserved.  You may use, modify, and/or distribute this module under
+the same terms as Perl itself.
+
+=cut

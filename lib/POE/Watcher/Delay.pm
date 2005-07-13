@@ -45,7 +45,7 @@ use Scalar::Util qw(weaken);
 use Carp qw(croak);
 use POE::Kernel;
 
-=head2 new LIST
+=head2 new _length => SECONDS, _on_success => METHOD_NAME
 
 Construct a new POE::Watcher::Delay.  The constructor takes two
 parameters: _length is the length of time to wait, in seconds;

@@ -1,7 +1,29 @@
 # $Id$
 
-# A sample POE::Stage that emits multiple messages for a single
-# request.  This is the same pattern as POE::Component::IRC uses.
+=head1 NAME
+
+POE::Stage::Ticker - a periodic message generator for POE::Stage
+
+=head1 SYNOPSIS
+
+	$self->{req}{ticker} = POE::Stage::Ticker->new();
+	$self->{req}{request} = POE::Request->new(
+		_stage    => $self->{req}{ticker},
+		_method   => "start_ticking",
+		_on_tick  => "handle_tick",   # Invoke my handle_tick() method
+		interval  => 10,              # every 10 seconds.
+	);
+
+	sub handle_tick {
+		my ($self, $args) = @_;
+		print "Handled tick number $args->{id} in a series.\n";
+	}
+
+=head1 DESCRIPTION
+
+POE::Stage::Ticker emits recurring messages at a fixed interval.
+
+=cut
 
 package POE::Stage::Ticker;
 
@@ -11,6 +33,13 @@ use strict;
 use base qw(POE::Stage);
 
 use POE::Watcher::Delay;
+
+=head2 start_ticking interval => INTERVAL
+
+Used to request the Ticker to start ticking.  The Ticker will emit a
+"tick" message every INTERVAL seconds.
+
+=cut
 
 sub start_ticking {
 	my ($self, $args) = @_;
@@ -57,3 +86,33 @@ sub set_delay {
 }
 
 1;
+
+=head1 BUGS
+
+The constructor semantics lend themselves to the pattern where a
+singleton Ticker object ticks for multiple requesters.  The Ticker
+object doesn't stop ticking until it's destroyed, however, so it's
+impossible to stop one requester's request without stopping them all.
+
+POE::Watcher objects follow the pattern where they start at
+construction time and stop at destruction time, but it's important for
+the ticker to be a POE::Stage.  Someone will eventually try to blur
+the boundaries between patterns and create a POE::Stage that starts
+doing something at construction time.
+
+=head1 SEE ALSO
+
+POE::Stage and POE::Request.  The examples/many-responses.perl program
+in POE::Stage's distribution.
+
+=head1 AUTHORS
+
+Rocco Caputo <rcaputo@cpan.org>.
+
+=head1 LICENSE
+
+POE::Stage::Ticker is Copyright 2005 by Rocco Caputo.  All rights are
+reserved.  You may use, modify, and/or distribute this module under
+the same terms as Perl itself.
+
+=cut
