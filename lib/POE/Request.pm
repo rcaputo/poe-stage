@@ -1,5 +1,59 @@
 # $Id$
 
+=head1 NAME
+
+POE::Request - a message class for requesting POE::Stage services
+
+=head1 SYNOPSIS
+
+	# Note, this is not a complete program.
+	# See the distribution's examples directory.
+
+	$self->{req}{do_it} = POE::Request->new(
+		_method => "method_name",           # invoke this method
+		_stage  => $self->{stage_object},   # of this stage
+		param_1 => 123,         # with this parameter
+		param_2 => "abc",       # and this one
+		_on_one => "do_one",    # map a "one" response to method
+	);
+
+	# Handle a "one" response.
+	sub do_one {
+		my ($self, $args) = @_;
+		...;
+	}
+
+=description
+
+POE::Request objects are created to initiate dialogues between
+POE::Stage objects.  Subclasses of POE::Request are used to continue
+established dialogues, but they are not created explicitly.  Rather,
+methods of POE::Request and its subclasses transparently create new
+request objects when called.
+
+POE::Request objects (and those of its subclasses) act as data scopes
+when treated as hash references.  Storing data into a POE::Request
+object transparently stores it in the current POE::Stage object.  Data
+stored in this manner becomes available again when accessing responses
+to the
+request.
+
+For example:
+
+	$self->{req}{foo} = POE::Request->new( ... );
+	$self->{req}{foo}{key} = "a sample value";
+
+A response to this request is handled at a later point in time:
+
+	print "$self->{rsp}{key}\n";  # prints "a sample value".
+
+This works because POE::Stage always treats $self->{req} as the
+current request being handled.  When appropriate, $self->{rsp} is the
+current response being handled.  If this is confusing, POE::Stage
+discusses the special "req" and "rsp" data members in more detail.
+
+=cut
+
 package POE::Request;
 
 use warnings;
@@ -190,6 +244,30 @@ sub _send_to_target {
 	);
 }
 
+=head2 new PAIRS
+
+Create a new POE::Request, and automatically send it to its
+destination.  Requires at least two parameters: _stage contains the
+object that will receive the request, and _method is the name of a
+method on _stage that will be called to handle it.  Additional
+parameters, unadorned by leading underscores, will be passed as
+parameters in _stage's _method's $args parameter.
+
+The SYNOPSIS contains a trivial example of the syntax.
+
+POE::Request returns an object which must be saved.  Destroying a
+POE::Request will cancel the request and free up all data and watchers
+associated with it.  By convention, requests made on behalf of
+higher-level requests are stored in the higher-level request's data.
+Therefore, cancelling a request cascades destruction and cancellation
+through all its sub-requests.  Pretty neat, huh?
+
+Instances of POE::Request subclasses do not need to be saved.  They
+are ephemeral responses and re-requests, and their lifespans do not
+control the duration of any dialogues.
+
+=cut
+
 sub new {
 	my ($class, %args) = @_;
 
@@ -259,13 +337,28 @@ sub _assimilate_args {
 	$self_data->[REQ_ARGS] = { %args };
 }
 
+=head2 init HASHREF
+
+The init() method receives the request's constructor $args before they
+are processed and stored in the request.  Its timing gives it the
+ability to modify members of $args, add new ones, or remove old ones.
+
+Custom POE::Request subclasses may use init() to verify that
+parameters are correct.  The design of POE::Request is such that
+subclasses (and therefore init()) may become unnecessary, but the
+method exists at the time of this writing.
+
+=cut
+
 sub init {
 	# Virtual base method.  Do nothing by default.
 }
 
 # Deliver the request to its destination.  Requesting down into a
-# stage, so req is the request that invoked the method, and _rsp is
+# stage, so req is the request that invoked the method, and rsp is
 # zero because there's no downward path from here.
+#
+# TODO - Rename _deliver since this is a friend method.
 
 sub deliver {
 	my ($self, $method) = @_;
@@ -295,16 +388,57 @@ sub deliver {
 # Return a response to the requester.  The response occurs in the
 # requester's original context, somehow.
 
+=head2 return PAIRS
+
+Cancels the current POE::Request object, invalidating it for future
+operations, and creates a POE::Request::Return object.  This new
+object is initialized with the PAIRS of supplied parameters and
+automatically sent back to the now defunct POE::Request.
+
+Please see POE::Request::Return for constructor parameters and other
+information about return messages.
+
+=cut
+
 sub return {
 	my ($self, %args) = @_;
 	$self->_emit("POE::Request::Return", %args);
 	$self->cancel();
 }
 
+=head2 emit PAIRS
+
+Creates a POE::Request::Emit object initialized with the PAIRS of
+supplied parameters, and automatically sends it back to the creator of
+the current POE::Request.
+
+Unlike return(), emit() does not cancel the current request.  This
+makes it useful for sending back more than one response for a single
+request.
+
+Please see POE::Request::Emit for constructor parameters and other
+information about emit messages.  Hint: It's virtually the same as
+POE::Request::Return, but emitted messages can be replied to.
+
+=cut
+
 sub emit {
 	my ($self, %args) = @_;
 	$self->_emit("POE::Request::Emit", %args);
 }
+
+=head2 cancel
+
+Explicitly cancel a request.  Normally destroying the request object
+is sufficient, but a request's destruction cannot be triggered by the
+stage handing the request.  The stage can call cancel() however.
+
+As mentioned earlier, canceling a request frees up the data associated
+with that request.  Cancellation and destruction cascade through the
+tree of requests, freeing up everything associated with the request
+originally canceled.
+
+=cut
 
 sub cancel {
 	my $self = shift;
@@ -372,3 +506,23 @@ sub _emit {
 }
 
 1;
+
+=head1 SEE ALSO
+
+POE::Request has subclasses that are used internally.  While they
+share the same interface as POE::Request, all its methods are not
+appropriate in all its subclasses.  Therefore, please see:
+POE::Request::Return, POE::Request::Recall, POE::Request::Emit, and
+POE::Request::Upward.
+
+=head1 AUTHORS
+
+Rocco Caputo <rcaputo@cpan.org>.
+
+=head1 LICENSE
+
+POE::Request is Copyright 2005 by Rocco Caputo.  All rights are
+reserved.  You may use, modify, and/or distribute this module under
+the same terms as Perl itself.
+
+=cut

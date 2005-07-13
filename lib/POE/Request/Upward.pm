@@ -1,7 +1,19 @@
 # $Id$
 
-# This is a base class for requests that flow upward, from a child
-# request to its parent.  Emit and Return, for example.
+=head1 NAME
+
+POE::Request::Upward - a base class for POE::Stage response messages
+
+=head1 SYNOPSIS
+
+	This module isn't meant to be used directly.
+
+=head1 DESCRIPTION
+
+POE::Request::Emit and POE::Request::Return share quite a lot of code.
+That shared code is in this common base class.
+
+=cut
 
 package POE::Request::Upward;
 
@@ -26,6 +38,44 @@ use Scalar::Util qw(weaken);
 use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
 
 use constant DEBUG => 0;
+
+=head2 new PAIRS
+
+Create a new POE::Request response message, using PAIRS of parameters
+to initialize the response.  POE::Request::Upward has one mandatory
+parameter: _type.  This defines the type of response being created.
+Parameters without leading underscores are the responses' payloads.
+They are passed unchanged to the response's handler as its $args
+parameter.
+
+Response types are mapped to methods in the original requester's stage
+through the _on_type parameters to POE::Request.  This example maps
+responses of _type "success" to the requester's continue_on() method.
+Likewise "error" responses are mapped to the requester's
+log_and_stop() method.
+
+	$self->{req}{foo} = POE::Request->new(
+		_stage      => $some_stage_object,
+		_method     => "some_method_name",
+		_on_success => "continue_on",
+		_on_error   => "log_and_stop",
+	);
+
+How an asynchronous TCP connector might return success and failure:
+
+	$self->{req}->return(
+		_type  => "success",
+		socket => $socket,
+	);
+
+	$self->{req}->return(
+		_type     => "failure",
+		function  => "connect",
+		errno     => $!+0,
+		errstr    => "$!",
+	);
+
+=cut
 
 sub new {
 	my ($class, %args) = @_;
@@ -146,3 +196,21 @@ sub recall {
 }
 
 1;
+
+=head1 SEE ALSO
+
+POE::Request::Upward has two subclasses: POE::Request::Emit for
+emitting multiple responses to a single request, and
+POE::Request::Return for sending a final response to end a request.
+
+=head1 AUTHORS
+
+Rocco Caputo <rcaputo@cpan.org>.
+
+=head1 LICENSE
+
+POE::Request::Upward is Copyright 2005 by Rocco Caputo.  All rights
+are reserved.  You may use, modify, and/or distribute this module
+under the same terms as Perl itself.
+
+=cut

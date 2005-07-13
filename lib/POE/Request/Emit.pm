@@ -1,8 +1,31 @@
 # $Id$
 
-# Internal request class that is used for $request->emit().  It
-# subclasses POE::Request::Upward, customizing certain methods and
-# tweaking instantiation where necessary.
+=head1 NAME
+
+POE::Request::Emit - a class encapsulating non-terminal replies to POE::Request
+
+=head1 SYNOPSIS
+
+	# Note, this is not a complete program.
+	# See the distribution's examples directory.
+
+	$poe_request_object->emit(
+		_type     => "failure",
+		function  => "connect",
+		errnum    => $!+0,
+		errstr    => "$!",
+	);
+
+=head1 DESCRIPTION
+
+POE::Request::Emit is a class whose objects are created transparently
+when emit() is called on POE::Request objects.  These objects
+represent responses to POE::Request objects, but they do not cancel
+their trigger request.  This allows a stage to emit multiple events
+for a single request, finally calling return() or cancel() to end the
+request.
+
+=cut
 
 package POE::Request::Emit;
 
@@ -26,7 +49,17 @@ sub _init_subclass {
 	$self_data->[REQ_PARENT_REQUEST] = $current_request;
 }
 
-# Override recall() because we can do that from Emit.
+=head2 recall PAIRS
+
+recall() is used to respond to emit().  It creates a new
+POE::Request::Recall object, passing the specified PAIRS of arguments
+to its constructor.  Once constructed, the recall message is
+automatically sent to the source of the POE::Request::Emit object.
+
+You'll need to see POE::Request::Recall for details on constructing
+recall messages.
+
+=cut
 
 sub recall {
 	my ($self, %args) = @_;
@@ -59,3 +92,19 @@ sub recall {
 }
 
 1;
+
+=head1 SEE ALSO
+
+POE::Request, POE::Request::Recall, and probably POE::Stage.
+
+=head1 AUTHORS
+
+Rocco Caputo <rcaputo@cpan.org>.
+
+=head1 LICENSE
+
+POE::Request::Emit is Copyright 2005 by Rocco Caputo.  All rights are
+reserved.  You may use, modify, and/or distribute this module under
+the same terms as Perl itself.
+
+=cut

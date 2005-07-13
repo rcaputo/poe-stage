@@ -1,10 +1,78 @@
 # $Id$
 
-# Tied interface to a Stage's data.  Used to transparently fetch
-# contextual data for members with a leading underscore ("_foo").
+=head1 NAME
 
-# POE::Stage's internal methods live in here so they don't clash with
-# subclasses'.
+POE::Stage::TiedAttributes - implements request-scoped data storage
+
+=head1 SYNOPSIS
+
+	This module is not meant to be used directly.
+
+=head1 DESCRIPTION
+
+POE::Requset::TiedAttributes and POE::Stage::TiedAttributes are used
+to map hash access in request objects to request-scoped storage in
+stage objects.  POE::Request::TiedAttributes describes
+request/response continuations.  This document will talk about the
+special req and rsp data members of POE::Stage.
+
+=head2 The "req" Data Member
+
+Every POE::Stage object has two read-only data members: req and rsp.
+The req data member refers to the POE::Request object that the stage
+is currently handling.  For example:
+
+	my $req = POE::Request->new(
+		_stage  => $stage_1,
+		_method => "handle_it",
+	);
+
+Now here's $stage_1's handle_it() method.  When called, it will print
+its current request.  That request will be the same as $req, created
+above.
+
+	sub handle_it {
+		my ($self, $args) = @_;
+		print "$self->{req}\n";
+	}
+
+Actually, it may not be exactly the same as $req, but it will be the
+moral equivalent of $req.  This caveat leaves a loophole through which
+we can pass requests across process boundaries later.
+
+$self->{req} is also great for responding to requests:
+
+	$self->{req}->emit( ... );
+	$self->{req}->return( ... );
+
+It should be noted that $self->{req} is valid (and, if we're lucky,
+correct) when responses to our own requests are being handled.  This
+hander cascades a return() from a sub-request to a parent request:
+
+	sub handle_a_response {
+		my ($self, $args) = @_;
+		$self->{req}->return(
+			_type => "done",
+			result => $args->{sub_result},
+			cookie => $self->{req}{cookie},
+		);
+	}
+
+=head2 The "rsp" Data Member
+
+The special $self->{rsp} data member refers to responses to requests
+we've made.  It's only valid during the execution of methods currently
+handling responses.
+
+	sub handle_sub_response {
+		my ($self, $args) = @_;
+		$self->{rsp}->recall( ... );
+	}
+
+When used as a hash, the response in $self->{rsp} refers to the scope
+of the request that generated it.
+
+=cut
 
 package POE::Stage::TiedAttributes;
 
@@ -131,3 +199,21 @@ sub _request_context_destroy {
 }
 
 1;
+
+=head1 SEE ALSO
+
+POE::Request::TiedAttributes, which implements the POE::Request side
+of this magic and discusses the request-scoped namespaces in a little
+more detail.
+
+=head1 AUTHORS
+
+Rocco Caputo <rcaputo@cpan.org>.
+
+=head1 LICENSE
+
+POE::Stage::TiedAttributes is Copyright 2005 by Rocco Caputo.  All
+rights are reserved.  You may use, modify, and/or distribute this
+module under the same terms as Perl itself.
+
+=cut

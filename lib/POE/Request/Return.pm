@@ -1,8 +1,30 @@
 # $Id$
 
-# Internal request class that is used for $request->return().  It
-# subclasses POE::Request::Upward, customizing certain methods and
-# tweaking instantiation where necessary.
+=head1 NAME
+
+POE::Request::Return - a class encapsulating terminal replies to POE::Request
+
+=head1 SYNOPSIS
+
+	# Note, this is not a complete program.
+	# See the distribution's examples directory.
+
+	$poe_request_object->emit(
+		_type     => "failure",
+		function  => "connect",
+		errnum    => $!+0,
+		errstr    => "$!",
+	);
+
+=head1 DESCRIPTION
+
+A POE::Request::Return object is used to send a final response to a
+request.  It is transparently created and sent when a stage calls
+$self->{req}->return(...);  Part of return()'s purpose is to cancel
+the request it replies to, invalidating any further dialog associated
+with it.
+
+=cut
 
 package POE::Request::Return;
 
@@ -28,3 +50,21 @@ sub _init_subclass {
 }
 
 1;
+
+=head1 SEE ALSO
+
+POE::Request::Return is comprised almost entirely of
+POE::Request::Upward's features.  You should see POE::Request::Upward
+for a deeper understanding of POE::Request::Return.
+
+=head1 AUTHORS
+
+Rocco Caputo <rcaputo@cpan.org>.
+
+=head1 LICENSE
+
+POE::Request::Return is Copyright 2005 by Rocco Caputo.  All rights
+are reserved.  You may use, modify, and/or distribute this module
+under the same terms as Perl itself.
+
+=cut

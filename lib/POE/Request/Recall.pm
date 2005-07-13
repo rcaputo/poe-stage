@@ -1,8 +1,28 @@
 # $Id$
 
-# Internally used response class that is used for $request->recall().
-# It subclasses POE::Request, preventing some methods from being
-# called and completing instantiation in a unique way.
+=head1 NAME
+
+POE::Request::Recall - a message class for responses to POE::Request::Emit
+
+=head1 SYNOPSIS
+
+	# Note, this is not a complete program.
+	# See the distribution's examples directory.
+
+	$self->{rsp}->recall(
+		_method => "method_name",     # invoke this method on Emit's creator
+		param_1 => 123,               # with this parameter
+		param_2 => "abc",             # and this one, too
+	);
+
+=head1 DESCRIPTION
+
+POE::Request::Recall objects encapsulate responses to
+POE::Request::Emit objects.  They are not created explicitly; rather,
+they are created when recall() is called on a POE::Request::Emit
+object.
+
+=cut
 
 package POE::Request::Recall;
 
@@ -23,6 +43,15 @@ use POE::Request qw(
 use base qw(POE::Request);
 
 use constant DEBUG => 0;
+
+=head2 new PAIRS
+
+Create a new POE::Request::Recall object, specifying the _method to
+call in the POE::Stage object on the other end of the dialog.
+Parameters without leading underscores are passed unchanged through to
+_method's $args parameter.
+
+=cut
 
 sub new {
 	my ($class, %args) = @_;
@@ -87,3 +116,19 @@ sub recall {
 }
 
 1;
+
+=head1 SEE ALSO
+
+POE::Request, POE::Request::Emit, and probably POE::Stage.
+
+=head1 AUTHORS
+
+Rocco Caputo <rcaputo@cpan.org>.
+
+=head1 LICENSE
+
+POE::Request::Recall is Copyright 2005 by Rocco Caputo.  All rights
+are reserved.  You may use, modify, and/or distribute this module
+under the same terms as Perl itself.
+
+=cut
