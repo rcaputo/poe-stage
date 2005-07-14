@@ -7,6 +7,9 @@ Fix bugs:
 		Failed test (t/01_all_call_types.t at line 137)
 		Failed test (t/01_all_call_types.t at line 169)
 
+		I can't reproduce this on FreeBSD or OS X.  I don't know what OS,
+		Perl or POE xantus used to cause this.
+
 Other stuff:
 
 The recent massive commit includes duplicated and sometimes crude and
@@ -48,12 +51,15 @@ DONE: Define sub-request scoping rules.
 
 	as well as $self->{rsp} stuff.
 
-3. Document what exists so far.
+DONE: Document what exists so far.
 
 4. Create a POE::Stage::Resolver that is analogous to
 POE::Component::Client::DNS
 
 	a. Add any new watchers we'll need.
+
+	DONE so far: Created a mock-up of the resolver.  Now it needs
+	Net::DNS::Resolver guts.
 
 5. Create a POE::Stage::KeepaliveClient that is analogous to
 POE::Component::Client::Keepalive.
