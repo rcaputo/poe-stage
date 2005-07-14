@@ -130,7 +130,7 @@ sub _free_request_id {
 use overload (
 	'""' => sub {
 		my $id = tied(%{shift()})->[REQ_ID];
-		return "(request \#$id)";
+		return "(request $id)";
 	},
 	'0+' => sub {
 		my $id = tied(%{shift()})->[REQ_ID];

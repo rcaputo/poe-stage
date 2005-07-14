@@ -4,7 +4,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 19;
+use Test::More tests => 25;
 
 my $go_req;
 my $key_value;
@@ -28,6 +28,11 @@ my $key_value;
 
 		ok(
 			$self->{req} == $go_req,
+			"do_emit req (".($self->{req}+0).") should match go_req (".($go_req+0).")"
+		);
+
+		ok(
+			$self->{req} eq $go_req,
 			"do_emit req ($self->{req}) should match go_req ($go_req)"
 		);
 
@@ -62,6 +67,12 @@ my $key_value;
 
 		ok(
 			$self->{req} == $go_req,
+			"do_return req (" . ($self->{req}+0) . ") should match go_req (" .
+			($go_req+0) . ")"
+		);
+
+		ok(
+			$self->{req} eq $go_req,
 			"do_return req ($self->{req}) should match go_req ($go_req)"
 		);
 
@@ -131,11 +142,23 @@ my $key_value;
 
 		ok(
 			$self->{req} == $self->{original_req},
+			"emit req (" . ($self->{req}+0) . ") should match original (" .
+			($self->{original_req}+0) . ")"
+		);
+
+		ok(
+			$self->{req} eq $self->{original_req},
 			"emit req ($self->{req}) should match original ($self->{original_req})"
 		);
 
 		ok(
 			$self->{rsp} == $self->{original_sub},
+			"emit rsp (" . ($self->{rsp}+0) . ") should match original (" .
+			($self->{original_sub}+0) . ")"
+		);
+
+		ok(
+			$self->{rsp} eq $self->{original_sub},
 			"emit rsp ($self->{rsp}) should match original ($self->{original_sub})"
 		);
 
@@ -163,11 +186,23 @@ my $key_value;
 
 		ok(
 			$self->{req} == $self->{original_req},
+			"ret req (" . ($self->{req}+0) . ") should match original (" .
+			($self->{original_req}+0) . ")"
+		);
+
+		ok(
+			$self->{req} eq $self->{original_req},
 			"ret req ($self->{req}) should match original ($self->{original_req})"
 		);
 
 		ok(
 			$self->{rsp} == $self->{original_sub},
+			"ret rsp (" . ($self->{rsp}+0) . ") " .
+			"should match original sub (" . ($self->{original_sub}+0) . ")"
+		);
+
+		ok(
+			$self->{rsp} eq $self->{original_sub},
 			"ret rsp ($self->{rsp}) " .
 			"should match original sub ($self->{original_sub})"
 		);
