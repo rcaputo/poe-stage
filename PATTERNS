@@ -836,3 +836,56 @@ Oops!
 			things are stored and clean them up automatically.  However, the
 			resulting code will look odd.  People will see things stored but
 			never cleaned up when they read through the code.
+
+Back to stage construction/use patterns.
+
+	Create a singleton stage to perform multiple tasks requested of it
+	by a single consumer.
+	
+		The producer dies when all its jobs are done.  All stages written
+		to date use this pattern.  Unfortunately only a few of them really
+		need it.
+
+		$self->{req}{producer} = POE::Stage::Foo->new();
+		$self->{req}{go} = POE::Request->new(
+			_stage      => $self->{req}{producer},
+			_method     => "start_producing",
+			param       => $parameter,
+			_on_result  => "handle_result",
+		);
+
+	Create a one-off stage to perform a single instance of a task.
+	
+		The stage dies when its job is done.  POE::Watcher classes adhere
+		to this pattern, but people will want their stages to do so as
+		well.
+
+		$self->{req}{producer} = POE::Stage::Foo->new(
+			param       => $parameter,
+			_on_result  => "handle_result",
+		);
+
+		I forsee this being a rather common use pattern.  The trick is
+		implementing stages so this may work.
+
+	Create a singleton stage to perform multiple tasks from multiple
+	consumers.
+	
+		The producer dies when explicitly shut down.  More often, the
+		producer lives until the program is done.  Current stage objects
+		may operate this way if they are stored in a scope that lasts the
+		lifespan of a program.
+
+		This pattern may fall into relative disuse with the advent of
+		easily created, used, and destroyed stages.  I don't forsee it
+		disappearing entirely, however.
+
+	Is it possible to abstract the stage's lifespan and use pattern
+	outside the stage?  That is, stage users would be allowed to
+	determine how they should be used rather than the stages
+	implementing one particular method.
+
+		Giving the user control over how the stage is used means that a
+		user can choose a consistent interface for all stages she uses.
+		Likewise, she may break the consistency explicitly rather than be
+		forced to do so by conflicting stage interfaces.
