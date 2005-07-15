@@ -137,7 +137,29 @@ sub new {
 	tie my (%self), "POE::Stage::TiedAttributes";
 	my $self = bless \%self, $class;
 
+	# TODO - Right here.  We want init() to be able to start a request
+	# on behalf of the creator, but the request should be
+	# self-referential.  So what should the context of init() be like?
+	#
+	# I think the current stage should be $self here.
+	# $self->{req} is undef.  That's probably good.
+	# $self->{rsp} is also undef.  That's also good.
+	#
+	# We should be able to store the internal request in $self.  Let's
+	# try that.  To do it, though, we'll need to break POE::Request
+	# encapsulation a little bit.
+
+#	POE::Request->_push( 0, $self, "init" );
+
+## Not used yet, but I typed it.
+#	my $req = POE::Request->new(
+#		_stage  => $self,
+#		_method => "init",
+#	);
+
 	$self->init(\%args);
+
+#	POE::Request->_pop( 0, $self, "init" );
 
 	return $self;
 }

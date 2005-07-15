@@ -122,6 +122,10 @@ sub _reallocate_request_id {
 # Returns true if the ID is freed.
 sub _free_request_id {
 	my $id = shift;
+
+	# This croak() actually seems to help with a memory leak.
+	croak "$id isn't allocated" unless $active_request_ids{$id};
+
 	return 0 if --$active_request_ids{$id};
 	delete $active_request_ids{$id};
 	return 1;
@@ -172,6 +176,14 @@ sub _get_current_stage {
 
 # Push the request on the request stack, making this one active or
 # current.
+
+# TODO - Leolo suggests using true globals and localizing them at
+# dispatch time.  This might be faster despite the penalty of using a
+# true global.  It may also be possible to make $req and $rsp magic
+# variables that POE::Stage exports, but would the exported versions
+# of globals refer to the global or the localized value?  It appears
+# that localization's not an option.  See lab/local-scoped-state.perl
+# for a test case.
 
 sub _push {
 	my ($self, $request, $stage, $method) = @_;
