@@ -22,14 +22,8 @@ use strict;
 	sub run {
 		my ($self, $args) = @_;
 
-		# "req" is the magic field that refers to the current request we
-		# are handling.  Build a new Resolver stage, and store it for the
-		# duration of the "run" request.
-		$self->{req}{resolver} = POE::Stage::Resolver->new();
-
 		# Start a handful of initial requests.
-		for (1..10) {
-
+		for (1..5) {
 			my $next_address = read_next_address();
 			last unless defined $next_address;
 
@@ -40,14 +34,24 @@ use strict;
 	sub handle_host {
 		my ($self, $args) = @_;
 
-		# "rsp" is the magic field that contains the current response
-		# being handled.
-		my $response = $self->{rsp};
+		my $input = $args->{input};
+		my $packet = $args->{packet};
 
-		# Because $self->{rsp}'s context is the same as $request above,
-		# $self->{rsp}{data} will contain the address corresponding to the
-		# host we've just received.
-		print "Resolved: $response->{address} = $args->{host}\n";
+		my @answers = $packet->answer();
+		foreach my $answer (@answers) {
+			print(
+				"Resolved: $input = type(", $answer->type(), ") data(",
+				$answer->rdatastr, ")\n"
+			);
+		}
+
+		# Clean up the one-time Stage.
+		# TODO - This should be optional.  If new() is called in void
+		# context, it should hold onto itself until done and then release
+		# itself.  Currently it seems we're leaking stages because they
+		# don't self-destruct if we call new() in void context.  That's a
+		# bug.  I must make a test case!
+		delete $self->{req}{$input};
 
 		my $next_address = read_next_address();
 		return unless defined $next_address;
@@ -69,27 +73,17 @@ use strict;
 	sub resolve_address {
 		my ($self, $next_address) = @_;
 
-		# Build a request to resolve the next address into a host.
-		my $request = POE::Request->new(
-			_stage    => $self->{req}{resolver},
-			_method   => "resolve_to_host",
-			_on_host  => "handle_host",
-			_on_error => "handle_error",
-			address   => $next_address,
+		# Create a self-requesting stage.
+		#
+		# TODO - We don't seem to need to store it anywhere, which means
+		# we may be able to fire off one-off stages that self-destruct.
+		# But first we need to find out how to make them self-destruct.
+		$self->{req}{$next_address} = POE::Stage::Resolver->new(
+			_on_success => "handle_host",
+			_on_error   => "handle_error",
+			input       => $next_address,
 		);
 
-		# Save the request keyed on itself.  The request is effectively
-		# cancelled if we let it DESTROY, so this keeps it alive.
-		$self->{req}{$request} = $request;
-
-		# Store some local data in the request.  This data is only
-		# visible from the current stage, in the context of the current
-		# request we have just made ($request), or any response to it.
-		# See handle_host() just below.
-		#
-		# TODO - Internally this should store the data where?  Where is
-		# it stored now when we say $self->{req_addres} ?
-		$request->{address} = $next_address;
 	}
 }
 
@@ -105,23 +99,30 @@ POE::Kernel->run();
 exit;
 
 __DATA__
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
+141.213.238.252
+192.116.231.44
+193.109.122.77
+193.163.220.3
+193.201.200.130
+194.109.129.220
+195.111.64.195
+195.82.114.48
+198.163.214.60
+198.175.186.5
+198.252.144.2
+198.3.160.3
+204.92.73.10
+205.210.145.2
+209.2.32.38
+216.193.223.223
+216.32.207.207
+217.17.33.10
+64.156.25.83
+65.77.140.140
+66.225.225.225
+66.243.36.134
+66.33.204.143
+66.33.218.20
+68.213.211.142
+69.16.172.2
+80.240.238.17
