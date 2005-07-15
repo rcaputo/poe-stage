@@ -9,8 +9,6 @@ use warnings;
 use strict;
 
 {
-	# The application is itself a POE::Stage;
-
 	package App;
 
 	use warnings;
@@ -70,6 +68,7 @@ use strict;
 		return;             # EOF.
 	}
 
+	# Plain old method.  Doesn't handle events.
 	sub resolve_address {
 		my ($self, $next_address) = @_;
 

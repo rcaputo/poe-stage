@@ -126,8 +126,16 @@ sub net_dns_ready_to_read {
 		error   => $self->{resolver}->errorstring(),
 	);
 
-	delete $self->{init_req};
-	delete $self->{wait_for_it};
+#	# Dump things when we should be done with them.  Originally used to
+#	# find a memory leak in self-requesting stages.
+#	use Data::Dumper;
+#
+#	warn "*********** self :\n";
+#	warn Dumper($self), "\n";
+#	warn Dumper(tied(%{$self->{init_req}}));
+#
+#	delete $self->{init_req};
+#	delete $self->{wait_for_it};
 }
 
 1;

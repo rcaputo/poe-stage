@@ -56,10 +56,11 @@ DONE: Document what exists so far.
 4. Create a POE::Stage::Resolver that is analogous to
 POE::Component::Client::DNS
 
-	a. Add any new watchers we'll need.
+	DONE: It answers simple A to PTR requests.
 
-	DONE so far: Created a mock-up of the resolver.  Now it needs
-	Net::DNS::Resolver guts.
+	b. Answer name to A requests.
+
+	c. Needs a timeout.
 
 5. Create a POE::Stage::KeepaliveClient that is analogous to
 POE::Component::Client::Keepalive.

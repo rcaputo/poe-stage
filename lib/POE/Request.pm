@@ -478,6 +478,9 @@ sub cancel {
 		delete $parent_data->[REQ_CHILD_REQUESTS]{$self};
 		$self_data->[REQ_PARENT_REQUEST] = 0;
 	}
+
+	# Weaken the target stage?
+	weaken $self_data->[REQ_TARGET_STAGE];
 }
 
 sub _emit {

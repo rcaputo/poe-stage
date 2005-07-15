@@ -51,13 +51,6 @@
 		);
 	}
 
-	# Another rule: One must delete a self-referential request and any
-	# resources explicitly.  Both seem to hold strong circular
-	# references, although I don't know exactly where.
-	#
-	# TODO - Find the strong circular references, and see which can be
-	# weakened.
-
 	sub time_is_up {
 		my ($self, $args) = @_;
 		warn 2;
@@ -65,9 +58,10 @@
 			_type => "done",
 		);
 
-		# Must delete these to break circular references.
-		delete $self->{request};
-		delete $self->{req}{delay};
+		# Don't need to delete these as long as the request is canceled,
+		# either by calling $self->{req}->return() on ->cancel().
+		#delete $self->{request};
+		#delete $self->{req}{delay};
 	}
 }
 
