@@ -62,12 +62,34 @@ POE::Component::Client::DNS
 
 	c. Needs a timeout.
 
-5. Create a POE::Stage::KeepaliveClient that is analogous to
-POE::Component::Client::Keepalive.
+...
 
-	a. Add any new watchers we'll need.
+POE::Stage::Resolver    - POE::Component::Client::DNS
+POE::Stage::Connector   - POE::Wheel::SocketFactory (client mode)
+POE::Stage::Acceptor    - POE::Wheel::SocketFactory (server mode)
+POE::Stage::IO          - POE::Wheel::ReadWrite
+POE::Connection         - represents an established point-to-point
+POE::Connection::Socket - a connection with additional socket methods
 
-6. Create a POE::Stage::HttpClient that is analogous to
+To replace POE::Component::Client::Keepalive, I would like to create a
+mix-in class that defines a resource's poolability and generic pool
+management stage:
+
+	POE::Aspect::Poolable   - Allows a class to be pooled.
+	POE::Stage::Pool        - Manage poolable objects.
+
+And higher-level TCP client/server classes:
+
+	POE::Stage::TcpClient   - POE::Component::Client::TCP
+	POE::Stage::TcpServer   - POE::Component::Server::TCP
+
+Then:
+
+POE::Stage::HttpClient    - POE::Component::Client::{HTTP,UserAgent}
+
+...
+
+N. Create a POE::Stage::HttpClient that is analogous to
 POE::Component::Client::HTTP
 
 	a. Add any new watchers we'll need.
