@@ -44,11 +44,11 @@ use strict;
 		}
 
 		# Clean up the one-time Stage.
-		# TODO - This should be optional.  If new() is called in void
-		# context, it should hold onto itself until done and then release
-		# itself.  Currently it seems we're leaking stages because they
-		# don't self-destruct if we call new() in void context.  That's a
-		# bug.  I must make a test case!
+		#
+		# TODO - What if this were optional?  If new() were to be called
+		# in void context, the framework could hold onto the stage until
+		# it it called return() or cancel().  Then the framework frees it.
+
 		delete $self->{req}{$input};
 
 		my $next_address = read_next_address();
@@ -73,10 +73,6 @@ use strict;
 		my ($self, $next_address) = @_;
 
 		# Create a self-requesting stage.
-		#
-		# TODO - We don't seem to need to store it anywhere, which means
-		# we may be able to fire off one-off stages that self-destruct.
-		# But first we need to find out how to make them self-destruct.
 		$self->{req}{$next_address} = POE::Stage::Resolver->new(
 			_on_success => "handle_host",
 			_on_error   => "handle_error",
