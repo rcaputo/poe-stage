@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Stage - a prototype base class for formalized POE components
+POE::Stage - a proposed base class for formalized POE components
 
 =head1 SYNOPSIS
 
@@ -19,38 +19,29 @@ POE::Stage - a prototype base class for formalized POE components
 
 =head1 DESCRIPTION
 
-The POE::Stage object system consists of reusable, inheritable
-components currently called stages.  Stages receive requests, perform
-their tasks, and return results.
+POE::Stage is a proposed base class for POE components.  Its purpose
+is to standardize the most common design patterns that have arisen
+through years of POE::Component development.
 
-POE::Stage is a prototype base class for POE components.  It strives
-to implement some of the most often used component patterns so that
-component writers no longer need to.
+Complex programs generally perform their tasks in multiple steps, or
+stages.  For example, fetching a web page requires four or so steps:
+1. Look up the host's address.  2. Connect to the remote host.  3.
+Transmit the request.  4. Receive the response.
 
-It eliminates the need to manage most POE::Session objects directly.
-Rather, the base class creates and maintains the sessions that drive
-POE::Stage objects.
+POE::Stage promotes the decomposition of multi-step processes into
+discrete, reusable stages.  In this case: POE::Stage::Resolver to
+resolve host names into addresses.  POE::Stage::Connector to establish
+a socket connection to the remote host.  POE::Stage::StreamIO to
+transmit the request and receive the response.
 
-POE::Request and its subclasses formalize the way messages are passed
-between components.
+Stages perform their tasks in response to request messages.  They
+return messages containing the result of each task as it's completed.
 
-POE::Stage message handlers use a simple, consistent calling
-convention.
-
-It implements request-scoped data, eliminating most of the need for
-explicitly dividing stage data into per-request spaces.  Per-request
-data cleanup is automated when requests end.
-
-It provides a consistent way to shut down stages: Destroy their
-objects.
-
-It manages a parent/child tree of request associations, tracking new
-requests as children of existing ones.  Request cancellation is
-automatically cascaded through the parent/child tree, canceling child
-requests, grandchildren, and so on in a single operation.
-
-It provides a class interface to POE::Kernel watchers through
-POE::Watcher and its subclasses.
+If done right, high-level stages will be built from lower-level ones.
+POE::Stage::HTTPClient would present a simple request/response
+interface while internally creating and coordinating
+POE::Stage::Resolver, POE::Stage::Connector, and POE::Stage::StreamIO
+as necessary.
 
 =cut
 
@@ -115,16 +106,20 @@ sub _get_session_id {
 	return $singleton_session_id;
 }
 
-=head2 new PAIRS
+=head1 RESERVED METHODS
+
+As a base class, POE::Stage must reserve a small number of methods for
+its own.
+
+=head2 new PARAMETER_PAIRS
 
 Create and return a new POE::Stage object, optionally passing
 key/value PAIRS in its init() callback's $args parameter.  Unlike in
-POE, you must save the object POE::Stage returns if you intend to use
-it.
+POE, you must save the object POE::Stage->new() returns if you intend
+to use it.
 
 It is not recommended that subclasses override new.  Rather, they
-should implement init() functions to initialize themselves after
-instantiation.
+should implement init() to initialize themselves after instantiation.
 
 =cut
 
@@ -164,7 +159,7 @@ sub new {
 	return $self;
 }
 
-=head2 init
+=head2 init PARAMETER_PAIRS
 
 init() is a virtual base method used to initialize POE::Stage objects
 after construction.  Subclasses override this to perform their own
@@ -179,6 +174,54 @@ sub init {
 
 1;
 
+=head2 DESIGN GOALS
+
+Eliminate the need to manage POE::Session objects directly.  One
+common component pattern uses an object as its command interface.
+Creating the object starts an internal POE::Session.  Destroying the
+command object shuts that session down.  POE::Stage takes care of the
+session management.
+
+Standardize messages between components.  POE components sport a wide
+variety of message-based interfaces, limiting their interoperability.
+POE::Stage provides a base POE::Message class that can be used by
+itself or subclassed.
+
+Create a class library for event watchers.  POE's Kernel-based
+watchers divert their ownership away from objects and sessions.
+POE::Watcher objects wrap and manage POE::Kernel's watchers, providing
+a clear indicator of their ownership and lifetimes.
+
+Eliminate positional event parameters.  POE promotes the use of
+positional parameters (ARG0, ARG1, etc.)  POE::Stage uses named
+parameters throughout.  POE::Watcher objects translate POE::Kernel's
+ARG0-based values into named parameters.  POE::Message objects use
+named parameters.
+
+Standardize message and event handlers' calling conventions.  All
+POE::Message and POE::Watcher callbacks accept the same two
+parameters: $self and a hash reference containing named parameters.
+
+Eliminate the need to manage task-specific data.  POE components must
+explicitly create task contexts internally and associate them with
+requests.  As requests finish, components need to ensure their
+associated contexts are cleaned up or memory leaks ensue.  POE::Stage
+provides special data members, $self->{req} and $self->{rsp}.  They
+are automatically associated with requests being made of an outer
+stage or being made to an inner or sub-stage, respectively.  They are
+automatically cleaned up when a request is finished.
+
+Standardize the means to shut down stages.  POE components implement a
+variety of shutdown methods.  POE::Stage objects are shut down by
+destroying their objects.
+
+Associate high-level requests with the lower-level requests that are
+made to complete a task.  Interactions between multiple POE components
+requires very careful state and object management, often explicitly
+coded by the components' user.  POE::Stage combines request-scoped
+data with object-based requests, watchers, and stages, to
+automatically clean up all the resources associated with a request.
+
 =head1 BUGS
 
 POE::Stage classes need a concise way to document their interfaces.
@@ -189,6 +232,8 @@ This full-on English narrative is inadequate.
 POE::Request is the class that defines inter-stage messages.
 POE::Watcher is the base class for event watchers, without which
 POE::Stage won't run very well.
+
+SEDA is at L<http://www.eecs.harvard.edu/~mdw/proj/seda/>.
 
 =head1 AUTHORS
 
