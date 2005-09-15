@@ -13,10 +13,12 @@ POE::Stage::Echoer - a stage that echoes back whatever it's given
 	my $stage = POE::Stage::Echoer->new();
 
 	my $req = POE::Request->new(
-		_stage   => $stage,
-		_method  => "echo",
-		message  => "stuff to echo",
-		_on_echo => "handle_echo",
+		stage     => $stage,
+		method    => "echo",
+		on_echo   => "handle_echo",
+		args      => {
+			message => "stuff to echo",
+		},
 	);
 
 	sub handle_echo {
@@ -51,7 +53,7 @@ Commands are invoked with POE::Request objects.
 =head2 echo (message => SCALAR)
 
 Receives a scalar "message" parameter whose contents will be echoed
-back to the sender.  The message is echoed with a return of _type
+back to the sender.  The message is echoed with a return of type
 "echo".  The return message's "echo" parameter contains the original
 message.
 
@@ -61,8 +63,10 @@ sub echo {
 	my ($self, $args) = @_;
 
 	$self->{req}->return(
-		_type => "echo",
-		echo  => $args->{message},
+		type    => "echo",
+		args    => {
+			echo  => $args->{message},
+		},
 	);
 }
 

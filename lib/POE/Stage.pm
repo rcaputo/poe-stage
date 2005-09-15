@@ -12,9 +12,9 @@ POE::Stage - a proposed base class for formalized POE components
 	my $stage = POE::Stage::Subclass->new();
 
 	my $request = POE::Request->new(
-		_stage  => $stage,          # Invoke this stage
-		_method => "method_name",   # calling this method
-		%parameter_pairs,           # with these parameters.
+		stage   => $stage,            # Invoke this stage
+		method  => "method_name",     # calling this method
+		args    => \%parameter_pairs, # with these parameters.
 	);
 
 =head1 DESCRIPTION

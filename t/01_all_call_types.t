@@ -54,7 +54,7 @@ my $key_value;
 
 		$self->{original_newkey} = $self->{req}{newkey} = 8675;
 
-		$self->{req}->emit( _type => "emit" );
+		$self->{req}->emit( type => "emit" );
 	}
 
 	sub do_return {
@@ -97,7 +97,7 @@ my $key_value;
 			"do_return original_newkey should match req.newkey"
 		);
 
-		$self->{req}->return( _type => "return" );
+		$self->{req}->return( type => "return" );
 	}
 }
 
@@ -114,10 +114,10 @@ my $key_value;
 
 		$self->{req}{something} = Something->new();
 		$self->{req}{go} = POE::Request->new(
-			_stage     => $self->{req}{something},
-			_method    => "do_emit",
-			_on_emit   => "do_recall",
-			_on_return => "do_return",
+			stage     => $self->{req}{something},
+			method    => "do_emit",
+			on_emit   => "do_recall",
+			on_return => "do_return",
 		);
 
 		# Save the original req for comparison later.
@@ -168,7 +168,7 @@ my $key_value;
 			"should match original ($self->{original_key})"
 		);
 
-		$self->{rsp}->recall( _method => "do_return" );
+		$self->{rsp}->recall( method => "do_return" );
 	}
 
 	sub do_return {
@@ -219,8 +219,8 @@ my $key_value;
 
 my $app = App->new();
 my $req = POE::Request->new(
-	_stage  => $app,
-	_method => "run",
+	stage  => $app,
+	method => "run",
 );
 
 POE::Kernel->run();

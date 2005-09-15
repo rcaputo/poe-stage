@@ -12,21 +12,25 @@ POE::Stage::Receiver - a simple UDP recv/send component
 	use POE::Stage::Receiver;
 	my $stage = POE::Stage::Receiver->new();
 	my $request = POE::Request->new(
-		_stage          => $stage,
-		_method         => "listen",
-		bind_port       => 8675,
-		_on_datagram    => "handle_datagram",
-		_on_recv_error  => "handle_error",
-		_on_send_error  => "handle_error",
+		stage         => $stage,
+		method        => "listen",
+		on_datagram   => "handle_datagram",
+		on_recv_error => "handle_error",
+		on_send_error => "handle_error",
+		args          => {
+			bind_port   => 8675,
+		},
 	);
 
 	# Echo the datagram back to its sender.
 	sub handle_datagram {
 		my ($self, $args) = @_;
 		$self->{rsp}->recall(
-			_method        => "send",
-			remote_address => $args->{remote_address},
-			datagram       => $args->{datagram},
+			method            => "send",
+			args              => {
+				remote_address  => $args->{remote_address},
+				datagram        => $args->{datagram},
+			},
 		);
 	}
 
@@ -75,8 +79,8 @@ sub listen {
 	die "Can't create UDP socket: $!" unless $self->{req}{socket};
 
 	$self->{req}{udp_watcher} = POE::Watcher::Input->new(
-		_handle   => $self->{req}{socket},
-		_on_input => "handle_input"
+		handle    => $self->{req}{socket},
+		on_input  => "handle_input"
 	);
 }
 
@@ -92,16 +96,20 @@ sub handle_input {
 
 	if (defined $remote_address) {
 		$self->{req}->emit(
-			_type           => "datagram",
-			datagram        => $datagram,
-			remote_address  => $remote_address,
+			type              => "datagram",
+			args              => {
+				datagram        => $datagram,
+				remote_address  => $remote_address,
+			},
 		);
 	}
 	else {
 		$self->{req}->emit(
-			_type => "recv_error",
-			errnum => $!+0,
-			errstr => "$!",
+			type      => "recv_error",
+			args      => {
+				errnum  => $!+0,
+				errstr  => "$!",
+			},
 		);
 	}
 }
@@ -124,9 +132,11 @@ sub send {
 	) == length($args->{datagram});
 
 	$self->{req}->emit(
-		_type => "send_error",
-		errnum => $!+0,
-		errstr => "$!",
+		type      => "send_error",
+		args      => {
+			errnum  => $!+0,
+			errstr  => "$!",
+		},
 	);
 }
 

@@ -57,37 +57,42 @@ internally by POE::Request->emit() or POE::Request->return().  Most
 parameters to emit() and return() are passed through to this
 constructor.
 
-POE::Request::Upward has one mandatory parameter: _type.  This defines
-the type of response being created.  Parameters without leading
-underscores are the responses' payloads.  They are passed unchanged to
-the response's handler as its $args parameter.
+POE::Request::Upward has one mandatory parameter: "type".  This
+defines the type of response being created.  The optional "args"
+parameter should contain a hashref with response payloads.  The
+contents of "args" are passed unchanged to the respones's handler as
+its $args parameter.
 
 Response types are mapped to methods in the original requester's stage
-through POE::Request's "_on_$type" parameters.  In this example,
-responses of _type "success" are mapped to the requester's
+through POE::Request's "on_$type" parameters.  In this example,
+responses of type "success" are mapped to the requester's
 continue_on() method.  Likewise "error" responses are mapped to the
 requester's log_and_stop() method.
 
 	$self->{req}{foo} = POE::Request->new(
-		_stage      => $some_stage_object,
-		_method     => "some_method_name",
-		_on_success => "continue_on",
-		_on_error   => "log_and_stop",
+		stage       => $some_stage_object,
+		method      => "some_method_name",
+		on_success  => "continue_on",
+		on_error    => "log_and_stop",
 	);
 
 How an asynchronous TCP connector might return success and error
 messages:
 
 	$self->{req}->return(
-		_type  => "success",
-		socket => $socket,
+		type      => "success",
+		args      => {
+			socket  => $socket,
+		},
 	);
 
 	$self->{req}->return(
-		_type     => "error",
-		function  => "connect",
-		errno     => $!+0,
-		errstr    => "$!",
+		type        => "error",
+		args        => {
+			function  => "connect",
+			errno     => $!+0,
+			errstr    => "$!",
+		},
 	);
 
 =cut
@@ -135,7 +140,7 @@ sub new {
 	);
 
 	# Upward requests can be of various types.
-	$self_data->[REQ_TYPE] = delete $args{_type};
+	$self_data->[REQ_TYPE] = delete $args{type};
 
 	DEBUG and warn(
 		"$current_request created ", ref($self), " $self:\n",
@@ -144,7 +149,7 @@ sub new {
 		"\tDelivery response = $self_data->[REQ_DELIVERY_RSP]\n",
 	);
 
-	$self->_assimilate_args(%args);
+	$self->_assimilate_args($args{args} || {});
 	$self->_send_to_target();
 
 	return $self;

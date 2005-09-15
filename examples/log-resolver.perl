@@ -57,6 +57,22 @@ use strict;
 		$self->resolve_address($next_address);
 	}
 
+	# Handle some error.
+	sub handle_error {
+		my ($self, $args) = @_;
+		my $input = $args->{input};
+		my $error = $args->{error};
+
+		print "Error: $input = $error\n";
+
+		delete $self->{req}{$input};
+
+		my $next_address = read_next_address();
+		return unless defined $next_address;
+
+		$self->resolve_address($next_address);
+	}
+
 	# Plain old subroutine.  Doesn't handle events.
 	sub read_next_address {
 		while (<main::DATA>) {
@@ -74,11 +90,12 @@ use strict;
 
 		# Create a self-requesting stage.
 		$self->{req}{$next_address} = POE::Stage::Resolver->new(
-			_on_success => "handle_host",
-			_on_error   => "handle_error",
-			input       => $next_address,
+			on_success  => "handle_host",
+			on_error    => "handle_error",
+			args        => {
+				input     => $next_address,
+			},
 		);
-
 	}
 }
 
@@ -86,8 +103,8 @@ use strict;
 
 my $app = App->new();
 my $req = POE::Request->new(
-	_stage    => $app,
-	_method   => "run",
+	stage    => $app,
+	method   => "run",
 );
 
 POE::Kernel->run();

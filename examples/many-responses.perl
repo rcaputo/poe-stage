@@ -30,10 +30,12 @@ use strict;
 		$self->{req}{interval} = $args->{interval} || 0.001;
 
 		$self->{req}{ticker_request} = POE::Request->new(
-			_stage   => $self->{req}{ticker},
-			_method  => "start_ticking",
-			interval => $self->{req}{interval},
-			_on_tick => "handle_tick",
+			stage       => $self->{req}{ticker},
+			method      => "start_ticking",
+			on_tick     => "handle_tick",
+			args        => {
+				interval  => $self->{req}{interval},
+			},
 		);
 	}
 
@@ -58,29 +60,37 @@ use strict;
 my $app_1 = App->new( name => "app_one" );
 
 my $req_1_1 = POE::Request->new(
-	_stage   => $app_1,
-	_method  => "run",
-	name     => "req_one",
+	stage   => $app_1,
+	method  => "run",
+	args    => {
+		name  => "req_one",
+	},
 );
 
 my $req_1_2 = POE::Request->new(
-	_stage   => $app_1,
-	_method  => "run",
-	name     => "req_two",
+	stage   => $app_1,
+	method  => "run",
+	args    => {
+		name  => "req_two",
+	},
 );
 
 my $app_2 = App->new( name => "app_two" );
 
 my $req_2 = POE::Request->new(
-	_stage   => $app_2,
-	_method  => "run",
-	name     => "req_one",
+	stage   => $app_2,
+	method  => "run",
+	args    => {
+		name  => "req_one",
+	},
 );
 
 my $req_2_2 = POE::Request->new(
-	_stage   => $app_2,
-	_method  => "run",
-	name     => "req_two",
+	stage   => $app_2,
+	method  => "run",
+	args    => {
+		name  => "req_two",
+	},
 );
 
 POE::Kernel->run();

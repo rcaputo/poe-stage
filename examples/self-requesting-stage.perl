@@ -35,10 +35,12 @@
 	sub init {
 		my ($self, $args) = @_;
 		warn 0;
+		my $passthrough_args = delete $args->{args} || {};
 		$self->{request} = POE::Request->new(
-			_stage => $self,
-			_method => "set_thingy",
+			stage   => $self,
+			method  => "set_thingy",
 			%$args,
+			args    => { %$passthrough_args },
 		);
 	}
 
@@ -46,8 +48,8 @@
 		my ($self, $args) = @_;
 		warn 1;
 		$self->{req}{delay} = POE::Watcher::Delay->new(
-			_length     => $args->{length},
-			_on_success => "time_is_up",
+			seconds     => $args->{seconds},
+			on_success  => "time_is_up",
 		);
 	}
 
@@ -55,7 +57,7 @@
 		my ($self, $args) = @_;
 		warn 2;
 		$self->{req}->return(
-			_type => "done",
+			type => "done",
 		);
 
 		# Don't need to delete these as long as the request is canceled,
@@ -87,8 +89,10 @@
 		my $self = shift;
 		warn 5;
 		$self->{req}{self_requester} = SelfRequester->new(
-			length   => 0.001,
-			_on_done => "do_again",
+			on_done   => "do_again",
+			args      => {
+				seconds => 0.001,
+			},
 		);
 	}
 }
@@ -99,8 +103,8 @@ use strict;
 
 my $app = App->new();
 my $req = POE::Request->new(
-	_stage  => $app,
-	_method => "run",
+	stage   => $app,
+	method  => "run",
 );
 
 # Trap SIGINT and make it exit gracefully.  Problems in destructor

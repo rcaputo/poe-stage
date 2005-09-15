@@ -10,10 +10,12 @@ POE::Request::Return - encapsulates final replies to POE::Request messages
 	# See the distribution's examples directory.
 
 	$poe_request_object->emit(
-		_type     => "failure",
-		function  => "connect",
-		errnum    => $!+0,
-		errstr    => "$!",
+		type        => "failure",
+		args        => {
+			function  => "connect",
+			errnum    => $!+0,
+			errstr    => "$!",
+		},
 	);
 
 =head1 DESCRIPTION

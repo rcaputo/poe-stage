@@ -11,10 +11,12 @@ POE::Watcher::Delay - wait for a length of time to pass
 
 	# Request a delay notification.
 	$self->{req}{watcher} = POE::Watcher::Delay->new(
-		_length     => 10,            # wait 10 seconds, then
-		_on_success => "time_is_up",  # call $self->time_is_up()
-		param_1     => 123,           # with $args->{param_1}
-		param_2     => "abc",         # and $args->{param_2}
+		seconds     => 10,            # wait 10 seconds, then
+		on_success  => "time_is_up",  # call $self->time_is_up()
+		args        => {
+			param_1   => 123,           # with $args->{param_1}
+			param_2   => "abc",         # and $args->{param_2}
+		},
 	);
 
 	# Handle the delay notification.
@@ -48,15 +50,12 @@ use POE::Kernel;
 
 These methods are invoked directly on the watcher object.
 
-=head2 new _length => SECONDS, _on_success => METHOD_NAME
+=head2 new seconds => SECONDS, on_success => METHOD_NAME
 
 Construct a new POE::Watcher::Delay object.  The constructor takes two
-parameters: _length is the number of seconds to wait.  _on_success is
-the name of the mothod in the current Stage to invoke when _length
+parameters: "seconds" is the number of seconds to wait.  "on_success"
+is the name of the mothod in the current Stage to invoke when length
 seconds have elapsed.
-
-As with all POE::Watcher objects, constructor parameters that are not
-adorned with a leading underscore are passed unchanged to callbacks.
 
 Destroy this object to cancel it.
 
@@ -65,16 +64,16 @@ Destroy this object to cancel it.
 sub new {
 	my ($class, %args) = @_;
 
-	my $length = delete $args{_length};
-	croak "$class requires a '_length' parameter" unless defined $length;
+	my $seconds = delete $args{seconds};
+	croak "$class requires a 'seconds' parameter" unless defined $seconds;
 
-	my $on_success = delete $args{_on_success};
-	croak "$class requires an '_on_success' method" unless defined $on_success;
+	my $on_success = delete $args{on_success};
+	croak "$class requires an 'on_success' parameter" unless defined $on_success;
 
 	my $request = POE::Request->_get_current_request();
 	croak "Can't create a $class without an active request" unless $request;
 
-	# TODO - Make sure no other adorned arguments exist.
+	# TODO - Make sure no other class arguments exist.
 
 	# Wrap a weak copy of the request reference in a strong envelope so
 	# it can be passed around.
@@ -85,7 +84,7 @@ sub new {
 	my $self = bless {
 		request     => $req_envelope,
 		on_success  => $on_success,
-		args        => \%args,
+		args        => { %{ $args{args} || {} } },
 	}, $class;
 
 	# Post out a timer.
@@ -95,7 +94,7 @@ sub new {
 	weaken $self_envelope->[0];
 
 	$self->{delay_id} = $poe_kernel->delay_set(
-		stage_timer => $length, $self_envelope
+		stage_timer => $seconds, $self_envelope
 	);
 
 	# Owner gets a strong reference.
@@ -119,7 +118,7 @@ sub deliver {
 
 	# Open the envelope.
 	my $request = $self->{request}[0];
-	$request->deliver($self->{on_success});
+	$request->deliver($self->{on_success}, $self->{args});
 }
 
 1;

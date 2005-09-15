@@ -10,10 +10,12 @@ POE::Request::Emit - encapsulates non-terminal replies to POE::Request
 	# See the distribution's examples directory.
 
 	$poe_request_object->emit(
-		_type     => "failure",
-		function  => "connect",
-		errnum    => $!+0,
-		errstr    => "$!",
+		type        => "failure",
+		args        => {
+			function  => "connect",
+			errnum    => $!+0,
+			errstr    => "$!",
+		},
 	);
 
 =head1 DESCRIPTION
@@ -80,8 +82,10 @@ sub recall {
 	}
 
 	# Validate the method.
-	my $message_method = delete $args{_method};
-	croak "Message must have a _method parameter" unless defined $message_method;
+	my $message_method = delete $args{method};
+	croak "Message must have a 'method' parameter" unless(
+		defined $message_method
+	);
 
 	# Reconstitute the parent's context.
 	my $parent_context;
@@ -91,9 +95,9 @@ sub recall {
 	);
 
 	my $response = POE::Request::Recall->new(
-		%args,
-		_stage   => $parent_stage,
-		_method  => $message_method,
+		stage   => $parent_stage,
+		method  => $message_method,
+		args    => { %{ $args{args} || {} } },    # copy for safety?
 	);
 }
 

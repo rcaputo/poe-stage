@@ -10,12 +10,14 @@ POE::Stage::Resolver - a fake non-blocking DNS resolver
 	# See the distribution's examples directory.
 
 	$self->{req}{resolver} = POE::Stage::Resolver->new(
-		_method     => "resolve",
-		_on_success => "handle_host",
-		_on_error   => "handle_error",
-		input       => "thirdlobe.com",
-		type        => "A",   # A is default
-		class       => "IN",  # IN is default
+		method      => "resolve",
+		on_success  => "handle_host",
+		on_error    => "handle_error",
+		args        => {
+			input     => "thirdlobe.com",
+			type      => "A",   # A is default
+			class     => "IN",  # IN is default
+		},
 	);
 
 	sub handle_host {
@@ -73,10 +75,12 @@ sub init {
 	my ($self, $args) = @_;
 
 	# Fire off a request automatically as part of creation.
+	my $passthrough_args = delete($args->{args}) || {};
 	$self->{init_req} = POE::Request->new(
-		_stage  => $self,
-		_method => "resolve",
+		stage   => $self,
+		method  => "resolve",
 		%$args,
+		args    => { %$passthrough_args },
 	);
 
 	$self->{resolver} = Net::DNS::Resolver->new();
@@ -98,8 +102,8 @@ sub resolve {
 	$self->{socket} = $resolver_socket;
 
 	$self->{wait_for_it} = POE::Watcher::Input->new(
-		_handle   => $resolver_socket,
-		_on_input => "net_dns_ready_to_read",
+		handle    => $resolver_socket,
+		on_input  => "net_dns_ready_to_read",
 	);
 }
 
@@ -111,9 +115,11 @@ sub net_dns_ready_to_read {
 
 	unless (defined $packet) {
 		$self->{req}->return(
-			_type   => "error",
-			input   => $self->{input},
-			error   => $self->{resolver}->errorstring(),
+			type    => "error",
+			args    => {
+				input => $self->{input},
+				error => $self->{resolver}->errorstring(),
+			}
 		);
 		return;
 	}
@@ -128,9 +134,11 @@ sub net_dns_ready_to_read {
 	}
 
 	$self->{req}->return(
-		_type   => "success",
-		input   => $self->{input},
-		packet  => $packet,
+		type      => "success",
+		args      => {
+			input   => $self->{input},
+			packet  => $packet,
+		},
 	);
 
 #	# Dump things when we should be done with them.  Originally used to

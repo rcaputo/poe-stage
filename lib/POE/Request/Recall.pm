@@ -10,9 +10,11 @@ POE::Request::Recall - encapsulates responses to POE::Request::Emit
 	# See the distribution's examples directory.
 
 	$self->{rsp}->recall(
-		_method => "method_name",     # invoke this method on Emit's creator
-		param_1 => 123,               # with this parameter
-		param_2 => "abc",             # and this one, too
+		method  => "method_name",     # invoke this method on Emit's creator
+		args      => {
+			param_1 => 123,               # with this parameter
+			param_2 => "abc",             # and this one, too
+		},
 	);
 
 =head1 DESCRIPTION
@@ -22,8 +24,9 @@ POE::Request::Emit objects.  They are not created explicitly; rather,
 they are created by POE::Request::Emit's recall() method.
 
 They are quite like POE::Request objects, except that they are not
-created with a _stage parameter.  Rather, the destination stage is the
-one that originally created the previous POE::Request::Emit object.
+created with a "stage" parameter.  Rather, the destination stage is
+the one that originally created the previous POE::Request::Emit
+object.
 
 Consider this persistent dialogue between two stages:
 
@@ -63,10 +66,10 @@ use constant DEBUG => 0;
 
 =head2 new PAIRS
 
-Create a new POE::Request::Recall object, specifying the _method to
-call in the POE::Stage object on the other end of the dialog.
-Parameters without leading underscores are passed unchanged through to
-the _method as its $args parameter.
+Create a new POE::Request::Recall object, specifying the "method" to
+call in the POE::Stage object on the other end of the dialog.  An
+optional "args" parameter should contain a hashref of key/value pairs
+that are passed to the destination method as its $args parameter.
 
 =cut
 
@@ -122,7 +125,7 @@ sub new {
 #		"\tDelivery context  = $self_data->[REQ_CONTEXT]\n",
 	);
 
-	$self->_assimilate_args(%args);
+	$self->_assimilate_args($args{args} || {});
 	$self->_send_to_target();
 
 	return $self;

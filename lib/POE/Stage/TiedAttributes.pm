@@ -31,8 +31,8 @@ The req data member refers to the POE::Request object that the stage
 is currently handling.  Consider this request:
 
 	my $req = POE::Request->new(
-		_stage  => $stage_1,
-		_method => "handle_it",
+		stage  => $stage_1,
+		method => "handle_it",
 	);
 
 It will be handled $stage_1's handle_it() method.  For the sake of
@@ -64,9 +64,11 @@ up the request chain.
 	sub handle_a_response {
 		my ($self, $args) = @_;
 		$self->{req}->return(
-			_type => "done",
-			result => $args->{sub_result},
-			cookie => $self->{req}{cookie},
+			type      => "done",
+			args      => {
+				result  => $args->{sub_result},
+				cookie  => $self->{req}{cookie},
+			},
 		);
 	}
 

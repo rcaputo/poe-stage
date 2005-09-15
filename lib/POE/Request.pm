@@ -10,11 +10,13 @@ POE::Request - a message class for requesting POE::Stage services
 	# See the distribution's examples directory.
 
 	$self->{req}{do_it} = POE::Request->new(
-		_method => "method_name",           # invoke this method
-		_stage  => $self->{stage_object},   # of this stage
-		param_1 => 123,         # with this parameter
-		param_2 => "abc",       # and this one
-		_on_one => "do_one",    # map a "one" response to method
+		method    => "method_name",           # invoke this method
+		stage     => $self->{stage_object},   # of this stage
+		on_one    => "do_one",    # map a "one" response to method
+		args      => {
+			param_1 => 123,         # with this parameter
+			param_2 => "abc",       # and this one
+		}
 	);
 
 	# Handle a "one" response.
@@ -144,7 +146,6 @@ sub DESTROY {
 	my $inner_object = tied %$self;
 	return unless $inner_object;
 	my $id = $inner_object->[REQ_ID];
-	delete $active_request_ids{$id};
 
 	if (_free_request_id($id)) {
 		tied(%{$inner_object->[REQ_CREATE_STAGE]})->_request_context_destroy($id)
@@ -191,7 +192,7 @@ sub _push {
 }
 
 sub _invoke {
-	my ($self, $method) = @_;
+	my ($self, $method, $override_args) = @_;
 	my $self_data = tied(%$self);
 
 	DEBUG and warn(
@@ -201,7 +202,9 @@ sub _invoke {
 		"\t\tPar req = $self_data->[REQ_PARENT_REQUEST]\n",
 	);
 
-	$self_data->[REQ_TARGET_STAGE]->$method($self_data->[REQ_ARGS]);
+	$self_data->[REQ_TARGET_STAGE]->$method(
+		$override_args || $self_data->[REQ_ARGS]
+	);
 }
 
 sub _pop {
@@ -217,7 +220,7 @@ sub _request_constructor {
 	my ($class, $args) = @_;
 	my ($package, $filename, $line) = caller(1);
 
-	foreach my $param (qw(_stage _method)) {
+	foreach my $param (qw(stage method)) {
 		next if exists $args->{$param};
 		croak "$class is missing the '$param' parameter";
 	}
@@ -226,8 +229,8 @@ sub _request_constructor {
 	# clashing in Perl?
 
 	tie my (%self), "POE::Request::TiedAttributes", [
-		delete $args->{_stage},       # REQ_TARGET_STAGE
-		delete $args->{_method},      # REQ_TARGET_METHOD
+		delete $args->{stage},        # REQ_TARGET_STAGE
+		delete $args->{method},       # REQ_TARGET_METHOD
 		{ },                          # REQ_CHILD_REQUESTS
 		{ },                          # REQ_RESOURCES
 		$package,                     # REQ_CREATE_PKG
@@ -263,14 +266,14 @@ sent to its destination.  Factors on the local or remote process, or
 pertaining to the network between them, may prevent the request from
 being delivered immediately.
 
-POE::Request->new() requires at least two parameters.  "_stage"
+POE::Request->new() requires at least two parameters.  "stage"
 contains the POE::Stage object that will receive the request.
-"_method" is the method to call when the remote stage handles the
+"method" is the method to call when the remote stage handles the
 request.
 
-Additional parameters, unadorned by leading underscores, will be
-passed as key/value pairs in the $args parameter to the destination
-"_method".
+Parameters for the message's destination can be supplied in the
+optional "args" parameter.  These parameters will be passed untouched
+to the message's destination's $args parameter.
 
 POE::Request->new() returns an object which must be saved.  Destroying
 a request object will cancel the request and free up all data and
@@ -299,7 +302,7 @@ sub new {
 
 	my %returns;
 	foreach (keys %args) {
-		next unless /^_on_(\S+)$/;
+		next unless /^on_(\S+)$/;
 		$returns{$1} = delete $args{$_};
 	}
 
@@ -332,29 +335,25 @@ sub new {
 		"\tDelivery response = 0\n",
 	);
 
-	$self->_assimilate_args(%args);
+	$self->_assimilate_args($args{args} || {});
 	$self->_send_to_target();
 
 	return $self;
 }
 
 sub _assimilate_args {
-	my ($self, %args) = @_;
+	my ($self, $args) = @_;
 
 	# Process additional arguments.  The subclass should remove all
 	# adorned arguments it uses.  Any remaining are considered a usage
 	# error.
 
-	$self->init(\%args);
-
-	foreach my $param (keys %args) {
-		croak ref($self) . " has an illegal '$param' parameter" if $param =~ /^_/;
-	}
+	$self->init($args);
 
 	# Copy the remaining arguments into the object.
 
 	my $self_data = tied(%$self);
-	$self_data->[REQ_ARGS] = { %args };
+	$self_data->[REQ_ARGS] = { %$args };
 }
 
 =head2 init HASHREF
@@ -380,7 +379,7 @@ sub init {
 # TODO - Rename _deliver since this is a friend method.
 
 sub deliver {
-	my ($self, $method) = @_;
+	my ($self, $method, $override_args) = @_;
 	my $self_data = tied(%$self);
 
 	my $target_stage = $self_data->[REQ_TARGET_STAGE];
@@ -393,7 +392,7 @@ sub deliver {
 	my $target_method = $method || $self_data->[REQ_TARGET_METHOD];
 	$self->_push($self, $target_stage, $target_method);
 
-	$self->_invoke($target_method);
+	$self->_invoke($target_method, $override_args);
 
 	$self->_pop($self, $target_stage, $target_method);
 
@@ -506,12 +505,12 @@ sub _emit {
 
 	# Pull out the message type, and map it to a method.
 
-	my $message_type = delete $args{_type};
-	croak "Message must have a _type parameter" unless defined $message_type;
+	my $message_type = delete $args{type};
+	croak "Message must have a type parameter" unless defined $message_type;
 	my $message_method = (
 		(exists $self_data->[REQ_RETURNS]{$message_type})
 		? $self_data->[REQ_RETURNS]{$message_type}
-		: "unknown_type"
+		: "unknown_type($message_type)"
 	);
 
 	# Reconstitute the parent's context.
@@ -522,10 +521,10 @@ sub _emit {
 	);
 
 	my $response = $class->new(
-		%args,
-		_stage   => $parent_stage,
-		_method  => $message_method,
-		_type    => $message_type,
+		args    => { %{ $args{args} || {} } },
+		stage   => $parent_stage,
+		method  => $message_method,
+		type    => $message_type,
 	);
 }
 

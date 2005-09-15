@@ -8,10 +8,12 @@ POE::Stage::Ticker - a periodic message generator for POE::Stage
 
 	$self->{req}{ticker} = POE::Stage::Ticker->new();
 	$self->{req}{request} = POE::Request->new(
-		_stage    => $self->{req}{ticker},
-		_method   => "start_ticking",
-		_on_tick  => "handle_tick",   # Invoke my handle_tick() method
-		interval  => 10,              # every 10 seconds.
+		stage       => $self->{req}{ticker},
+		method      => "start_ticking",
+		on_tick     => "handle_tick",   # Invoke my handle_tick() method
+		args        => {
+			interval  => 10,              # every 10 seconds.
+		},
 	);
 
 	sub handle_tick {
@@ -67,8 +69,10 @@ sub got_watcher_tick {
 	die unless $self->{req}{interval} == $args->{interval};
 
 	$self->{req}->emit(
-		_type => "tick",
-		id   => ++$self->{req}{tick_id},
+		type  => "tick",
+		args  => {
+			id  => ++$self->{req}{tick_id},
+		},
 	);
 
 	# TODO - Ideally we can restart the existing delay, perhaps with an
@@ -80,10 +84,13 @@ sub got_watcher_tick {
 
 sub set_delay {
 	my $self = shift;
+
 	$self->{req}{delay} = POE::Watcher::Delay->new(
-		_length     => $self->{req}{interval},
-		_on_success => "got_watcher_tick",
-		interval    => $self->{req}{interval},
+		seconds     => $self->{req}{interval},
+		on_success  => "got_watcher_tick",
+		args        => {
+			interval  => $self->{req}{interval},
+		},
 	);
 }
 

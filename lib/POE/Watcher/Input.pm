@@ -12,8 +12,9 @@ POE::Watcher::Input - watch a socket or other handle for input readiness
 	# Request a delay notification.
 	$self->{req}{socket} = $socket_handle;
 	$self->{req}{input} = POE::Watcher::Input->new(
-		_handle   => $self->{req}{socket},
-		_on_input => "read_from_socket",
+		handle    => $self->{req}{socket},
+		on_input  => "read_from_socket",
+		args      => \%passed_to_callbacks,
 	);
 
 	# Handle the delay notification.
@@ -43,15 +44,12 @@ use POE::Kernel;
 
 =head1 PUBLIC METHODS
 
-=head2 new _handle => HANDLE, _on_input => METHOD_NAME
+=head2 new handle => HANDLE, on_input => METHOD_NAME
 
 construct a new POE::Watcher::Input object.  The constructor takes two
-parameters: _handle is the socket or other file handle to watch for
-input readiness.  _on_input is the name of the method in the current
+parameters: "handle" is the socket or other file handle to watch for
+input readiness.  "on_input" is the name of the method in the current
 Stage to invoke when the handle is ready to be read from.
-
-As with all POE::Watcher objects, constructor parameters that are not
-adorned with a leading underscore are passed unchanged to callbacks.
 
 Destroy this object to cancel it.
 
@@ -60,11 +58,11 @@ Destroy this object to cancel it.
 sub new {
 	my ($class, %args) = @_;
 
-	my $handle = delete $args{_handle};
-	croak "$class requires a '_handle'" unless defined $handle;
+	my $handle = delete $args{handle};
+	croak "$class requires a 'handle' parameter" unless defined $handle;
 
-	my $input_method = delete $args{_on_input};
-	croak "$class requires an '_on_input'" unless defined $input_method;
+	my $input_method = delete $args{on_input};
+	croak "$class requires an 'on_input' parameter" unless defined $input_method;
 
 	my $request = POE::Request->_get_current_request();
 	croak "Can't create a $class without an active request" unless $request;
@@ -81,7 +79,7 @@ sub new {
 		request   => $req_envelope,
 		on_input  => $input_method,
 		handle    => $handle,
-		args      => \%args,
+		args      => { %{ $args{args} || {} }},
 	}, $class;
 
 	# Wrap a weak $self in a strong envelope for passing around.

@@ -26,12 +26,14 @@ use strict;
 
 		$self->{req}{receiver} = POE::Stage::Receiver->new();
 		$self->{req}{receiver_run} = POE::Request->new(
-			_stage         => $self->{req}{receiver},
-			_method        => "listen",
-			bind_port      => $args->{bind_port},
-			_on_datagram   => "handle_datagram",
-			_on_recv_error => "handle_error",
-			_on_send_error => "handle_error",
+			stage         => $self->{req}{receiver},
+			method        => "listen",
+			on_datagram   => "handle_datagram",
+			on_recv_error => "handle_error",
+			on_send_error => "handle_error",
+			args          => {
+				bind_port   => $args->{bind_port},
+			},
 		);
 
 		$self->{req}{receiver_run}{name} = "testname";
@@ -45,9 +47,11 @@ use strict;
 		$datagram =~ tr[a-zA-Z][n-za-mN-ZA-M];
 
 		$self->{rsp}->recall(
-			_method        => "send",
-			remote_address => $args->{remote_address},
-			datagram       => $datagram,
+			method            => "send",
+			args              => {
+				remote_address  => $args->{remote_address},
+				datagram        => $datagram,
+			},
 		);
 	}
 }
@@ -60,9 +64,11 @@ my $bind_port = 8675;
 
 my $app = App->new();
 my $req = POE::Request->new(
-	_stage    => $app,
-	_method   => "run",
-	bind_port => $bind_port,
+	stage       => $app,
+	method      => "run",
+	args        => {
+		bind_port => $bind_port,
+	},
 );
 
 print "You need a udp client like netcat: nc -u localhost $bind_port\n";

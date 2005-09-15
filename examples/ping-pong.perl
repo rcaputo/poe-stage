@@ -47,12 +47,12 @@ use strict;
 		my $self = shift;
 
 		$self->{req}{echo_request} = POE::Request->new(
-			_stage   => $self->{req}{echoer},
-			_method  => "echo",
-
-			message  => "request " . $self->{req}{i},
-
-			_on_echo => "got_echo",
+			stage     => $self->{req}{echoer},
+			method    => "echo",
+			on_echo   => "got_echo",
+			args      => {
+				message => "request " . $self->{req}{i},
+			},
 		);
 	}
 }
@@ -64,8 +64,8 @@ use strict;
 my $app = App->new();
 
 my $req = POE::Request->new(
-	_stage => $app,
-	_method => "run",
+	stage   => $app,
+	method  => "run",
 );
 
 POE::Kernel->run();
