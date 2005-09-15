@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Watcher::Delay - a class encapsulating the wait for elapsed time
+POE::Watcher::Delay - wait for a length of time to pass
 
 =head1 SYNOPSIS
 
@@ -29,10 +29,9 @@ POE::Watcher::Delay - a class encapsulating the wait for elapsed time
 
 A POE::Watcher::Delay object waits a certain amount of time before
 invoking a method on the current Stage object.  Both the time to wait
-and the method to invoke are given as parameters to
-POE::Watcher::Delay's constructor.  Additional parameters are passed
-through the watcher to the method to invoke after the specified time
-has elapsed.
+and the method to invoke are given as constructor parameters.
+Additional parameters are passed unchanged to the desired callback
+method after the specified time has elapsed.
 
 =cut
 
@@ -45,15 +44,21 @@ use Scalar::Util qw(weaken);
 use Carp qw(croak);
 use POE::Kernel;
 
+=head1 PUBLIC METHODS
+
+These methods are invoked directly on the watcher object.
+
 =head2 new _length => SECONDS, _on_success => METHOD_NAME
 
-Construct a new POE::Watcher::Delay.  The constructor takes two
-parameters: _length is the length of time to wait, in seconds;
-_on_success is the name of a method in the current Stage to call when
-_length seconds have elapsed.
+Construct a new POE::Watcher::Delay object.  The constructor takes two
+parameters: _length is the number of seconds to wait.  _on_success is
+the name of the mothod in the current Stage to invoke when _length
+seconds have elapsed.
 
 As with all POE::Watcher objects, constructor parameters that are not
-adorned with leading underscores are passed unchanged to callbacks.
+adorned with a leading underscore are passed unchanged to callbacks.
+
+Destroy this object to cancel it.
 
 =cut
 
@@ -119,10 +124,15 @@ sub deliver {
 
 1;
 
+=head1 BUGS
+
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+
 =head1 SEE ALSO
 
 POE::Watcher describes concepts that are common to all POE::Watcher
-classes.  It's required reading in order to understand fully what's
+classes.  It's required reading if you want to fully understand what's
 going on.
 
 =head1 AUTHORS

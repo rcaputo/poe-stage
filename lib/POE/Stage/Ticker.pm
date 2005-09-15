@@ -34,10 +34,12 @@ use base qw(POE::Stage);
 
 use POE::Watcher::Delay;
 
-=head2 start_ticking interval => INTERVAL
+=head1 PUBLIC COMMANDS
+
+=head2 start_ticking (interval => FLOAT)
 
 Used to request the Ticker to start ticking.  The Ticker will emit a
-"tick" message every INTERVAL seconds.
+"tick" message every "interval" seconds.
 
 =cut
 
@@ -87,18 +89,20 @@ sub set_delay {
 
 1;
 
+=head1 PUBLIC RESPONSES
+
+Responses are returned by POE::Request->return() or emit().
+
+=head2 "tick" (id)
+
+Once start_ticking() has been invoked, POE::Stage::Ticker emits a
+"tick" event.  The "id" parameter is the ticker's unique ID, so that
+ticks from multiple tickers are not confused.
+
 =head1 BUGS
 
-The constructor semantics lend themselves to the pattern where a
-singleton Ticker object ticks for multiple requesters.  The Ticker
-object doesn't stop ticking until it's destroyed, however, so it's
-impossible to stop one requester's request without stopping them all.
-
-POE::Watcher objects follow the pattern where they start at
-construction time and stop at destruction time, but it's important for
-the ticker to be a POE::Stage.  Someone will eventually try to blur
-the boundaries between patterns and create a POE::Stage that starts
-doing something at construction time.
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

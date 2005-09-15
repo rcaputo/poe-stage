@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Request::TiedAttributes - implements request-scoped data storage
+POE::Request::TiedAttributes - internal class for request-scoped storage
 
 =head1 SYNOPSIS
 
@@ -10,24 +10,23 @@ POE::Request::TiedAttributes - implements request-scoped data storage
 
 =head1 DESCRIPTION
 
-POE::Requset::TiedAttributes and POE::Stage::TiedAttributes are used
-to map hash access in request objects to request-scoped storage in
-stage objects.  Honest.  For example:
+POE::Request::TiedAttributes is used to map hash operations on
+requests into request-scoped storage within stages.  For example:
 
-	$self->{req}{key} = $value;
+  my $request = POE::Request->new(...);
+	$request->{key} = $value;
 
-treats the request in $self->{req} as a hash, storing key = $value
-within it.  The implementation actually stores the key/$value pair
-inside the current POE::Stage object, under the $self->{req} request's
-scope.  The key/$value pair will be available as $self->{req}{key}
-whenever $self->{req} refers to the same request as at storage time.
+really stores $value within the current POE::Stage object in such a
+way that it is visible when a response arrives.  This magic is
+performed in two steps: 1. POE::Stage ensures that $self->{rsp} is the
+response to a given request.  2. The response's storage scope is also
+made to match its request.
 
-Furthermore, if $self->{req}{foo} is a POE::Request object, then
-$self->{rsp}{foo} will refer to its value whenever $self->{rsp} is a
-response to $self->{req}{foo}.
+The upshot is that $self->{rsp}{key} contains the value of
+$request->{key} when it is invoked from a response callback.
 
-This is how POE::Stage and POE::Request implement continuations
-between asynchronous requests and their responses.
+This is how POE::Stage and POE::Request implement continuity between
+asynchronous requests and their responses.
 
 =cut
 
@@ -88,6 +87,28 @@ sub DELETE {
 }
 
 1;
+
+=head1 PUBLIC METHODS
+
+None.  This class is used implicitly when POE::Request classes are
+treated like hashes.
+
+=head1 DESIGN GOALS
+
+Store request-scoped data in the session that stores it, rather than
+in the request itself.  The receiver of a request cannot This prevents the receiver of a request from
+modifying data that the sender requires.  It also avoids serialization
+problems that may occur in the future when requests are passed between
+processes.
+
+Use an intuitive and unobtrusive syntax for request-scoped data.
+POE::Request and POE::Stage could have used accessors, but tied hashes
+take advantage of Perl's existing syntax.
+
+=head1 BUGS
+
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Stage::Receiver - a simple UDP recv/send component with a lousy name
+POE::Stage::Receiver - a simple UDP recv/send component
 
 =head1 SYNOPSIS
 
@@ -51,7 +51,11 @@ use POE::Watcher::Input;
 use IO::Socket::INET;
 use constant DATAGRAM_MAXLEN => 1024;
 
-=head2 listen bind_port => INTEGER
+=head1 PUBLIC COMMANDS
+
+Commands are invoked with POE::Request objects.
+
+=head2 listen (bind_port => INTEGER)
 
 Bind to a port on all local interfaces and begin listening for
 datagrams.  The listen request should also map POE::Stage::Receiver's
@@ -102,7 +106,7 @@ sub handle_input {
 	}
 }
 
-=head2 send datagram => SCALAR, remote_address => ADDRESS
+=head2 send (datagram => SCALAR, remote_address => ADDRESS)
 
 Send a datagram to a remote address.  Usually called via recall() to
 respond to a datagram emitted by the Receiver.
@@ -128,26 +132,37 @@ sub send {
 
 1;
 
-=head2 The "datagram" message.
+=head1 PUBLIC RESPONSES
+
+Responses are returned by POE::Request->return() or emit().
+
+=head2 "datagram" (datagram, remote_address)
 
 POE::Stage::Receiver emits a message of "datagram" type whenever it
-successfully recv()s a datagram.  The datagram message includes two
-parameters: datagram contains the received data; remote_address
-cantains the address that sent the datagram.
+successfully recv()s a datagram from some remote peer.  The datagram
+message includes two parameters: "datagram" contains the received
+data, and "remote_address" contains the address that sent the
+datagram.
 
-Both parameters can be pased back to the receiver's send() method, as
-is done in the SYNOPSIS.
+Both parameters can be pased back to the POE::Stage::Receiver's send()
+method, as is done in the SYNOPSIS.
 
-=head2 The error messages.
+=head2 "recv_error" (errnum, errstr)
 
-Both "recv_error" and "send_error" message types are virtually the
-same.  They contain an errnum parameter with the numeric value of $!
-just after the failure, and an errstr parameter with $!'s string
-value.
+The stage encountered an error receiving from a peer.  "errnum" is the
+numeric form of $! after recv() failed.  "errstr" is the error's
+string form.
+
+=head2 "send_error" (errnum, errstr)
+
+The stage encountered an error receiving from a peer.  "errnum" is the
+numeric form of $! after send() failed.  "errstr" is the error's
+string form.
 
 =head1 BUGS
 
-I'm wearying of documenting, so it's getting terser as I go along.
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

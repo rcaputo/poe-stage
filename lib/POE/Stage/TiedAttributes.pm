@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Stage::TiedAttributes - implements request-scoped data storage
+POE::Stage::TiedAttributes - internal class for request-scoped storage
 
 =head1 SYNOPSIS
 
@@ -10,44 +10,56 @@ POE::Stage::TiedAttributes - implements request-scoped data storage
 
 =head1 DESCRIPTION
 
-POE::Requset::TiedAttributes and POE::Stage::TiedAttributes are used
-to map hash access in request objects to request-scoped storage in
-stage objects.  POE::Request::TiedAttributes describes
-request/response continuations.  This document will talk about the
-special req and rsp data members of POE::Stage.
+POE::Stage::TiedAttributes implements a large chunk of POE::Stage's
+magical data scopes.
 
-=head2 The "req" Data Member
+It manages the special $self->{req} and $self->{rsp} fields.  They
+will always point to the proper POE::Request objects.
+
+It holds request-scoped data, which is really stage-scoped data
+associated with the request.
+
+It performs necessary cleanup when stages are destroyed or requests
+are canceled.
+
+It does these things as automatically as possible.
+
+=head2 POE::Stage's "req" Data Member
 
 Every POE::Stage object has two read-only data members: req and rsp.
 The req data member refers to the POE::Request object that the stage
-is currently handling.  For example:
+is currently handling.  Consider this request:
 
 	my $req = POE::Request->new(
 		_stage  => $stage_1,
 		_method => "handle_it",
 	);
 
-Now here's $stage_1's handle_it() method.  When called, it will print
-its current request.  That request will be the same as $req, created
-above.
+It will be handled $stage_1's handle_it() method.  For the sake of
+example, handle_it() only prints the request object:
 
 	sub handle_it {
 		my ($self, $args) = @_;
 		print "$self->{req}\n";
 	}
 
-Actually, it may not be exactly the same as $req, but it will be the
-moral equivalent of $req.  This caveat leaves a loophole through which
-we can pass requests across process boundaries later.
+Actually, it may not be exactly the same as $req, but it will be its
+moral equivalent.  This caveat leaves a loophole through which we can
+pass requests across process boundaries later.
 
 $self->{req} is also great for responding to requests:
 
 	$self->{req}->emit( ... );
 	$self->{req}->return( ... );
 
-It should be noted that $self->{req} is valid (and, if we're lucky,
-correct) when responses to our own requests are being handled.  This
-hander cascades a return() from a sub-request to a parent request:
+You should see POE::Request for more information about emit() and
+return().
+
+It should be noted that $self->{req} is valid when responses to our
+own requests are being handled.  This hander cascades a return() from
+a sub-request to a parent request.  It is called in response to some
+request we have made, and in turn it passes a response parameter back
+up the request chain.
 
 	sub handle_a_response {
 		my ($self, $args) = @_;
@@ -58,11 +70,11 @@ hander cascades a return() from a sub-request to a parent request:
 		);
 	}
 
-=head2 The "rsp" Data Member
+=head2 POE::Stage's "rsp" Data Member
 
 The special $self->{rsp} data member refers to responses to requests
-we've made.  It's only valid during the execution of methods currently
-handling responses.
+made by a stage.  It's only valid when a response handler is currently
+executing.
 
 	sub handle_sub_response {
 		my ($self, $args) = @_;
@@ -70,7 +82,9 @@ handling responses.
 	}
 
 When used as a hash, the response in $self->{rsp} refers to the scope
-of the request that generated it.
+of the request that generated it.  Therefore you can store data in the
+original request and automatically have access to it from the response
+handler.
 
 =cut
 
@@ -199,6 +213,16 @@ sub _request_context_destroy {
 }
 
 1;
+
+=head1 PUBLIC METHODS
+
+None.  This class is used implicitly when POE::Session accesses its
+data members.  It is indirectly used by POE::Request as well.
+
+=head1 BUGS
+
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

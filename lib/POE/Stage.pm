@@ -174,7 +174,12 @@ sub init {
 
 1;
 
-=head2 DESIGN GOALS
+=head1 USING
+
+TODO - Describe how POE::Stage is used.  Outline the general pattern
+for designing and subclassing.
+
+=head1 DESIGN GOALS
 
 Eliminate the need to manage POE::Session objects directly.  One
 common component pattern uses an object as its command interface.
@@ -224,8 +229,8 @@ automatically clean up all the resources associated with a request.
 
 =head1 BUGS
 
-POE::Stage classes need a concise way to document their interfaces.
-This full-on English narrative is inadequate.
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Request::Upward - a base class for POE::Stage response messages
+POE::Request::Upward - internal base class for POE::Stage response messages
 
 =head1 SYNOPSIS
 
@@ -10,8 +10,15 @@ POE::Request::Upward - a base class for POE::Stage response messages
 
 =head1 DESCRIPTION
 
-POE::Request::Emit and POE::Request::Return share quite a lot of code.
-That shared code is in this common base class.
+POE::Request::Upward is a base class for POE::Request messages that
+flow up the POE::Stage parent/child tree.  These messages are
+instances of POE::Request::Emit and POE::Request::Return.
+
+The Emit and Return message classes share a lot of common code.  That
+code has been hoisted into this base class.
+
+Upward messages are automatically created as a side effect of calling
+POE::Request's emit() and return() methods.
 
 =cut
 
@@ -39,20 +46,27 @@ use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
 
 use constant DEBUG => 0;
 
+=head1 PUBLIC METHODS
+
+These methods are called directly on the class or object.
+
 =head2 new PAIRS
 
-Create a new POE::Request response message, using PAIRS of parameters
-to initialize the response.  POE::Request::Upward has one mandatory
-parameter: _type.  This defines the type of response being created.
-Parameters without leading underscores are the responses' payloads.
-They are passed unchanged to the response's handler as its $args
-parameter.
+POE::Request::Upward's new() constructor is almost always called
+internally by POE::Request->emit() or POE::Request->return().  Most
+parameters to emit() and return() are passed through to this
+constructor.
+
+POE::Request::Upward has one mandatory parameter: _type.  This defines
+the type of response being created.  Parameters without leading
+underscores are the responses' payloads.  They are passed unchanged to
+the response's handler as its $args parameter.
 
 Response types are mapped to methods in the original requester's stage
-through the _on_type parameters to POE::Request.  This example maps
-responses of _type "success" to the requester's continue_on() method.
-Likewise "error" responses are mapped to the requester's
-log_and_stop() method.
+through POE::Request's "_on_$type" parameters.  In this example,
+responses of _type "success" are mapped to the requester's
+continue_on() method.  Likewise "error" responses are mapped to the
+requester's log_and_stop() method.
 
 	$self->{req}{foo} = POE::Request->new(
 		_stage      => $some_stage_object,
@@ -61,7 +75,8 @@ log_and_stop() method.
 		_on_error   => "log_and_stop",
 	);
 
-How an asynchronous TCP connector might return success and failure:
+How an asynchronous TCP connector might return success and error
+messages:
 
 	$self->{req}->return(
 		_type  => "success",
@@ -69,7 +84,7 @@ How an asynchronous TCP connector might return success and failure:
 	);
 
 	$self->{req}->return(
-		_type     => "failure",
+		_type     => "error",
 		function  => "connect",
 		errno     => $!+0,
 		errstr    => "$!",
@@ -137,6 +152,7 @@ sub new {
 
 # Deliver the request to its destination.  This happens when the event
 # carrying the request is dispatched.
+# TODO - It's not public.  Consider prefixing it with an underscore.
 
 sub deliver {
 	my $self = shift;
@@ -173,7 +189,9 @@ sub deliver {
 	$self_data->[REQ_DELIVERY_REQ] = undef;
 }
 
-# Rules for all upward messages.
+# Rules for all upward messages.  These methods are not supported by
+# POE::Request::Upward.  The guard methods here are required to ensure
+# that POE::Request's versions are inaccessible.
 
 sub return {
 	my $class = ref(shift());
@@ -196,6 +214,11 @@ sub recall {
 }
 
 1;
+
+=head1 BUGS
+
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

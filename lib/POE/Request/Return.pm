@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Request::Return - a class encapsulating terminal replies to POE::Request
+POE::Request::Return - encapsulates final replies to POE::Request messages
 
 =head1 SYNOPSIS
 
@@ -19,10 +19,10 @@ POE::Request::Return - a class encapsulating terminal replies to POE::Request
 =head1 DESCRIPTION
 
 A POE::Request::Return object is used to send a final response to a
-request.  It is transparently created and sent when a stage calls
-$self->{req}->return(...);  Part of return()'s purpose is to cancel
+request.  It is internally created and sent when a stage calls
+$self->{req}->return(...).  Part of return()'s purpose is to cancel
 the request it replies to, invalidating any further dialog associated
-with it.
+with the request.
 
 =cut
 
@@ -50,6 +50,11 @@ sub _init_subclass {
 }
 
 1;
+
+=head1 BUGS
+
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

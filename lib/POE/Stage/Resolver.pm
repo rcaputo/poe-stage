@@ -38,8 +38,9 @@ POE::Stage::Resolver - a fake non-blocking DNS resolver
 =head1 DESCRIPTION
 
 POE::Stage::Resolver is a simple non-blocking DNS resolver.  It uses
-Net::DNS::Resolver for the bulk of its work, and it returns
-Net::DNS::Packet objects in its success responses.
+Net::DNS::Resolver for the bulk of its work.  It returns
+Net::DNS::Packet objects in its "success" responses.  Making heads or
+tails of them will require perusal of Net::DNS's documentation.
 
 =cut
 
@@ -54,19 +55,17 @@ use Net::DNS::Resolver;
 use POE::Watcher::Input;
 use Carp qw(croak);
 
-=head2 new input => INPUT, type => TYPE, class => CLASS
+=head1 PUBLIC COMMANDS
+
+Commands are invoked with POE::Request objects.
+
+=head2 new (input => INPUT, type => TYPE, class => CLASS)
 
 Creates a POE::Stage::Resolver instance and asks it to resolve some
 INPUT into records of a given CLASS and TYPE.  CLASS and TYPE default
 to "IN" and "A", respectively.
 
-When complete, the stage will return either a "success" or an "error"
-message containing the following fields:
-
-"input" is a copy of the INPUT, suitable for matching up to the
-original request.  "packet" is a Net::DNS::Response packet, or undef
-if there was an error.  "error" is an error message from
-Net::DNS::Resolver or undef if the resolution succeeded.
+When complete, the stage will return either a "success" or an "error".
 
 =cut
 
@@ -110,20 +109,28 @@ sub net_dns_ready_to_read {
 	my $socket = $self->{socket};
 	my $packet = $self->{resolver}->bgread($socket);
 
-	if (defined $packet and !defined $packet->answerfrom) {
+	unless (defined $packet) {
+		$self->{req}->return(
+			_type   => "error",
+			input   => $self->{input},
+			error   => $self->{resolver}->errorstring(),
+		);
+		return;
+	}
+
+	unless (defined $packet->answerfrom) {
 		my $answerfrom = getpeername($socket);
 		if (defined $answerfrom) {
-      $answerfrom = (unpack_sockaddr_in($answerfrom))[1];
-      $answerfrom = inet_ntoa($answerfrom);
-      $packet->answerfrom($answerfrom);
-    }
-  }
+			$answerfrom = (unpack_sockaddr_in($answerfrom))[1];
+			$answerfrom = inet_ntoa($answerfrom);
+			$packet->answerfrom($answerfrom);
+		}
+	}
 
 	$self->{req}->return(
 		_type   => "success",
 		input   => $self->{input},
 		packet  => $packet,
-		error   => $self->{resolver}->errorstring(),
 	);
 
 #	# Dump things when we should be done with them.  Originally used to
@@ -140,29 +147,33 @@ sub net_dns_ready_to_read {
 
 1;
 
+=head1 PUBLIC RESPONSES
+
+Responses are returned by POE::Request->return() or emit().
+
+=head2 "success" (input, packet)
+
+Net::DNS::Resolver successfully resolved a request.  The original
+input is passed back in the "input" parameter.  The resulting
+Net::DNS::Packet object is returned in "packet".
+
+=head2 "error" (input, error)
+
+Net::DNS::Resolver, or something else, failed to resolve the input to
+a response.  The original input is passed back in the "input"
+parameter.  Net::DNS::Resolver's error message comes back as "error".
+
 =head1 BUGS
 
-POE::Stage::Resolver does not check /etc/hosts or its moral
-equivalent.
-
-It does not rotate through the resolvers in /etc/resolv.conf or its
-moral equivalent.
-
-It does not pool requests to limit impact on name servers.
-
-It does not have a user-specified timeout.
-
-It does not permit the user to specify nameservers to check.
-
-It is probably deficient in several other ways.  If
-POE::Component::Client::DNS can do it, POE::Stage::Resolver should
-also.
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 
 POE::Stage and POE::Request.  The examples/log-resolver.perl program
 in POE::Stage's distribution.  Net::DNS::Packet for an explanation of
-returned packets.
+returned packets.  POE::Component::Client::DNS for the original
+inspiration.
 
 =head1 AUTHORS
 

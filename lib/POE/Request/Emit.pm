@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Request::Emit - a class encapsulating non-terminal replies to POE::Request
+POE::Request::Emit - encapsulates non-terminal replies to POE::Request
 
 =head1 SYNOPSIS
 
@@ -18,12 +18,13 @@ POE::Request::Emit - a class encapsulating non-terminal replies to POE::Request
 
 =head1 DESCRIPTION
 
-POE::Request::Emit is a class whose objects are created transparently
-when emit() is called on POE::Request objects.  These objects
-represent responses to POE::Request objects, but they do not cancel
-their trigger request.  This allows a stage to emit multiple events
-for a single request, finally calling return() or cancel() to end the
-request.
+A POE::Request::Emit object is used to send an intermediate response
+to a request.  It is internally created and sent when a stage calls
+$self->{req}->emit(...).
+
+An emitted reply does not cancel the request it is in response to.  A
+stage may therefore emit multiple messages for a single request,
+finally calling return() or cancel() to end the request.
 
 =cut
 
@@ -51,13 +52,18 @@ sub _init_subclass {
 
 =head2 recall PAIRS
 
-recall() is used to respond to emit().  It creates a new
-POE::Request::Recall object, passing the specified PAIRS of arguments
-to its constructor.  Once constructed, the recall message is
-automatically sent to the source of the POE::Request::Emit object.
+The stage receiving an emit()ted message may call recall() on it to
+continue the dialogue after emit().  recall() sends a new
+POE::Request::Recall message back to the stage that called emit().  In
+this way, emit() and recall() can be used to continue a persistent
+dialogue between two stages.
 
-You'll need to see POE::Request::Recall for details on constructing
-recall messages.
+Once constructed, the recall message is automatically sent to the
+source of the POE::Request::Emit object.
+
+The PAIRS of parameters to recall() are for the most part passed
+through to POE::Request::Recall's constructor.  You'll need to see
+POE::Request::Recall for details about recall messages.
 
 =cut
 
@@ -92,6 +98,11 @@ sub recall {
 }
 
 1;
+
+=head1 BUGS
+
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

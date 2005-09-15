@@ -25,18 +25,16 @@ POE::Request - a message class for requesting POE::Stage services
 
 =head1 DESCRIPTION
 
-POE::Request objects are created to initiate dialogues between
-POE::Stage objects.  Subclasses of POE::Request are used to continue
-established dialogues, but they are not created explicitly.  Rather,
-methods of POE::Request and its subclasses transparently create new
-request objects when called.
+POE::Request objects are created to start dialogues between POE::Stage
+objects.  Subclasses of POE::Request are used to continue established
+dialogues, but they are not created explicitly.  Rather, they are
+created as side effects of calling POE::Request methods.
 
 POE::Request objects (and those of its subclasses) act as data scopes
 when treated as hash references.  Storing data into a POE::Request
 object transparently stores it in the current POE::Stage object.  Data
 stored in this manner becomes available again when accessing responses
-to the
-request.
+to the request.
 
 For example:
 
@@ -47,10 +45,8 @@ A response to this request is handled at a later point in time:
 
 	print "$self->{rsp}{key}\n";  # prints "a sample value".
 
-This works because POE::Stage always treats $self->{req} as the
-current request being handled.  When appropriate, $self->{rsp} is the
-current response being handled.  If this is confusing, POE::Stage
-discusses the special "req" and "rsp" data members in more detail.
+POE::Stage::TiedAttributes and POE::Request::TiedAttributes discuss
+this in greater detail.
 
 =cut
 
@@ -256,27 +252,39 @@ sub _send_to_target {
 	);
 }
 
+=head1 PUBLIC METHODS
+
+Request methods are called directly on the objects themselves.
+
 =head2 new PAIRS
 
-Create a new POE::Request, and automatically send it to its
-destination.  Requires at least two parameters: _stage contains the
-object that will receive the request, and _method is the name of a
-method on _stage that will be called to handle it.  Additional
-parameters, unadorned by leading underscores, will be passed as
-parameters in _stage's _method's $args parameter.
+Create a new POE::Request object.  The request will automatically be
+sent to its destination.  Factors on the local or remote process, or
+pertaining to the network between them, may prevent the request from
+being delivered immediately.
 
-The SYNOPSIS contains a trivial example of the syntax.
+POE::Request->new() requires at least two parameters.  "_stage"
+contains the POE::Stage object that will receive the request.
+"_method" is the method to call when the remote stage handles the
+request.
 
-POE::Request returns an object which must be saved.  Destroying a
-POE::Request will cancel the request and free up all data and watchers
-associated with it.  By convention, requests made on behalf of
-higher-level requests are stored in the higher-level request's data.
-Therefore, cancelling a request cascades destruction and cancellation
-through all its sub-requests.  Pretty neat, huh?
+Additional parameters, unadorned by leading underscores, will be
+passed as key/value pairs in the $args parameter to the destination
+"_method".
 
-Instances of POE::Request subclasses do not need to be saved.  They
-are ephemeral responses and re-requests, and their lifespans do not
-control the duration of any dialogues.
+POE::Request->new() returns an object which must be saved.  Destroying
+a request object will cancel the request and free up all data and
+resources associated with it.
+
+By convention, requests made on behalf of higher-level requests are
+stored in the higher-level request's data.  Therefore, cancelling a
+request cascades destruction and cancellation through all its
+sub-requests.  Pretty neat, huh?
+
+Instances of POE::Request subclasses, such as those created by
+$request->return(), do not need to be saved.  They are ephemeral
+responses and re-requests, and their lifespans do not control the
+duration of an inter-stage dialogue.
 
 =cut
 
@@ -356,9 +364,8 @@ are processed and stored in the request.  Its timing gives it the
 ability to modify members of $args, add new ones, or remove old ones.
 
 Custom POE::Request subclasses may use init() to verify that
-parameters are correct.  The design of POE::Request is such that
-subclasses (and therefore init()) may become unnecessary, but the
-method exists at the time of this writing.
+parameters are correct.  Currently init() must throw an exeception
+with die() to signal some form of failure.
 
 =cut
 
@@ -403,12 +410,12 @@ sub deliver {
 =head2 return PAIRS
 
 Cancels the current POE::Request object, invalidating it for future
-operations, and creates a POE::Request::Return object.  This new
-object is initialized with the PAIRS of supplied parameters and
-automatically sent back to the now defunct POE::Request.
+operations, and creates a POE::Request::Return object.  This return
+message is initialized with the PAIRS of supplied parameters.  It is
+automatically (if not immediately) sent back to the POE::Stage that
+created the original request.
 
-Please see POE::Request::Return for constructor parameters and other
-information about return messages.
+Please see POE::Request::Return for details about return messages.
 
 =cut
 
@@ -421,16 +428,13 @@ sub return {
 =head2 emit PAIRS
 
 Creates a POE::Request::Emit object initialized with the PAIRS of
-supplied parameters, and automatically sends it back to the creator of
-the current POE::Request.
+supplied parameters.  The emitted response will be automatically sent
+back to the creator of the request being invoked.
 
-Unlike return(), emit() does not cancel the current request.  This
-makes it useful for sending back more than one response for a single
-request.
+emit() is designed to be called multiple times on the same request.
 
-Please see POE::Request::Emit for constructor parameters and other
-information about emit messages.  Hint: It's virtually the same as
-POE::Request::Return, but emitted messages can be replied to.
+Unlike return(), emit() does not cancel the current request, and
+emitted messages can be replied.
 
 =cut
 
@@ -443,12 +447,17 @@ sub emit {
 
 Explicitly cancel a request.  Normally destroying the request object
 is sufficient, but a request's destruction cannot be triggered by the
-stage handing the request.  The stage can call cancel() however.
+stage handing the request.  The request's handler can call cancel()
+however.
 
 As mentioned earlier, canceling a request frees up the data associated
 with that request.  Cancellation and destruction cascade through the
 tree of requests, freeing up everything associated with the request
 originally canceled.
+
+A canceled request cannot generate a response.  Use return() instead
+of cancel() if you want to return a response before canceling the
+request.
 
 =cut
 
@@ -522,11 +531,32 @@ sub _emit {
 
 1;
 
+=head1 DESIGN GOALS
+
+Requests are designed to encapsulate messages passed between stages.
+
+Requests may be subclassed.
+
+At some point in the future, request classes may be used as message
+types.  More formal POE::Stage interfaces may take advantage of
+explicit message typing in the future.
+
+=head1 BUGS
+
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+
 =head1 SEE ALSO
 
 POE::Request has subclasses that are used internally.  While they
 share the same interface as POE::Request, all its methods are not
-appropriate in all its subclasses.  Therefore, please see:
+appropriate in all its subclasses.
+
+Please see POE::Request::Upward for a discussion of response events,
+and how they are mapped to method calls by the requesting stage.
+POE::Request::Return and POE::Request::Emit are specific kinds of
+upward-facing response messages.
+
 POE::Request::Return, POE::Request::Recall, POE::Request::Emit, and
 POE::Request::Upward.
 

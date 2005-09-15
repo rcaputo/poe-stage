@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Request::Recall - a message class for responses to POE::Request::Emit
+POE::Request::Recall - encapsulates responses to POE::Request::Emit
 
 =head1 SYNOPSIS
 
@@ -19,8 +19,25 @@ POE::Request::Recall - a message class for responses to POE::Request::Emit
 
 POE::Request::Recall objects encapsulate responses to
 POE::Request::Emit objects.  They are not created explicitly; rather,
-they are created when recall() is called on a POE::Request::Emit
-object.
+they are created by POE::Request::Emit's recall() method.
+
+They are quite like POE::Request objects, except that they are not
+created with a _stage parameter.  Rather, the destination stage is the
+one that originally created the previous POE::Request::Emit object.
+
+Consider this persistent dialogue between two stages:
+
+	Requester               Servicer
+	----------------------- -------------------------
+	POE::Request->new()     .
+	.                       $self->{req}->emit()
+	$self->{rsp}->recall()  .
+	.                       $self->{req}->return()
+
+A stage requests a service from another stage.  The servicing stage
+emits a response, which is handled by the requester.  The requester
+responds with recall().  The servicing stage handles the new message
+by calling return(), ending the dialogue.
 
 =cut
 
@@ -49,7 +66,7 @@ use constant DEBUG => 0;
 Create a new POE::Request::Recall object, specifying the _method to
 call in the POE::Stage object on the other end of the dialog.
 Parameters without leading underscores are passed unchanged through to
-_method's $args parameter.
+the _method as its $args parameter.
 
 =cut
 
@@ -116,6 +133,11 @@ sub recall {
 }
 
 1;
+
+=head1 BUGS
+
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 

@@ -26,7 +26,7 @@ POE::Watcher::Input - watch a socket or other handle for input readiness
 =head1 DESCRIPTION
 
 POE::Watcher::Input watches a socket or other handle and delivers a
-message whenever the handle becomes ready for reading.  Bot the handle
+message whenever the handle becomes ready to be read.  Both the handle
 and the method to call are passed to POE::Watcher::Input objects at
 construction time.
 
@@ -41,11 +41,19 @@ use Scalar::Util qw(weaken);
 use Carp qw(croak);
 use POE::Kernel;
 
+=head1 PUBLIC METHODS
+
 =head2 new _handle => HANDLE, _on_input => METHOD_NAME
 
-Begin waiting for data to arrive on a socket or other HANDLE.  When
-the handle becomes ready for reading, alert the watcher's creator
-stage by calling its METHOD_NAME method.
+construct a new POE::Watcher::Input object.  The constructor takes two
+parameters: _handle is the socket or other file handle to watch for
+input readiness.  _on_input is the name of the method in the current
+Stage to invoke when the handle is ready to be read from.
+
+As with all POE::Watcher objects, constructor parameters that are not
+adorned with a leading underscore are passed unchanged to callbacks.
+
+Destroy this object to cancel it.
 
 =cut
 
@@ -110,8 +118,8 @@ sub deliver {
 
 =head1 BUGS
 
-The watcher seems overly simple.  It probably has a large number of
-nasty edge cases in its design.
+See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
+See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 =head1 SEE ALSO
 
