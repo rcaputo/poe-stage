@@ -238,7 +238,10 @@ POE::Request is the class that defines inter-stage messages.
 POE::Watcher is the base class for event watchers, without which
 POE::Stage won't run very well.
 
-SEDA is at L<http://www.eecs.harvard.edu/~mdw/proj/seda/>.
+L<http://thirdlobe.com/projects/poe-stage/> - POE::Stage is hosted
+here.
+
+L<http://www.eecs.harvard.edu/~mdw/proj/seda/> - SEDA.
 
 =head1 AUTHORS
 

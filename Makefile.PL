@@ -2,8 +2,9 @@
 
 use ExtUtils::MakeMaker;
 
-# Touch CHANGES so it exists.
+# Touch auto-generated files so we don't see warnings.
 open(CHANGES, ">>CHANGES") and close CHANGES;
+open(README, ">>README")   and close README;
 
 WriteMakefile(
   NAME         => 'POE::Stage',
@@ -18,7 +19,8 @@ WriteMakefile(
     COMPRESS   => 'gzip -9f',
     SUFFIX     => 'gz',
     PREOP      => (
-      'svn-log.perl | tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
+      'svn-log.perl | tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES;' .
+			'perldoc lib/POE/Stage.pm > README'
     ),
   },
 );
