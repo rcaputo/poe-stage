@@ -15,6 +15,7 @@ use strict;
 	use warnings;
 	use strict;
 
+	use POE::Stage;
 	use base qw(POE::Stage);
 	use POE::Stage::Receiver;
 
