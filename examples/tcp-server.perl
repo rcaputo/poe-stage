@@ -191,12 +191,6 @@ my $app = POE::Stage::EchoServer->new(
 		LocalPort => 31415,
 		ReuseAddr => "yes",
 	),
-#	# TODO - Except that there is no parent stage to emit things to.
-#	on_accept => "moo",
-##	{
-##		class   => "POE::Stage::EchoSession",
-##		method  => "new",
-##	},
 );
 
 sub moo {
@@ -213,7 +207,6 @@ components?  Nifty!  Try to avoid it.
 # Creating the server object will also set it up.
 # init() fires the event, self-firing style.
 # We need callbacks that redirect to other stages.
-# ... what was that syntax?
 
 my $x = POE::Stage::EchoServer->new(
 	BindPort => 8675,
