@@ -498,15 +498,28 @@ sub _emit {
 	# Where does the message go?
 	# TODO - Have croak() reference the proper package/file/line.
 
+	# The message type is important for finding the appropriate method,
+	# either on the sending stage or its destination.
+
+	my $message_type = delete $args{type};
+	croak "Message must have a type parameter" unless defined $message_type;
+
+	# If the caller has an on_my_$mesage_type method, deliver there
+	# immediately.
+	my $emitter = $self_data->[REQ_TARGET_STAGE];
+	my $emitter_method = "on_my_$message_type";
+	if ($emitter->can($emitter_method)) {
+		# TODO - This is probably wrong.  For example, do we need
+		# _push/_pop around _invoke.
+		return $self->_invoke($emitter_method, \%args);
+	}
+
+	# Otherwise we propagate the message back to the request's sender.
 	my $parent_stage = $self_data->[REQ_CREATE_STAGE];
 	confess "Can't emit message: Requester is not a POE::Stage class" unless (
 		$parent_stage
 	);
 
-	# Pull out the message type, and map it to a method.
-
-	my $message_type = delete $args{type};
-	croak "Message must have a type parameter" unless defined $message_type;
 	my $message_method = (
 		(exists $self_data->[REQ_RETURNS]{$message_type})
 		? $self_data->[REQ_RETURNS]{$message_type}
