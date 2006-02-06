@@ -33,6 +33,7 @@ use lib qw(./lib ../lib);
 	sub init {
 		my ($self, $args) = @_;
 
+		# TODO - This idiom happens enough that we should abstract it.
 		my $passthrough_args = delete($args->{args}) || { };
 
 		# TODO - Common pattern: Hoist parameters out of $args and place
@@ -222,3 +223,4 @@ Socket
 on_accept
 on_accept_failure
 on_failure
+
