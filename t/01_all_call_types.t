@@ -54,7 +54,8 @@ my $key_value;
 
 		$self->{original_newkey} = $self->{req}{newkey} = 8675;
 
-		$self->{req}->emit( type => "emit" );
+		$self->{req}->emit(  );
+		#$self->{req}->emit( type => "emit" );
 	}
 
 	sub do_return {
@@ -97,7 +98,8 @@ my $key_value;
 			"do_return original_newkey should match req.newkey"
 		);
 
-		$self->{req}->return( type => "return" );
+		$self->{req}->return();
+		#$self->{req}->return( type => "return" );
 	}
 }
 

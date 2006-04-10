@@ -9,7 +9,7 @@ POE::Request::Return - encapsulates final replies to POE::Request messages
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	$poe_request_object->emit(
+	$poe_request_object->return(
 		type        => "failure",
 		args        => {
 			function  => "connect",

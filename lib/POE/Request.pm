@@ -416,10 +416,16 @@ created the original request.
 
 Please see POE::Request::Return for details about return messages.
 
+If the type of message is not selected, it defaults to "return".
+
 =cut
 
 sub return {
 	my ($self, %args) = @_;
+	
+	# Default return type
+	$args{type} ||= "return";
+	
 	$self->_emit("POE::Request::Return", %args);
 	$self->cancel();
 }
@@ -435,10 +441,15 @@ emit() is designed to be called multiple times on the same request.
 Unlike return(), emit() does not cancel the current request, and
 emitted messages can be replied.
 
+If the type of message is not selected, it defaults to "emit".
+
 =cut
 
 sub emit {
 	my ($self, %args) = @_;
+	# Default return type
+	$args{type} ||= "emit";
+
 	$self->_emit("POE::Request::Emit", %args);
 }
 
