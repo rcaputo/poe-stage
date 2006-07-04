@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 # $Id$
+# vim: filetype=perl
 
 use warnings;
 use strict;
