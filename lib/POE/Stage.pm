@@ -55,14 +55,20 @@ $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"0.%04d",$r};
 
 use POE::Session;
 
-use Scalar::Util qw(blessed);
+use Attribute::Handlers;
+use PadWalker qw(var_name);
+use Scalar::Util qw(blessed reftype);
 use Carp qw(croak);
 use POE::Stage::TiedAttributes;
 
 use POE::Request::Emit;
 use POE::Request::Return;
 use POE::Request::Recall;
-use POE::Request;
+use POE::Request qw(REQ_ID);
+
+use POE::Attribute::Request::Scalar;
+use POE::Attribute::Request::Hash;
+use POE::Attribute::Request::Array;
 
 # An internal singleton POE::Session that will drive all the stages
 # for the application.  This should be structured such that we can
@@ -193,6 +199,56 @@ through to $self->init($key_value_pairs).
 
 sub init {
 	# Do nothing.  Don't even throw an error.
+}
+
+=head2 Req (attribute)
+
+Defines the Req variable attribute for request closures.
+
+=cut
+
+sub Req :ATTR {
+	my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
+	#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
+
+	croak "can't declare a blessed variable as :Req" if blessed($ref);
+
+	my $type = reftype($ref);
+	my $name = var_name(4, $ref);
+
+	# TODO - To make this work tidily, we should translate $name into a
+	# reference to the proper request/response field and pass that into
+	# the tie handler.  Then the tied variable can work directly with
+	# the field, or perhaps a weak copy of it.
+
+	if ($type eq "SCALAR") {
+		return tie(
+			$$ref, "POE::Attribute::Request::Scalar",
+			POE::Request->_get_current_stage(),
+			0 + POE::Request->_get_current_request(),  # XXX - OVERLOADED +0
+			$name
+		);
+	}
+
+	if ($type eq "HASH") {
+		return tie(
+			%$ref, "POE::Attribute::Request::Hash",
+			POE::Request->_get_current_stage(),
+			0 + POE::Request->_get_current_request(),  # XXX - OVERLOADED +0
+			$name
+		);
+	}
+
+	if ($type eq "ARRAY") {
+		return tie(
+			@$ref, "POE::Attribute::Request::Array",
+			POE::Request->_get_current_stage(),
+			0 + POE::Request->_get_current_request(),  # XXX - OVERLOADED +0
+			$name
+		);
+	}
+
+	croak "can't declare a $type variable as :Req";
 }
 
 1;

@@ -129,6 +129,11 @@ sub _free_request_id {
 	return 1;
 }
 
+sub get_id {
+	my $self = shift;
+	return $self->[REQ_ID];
+}
+
 use overload (
 	'""' => sub {
 		my $id = tied(%{shift()})->[REQ_ID];
@@ -422,10 +427,10 @@ If the type of message is not selected, it defaults to "return".
 
 sub return {
 	my ($self, %args) = @_;
-	
+
 	# Default return type
 	$args{type} ||= "return";
-	
+
 	$self->_emit("POE::Request::Return", %args);
 	$self->cancel();
 }
