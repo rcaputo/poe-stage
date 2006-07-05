@@ -19,7 +19,8 @@ use POE::Stage;
 	sub do_something {
 		my ($self, $args) = @_;
 		print "Helper ($self) is executing a request.\n";
-		$self->{req}->return(args => { value => "thanks" });
+		$self->{req}->emit(args => { value => "EmitValue123" });
+		$self->{req}->return(args => { value => "ReturnValueXyz" });
 	}
 }
 
@@ -39,7 +40,8 @@ use POE::Stage;
 		my $helper_request :Req = POE::Request->new(
 			stage     => $helper,
 			method    => "do_something",
-			on_return => "catch_value",
+			on_return => "catch_return",
+			on_emit   => "catch_emit",
 		);
 
 		my (%hash, @array) :Req;
@@ -47,18 +49,40 @@ use POE::Stage;
 		@array = qw( a e i o u y );
 
 		print "App: Calling $helper via $helper_request\n";
+
+		# TODO - This is not entirely elegant.  I'd like to have some :Rsp
+		# syntax here.
+		$helper_request->{'$name'} = "test response context";
 	}
 
-	sub catch_value {
+	sub catch_return {
 		my ($self, $args) = @_;
 		my ($helper, $helper_request, %hash, @array) :Req;
+		my $name :Rsp;
 		print(
-			"App: Caught return value '$args->{value}'\n",
-			"App: $helper was called via $helper_request\n",
-			"App: hash keys: ", join(" ", keys %hash), "\n",
-			"App: hash values: ", join(" ", values %hash), "\n",
-			"App: array: @array\n",
+			"App return: return value '$args->{value}'\n",
+			"App return: $helper was called via $helper_request\n",
+			"App return: hash keys: ", join(" ", keys %hash), "\n",
+			"App return: hash values: ", join(" ", values %hash), "\n",
+			"App return: array: @array\n",
+			"App return: rsp: $name\n",
 		);
+	}
+
+	sub catch_emit {
+		my ($self, $args) = @_;
+		my ($helper, $helper_request, %hash, @array) :Req;
+		my $name :Rsp;
+		print(
+			"App emit: return value '$args->{value}'\n",
+			"App emit: $helper was called via $helper_request\n",
+			"App emit: hash keys: ", join(" ", keys %hash), "\n",
+			"App emit: hash values: ", join(" ", values %hash), "\n",
+			"App emit: array: @array\n",
+			"App emit: rsp name = $name\n",
+		);
+
+		$name = "modified in catch_emit";
 	}
 }
 

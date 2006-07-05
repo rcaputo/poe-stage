@@ -251,6 +251,54 @@ sub Req :ATTR {
 	croak "can't declare a $type variable as :Req";
 }
 
+sub Rsp :ATTR {
+	my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
+	#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
+
+	croak "can't declare a blessed variable as :Rsp" if blessed($ref);
+
+	my $type = reftype($ref);
+	my $name = var_name(4, $ref);
+
+	# TODO - To make this work tidily, we should translate $name into a
+	# reference to the proper request/response field and pass that into
+	# the tie handler.  Then the tied variable can work directly with
+	# the field, or perhaps a weak copy of it.
+
+	my $stage = POE::Request->_get_current_stage();
+	my $response_id = 0 + $stage->{rsp};  # XXX - tie magic and overloaded +0
+
+	if ($type eq "SCALAR") {
+
+		return tie(
+			$$ref, "POE::Attribute::Request::Scalar",
+			$stage,
+			$response_id,
+			$name
+		);
+	}
+
+	if ($type eq "HASH") {
+		return tie(
+			%$ref, "POE::Attribute::Request::Hash",
+			$stage,
+			$response_id,
+			$name
+		);
+	}
+
+	if ($type eq "ARRAY") {
+		return tie(
+			@$ref, "POE::Attribute::Request::Array",
+			$stage,
+			$response_id,
+			$name
+		);
+	}
+
+	croak "can't declare a $type variable as :Rsp";
+}
+
 1;
 
 =head1 USING
