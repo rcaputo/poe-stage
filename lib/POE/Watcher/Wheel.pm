@@ -57,6 +57,7 @@ sub new {
 
 	my $wheel_class = $class->get_wheel_class();
 
+	# XXX - Only used for the request object.
 	my $request = POE::Request->_get_current_request();
 	croak "Can't create a $class without an active request" unless $request;
 

@@ -50,11 +50,8 @@ use POE::Stage;
 
 		print "App: Calling $helper via $helper_request\n";
 
-		# TODO - This is not entirely elegant.  I'd like to have some :Rsp
-		# syntax here.  It would be nice to use some :Req or :Rsp magic
-		# here.  Maybe default to the last created request?
-
-		$helper_request->{'$name'} = "test response context";
+		# This is passed back in the response context to $helper_request.
+		my $name :Req($helper_request) = "test response context";
 	}
 
 	sub catch_return {

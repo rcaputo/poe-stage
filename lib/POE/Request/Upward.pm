@@ -105,6 +105,8 @@ sub new {
 
 	# Upward requests are in response to downward ones.  Therefore a
 	# current request must exist.
+	#
+	# XXX - Only for the reference.
 	my $current_request = POE::Request->_get_current_request();
 	confess "should always have a current request" unless $current_request;
 

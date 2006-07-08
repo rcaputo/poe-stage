@@ -81,6 +81,8 @@ sub new {
 	# Recalling downward, there should always be a current request.
 	# TODO: Does this always hold true?  For example, wehn recalling
 	# from "main" back into the main application stage?
+	#
+	# XXX - Only getting the current request for its tied object.
 	my $current_request = POE::Request->_get_current_request();
 	confess "should always have a current request" unless $current_request;
 

@@ -316,6 +316,7 @@ sub new {
 	# Set the parent request to be the currently active request.
 	# New request = new context.
 
+	# XXX - Only used for the request object?
 	$self_data->[REQ_PARENT_REQUEST] = POE::Request->_get_current_request();
 	$self_data->[REQ_ID] = $self->_allocate_request_id();
 

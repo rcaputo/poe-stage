@@ -64,6 +64,7 @@ sub new {
 	my $input_method = delete $args{on_input};
 	croak "$class requires an 'on_input' parameter" unless defined $input_method;
 
+	# XXX - Only used for the request object.
 	my $request = POE::Request->_get_current_request();
 	croak "Can't create a $class without an active request" unless $request;
 

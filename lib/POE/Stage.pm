@@ -56,7 +56,7 @@ $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"0.%04d",$r};
 use POE::Session;
 
 use Attribute::Handlers;
-use PadWalker qw(var_name);
+use PadWalker qw(var_name peek_my);
 use Scalar::Util qw(blessed reftype);
 use Carp qw(croak);
 use POE::Stage::TiedAttributes;
@@ -207,48 +207,114 @@ Defines the Req variable attribute for request closures.
 
 =cut
 
-sub Req :ATTR {
-	my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-	#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
+{
+	no warnings 'redefine';
 
-	croak "can't declare a blessed variable as :Req" if blessed($ref);
+	sub Req :ATTR(SCALAR,RAWDATA) {
+		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
+		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
 
-	my $type = reftype($ref);
-	my $name = var_name(4, $ref);
+		croak "can't declare a blessed variable as :Req" if blessed($ref);
 
-	# TODO - To make this work tidily, we should translate $name into a
-	# reference to the proper request/response field and pass that into
-	# the tie handler.  Then the tied variable can work directly with
-	# the field, or perhaps a weak copy of it.
+		my $name = var_name(4, $ref);
 
-	if ($type eq "SCALAR") {
+		my $request;
+		if (defined $data) {
+			my $my = peek_my(4);
+			croak "Unknown request object '$data'" unless (
+				exists $my->{$data}
+				and reftype($my->{$data}) eq "REF"
+				and UNIVERSAL::isa(${$my->{$data}}, "POE::Request")
+			);
+			$request = ${$my->{$data}};
+		}
+		else {
+			$request = POE::Request->_get_current_request();
+		}
+
+		# TODO - To make this work tidily, we should translate $name into a
+		# reference to the proper request/response field and pass that into
+		# the tie handler.  Then the tied variable can work directly with
+		# the field, or perhaps a weak copy of it.
+
+		# XXX - _get_current_request() only used to get the ID.
 		return tie(
 			$$ref, "POE::Attribute::Request::Scalar",
 			POE::Request->_get_current_stage(),
-			0 + POE::Request->_get_current_request(),  # XXX - OVERLOADED +0
+			0 + $request,  # XXX - OVERLOADED +0
 			$name
 		);
 	}
 
-	if ($type eq "HASH") {
+	sub Req :ATTR(HASH,RAWDATA) {
+		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
+		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
+
+		croak "can't declare a blessed variable as :Req" if blessed($ref);
+
+		my $name = var_name(4, $ref);
+
+		my $request;
+		if (defined $data) {
+			my $my = peek_my(4);
+			croak "Unknown request object '$data'" unless (
+				exists $my->{$data}
+				and reftype($my->{$data}) eq "REF"
+				and UNIVERSAL::isa(${$my->{$data}}, "POE::Request")
+			);
+			$request = ${$my->{$data}};
+		}
+		else {
+			$request = POE::Request->_get_current_request();
+		}
+
+		# TODO - To make this work tidily, we should translate $name into a
+		# reference to the proper request/response field and pass that into
+		# the tie handler.  Then the tied variable can work directly with
+		# the field, or perhaps a weak copy of it.
+
 		return tie(
 			%$ref, "POE::Attribute::Request::Hash",
 			POE::Request->_get_current_stage(),
-			0 + POE::Request->_get_current_request(),  # XXX - OVERLOADED +0
+			0 + $request,  # XXX - OVERLOADED +0
 			$name
 		);
 	}
 
-	if ($type eq "ARRAY") {
+	sub Req :ATTR(ARRAY,RAWDATA) {
+		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
+		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
+
+		croak "can't declare a blessed variable as :Req" if blessed($ref);
+
+		my $name = var_name(4, $ref);
+
+		my $request;
+		if (defined $data) {
+			my $my = peek_my(4);
+			croak "Unknown request object '$data'" unless (
+				exists $my->{$data}
+				and reftype($my->{$data}) eq "REF"
+				and UNIVERSAL::isa(${$my->{$data}}, "POE::Request")
+			);
+			$request = ${$my->{$data}};
+		}
+		else {
+			$request = POE::Request->_get_current_request();
+		}
+
+		# TODO - To make this work tidily, we should translate $name into a
+		# reference to the proper request/response field and pass that into
+		# the tie handler.  Then the tied variable can work directly with
+		# the field, or perhaps a weak copy of it.
+
 		return tie(
 			@$ref, "POE::Attribute::Request::Array",
 			POE::Request->_get_current_stage(),
-			0 + POE::Request->_get_current_request(),  # XXX - OVERLOADED +0
+			0 + $request,  # XXX - OVERLOADED +0
 			$name
 		);
 	}
-
-	croak "can't declare a $type variable as :Req";
 }
 
 sub Rsp :ATTR {
