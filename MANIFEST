@@ -2,10 +2,14 @@ CHANGES
 MANIFEST
 Makefile.PL
 README
+examples/01_basics.perl
 examples/log-resolver.perl
 examples/many-responses.perl
 examples/ping-pong.perl
+examples/self-requesting-stage.perl
+examples/tcp-server.perl
 examples/udp-peer.perl
+examples/wheel-run.perl
 lib/POE/Attribute/Request/Array.pm
 lib/POE/Attribute/Request/Hash.pm
 lib/POE/Attribute/Request/Scalar.pm
