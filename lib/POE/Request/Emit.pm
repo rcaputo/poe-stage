@@ -48,8 +48,7 @@ use base qw(POE::Request::Upward);
 
 sub _init_subclass {
 	my ($self, $current_request) = @_;
-	my $self_data = tied(%$self);
-	$self_data->[REQ_PARENT_REQUEST] = $current_request;
+	$self->[REQ_PARENT_REQUEST] = $current_request;
 }
 
 =head2 recall PAIRS
@@ -75,8 +74,7 @@ sub recall {
 	# Where does the message go?
 	# TODO - Have croak() reference the proper package/file/line.
 
-	my $self_data = tied(%$self);
-	my $parent_stage = $self_data->[REQ_CREATE_STAGE];
+	my $parent_stage = $self->[REQ_CREATE_STAGE];
 	unless ($parent_stage) {
 		confess "Cannot recall message: The requester is not a POE::Stage class";
 	}
@@ -89,7 +87,7 @@ sub recall {
 
 	# Reconstitute the parent's context.
 	my $parent_context;
-	my $parent_request = $self_data->[REQ_PARENT_REQUEST];
+	my $parent_request = $self->[REQ_PARENT_REQUEST];
 	croak "Cannot recall message: The requester has no context" unless (
 		$parent_request
 	);

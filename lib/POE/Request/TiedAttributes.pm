@@ -41,6 +41,7 @@ use POE::Request qw(REQ_ID);
 
 sub TIEHASH {
 	my ($class, $self) = @_;
+	die "heavily deprecated";
 	return bless $self, $class;
 }
 

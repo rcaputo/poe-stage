@@ -6,11 +6,13 @@ examples/log-resolver.perl
 examples/many-responses.perl
 examples/ping-pong.perl
 examples/udp-peer.perl
+lib/POE/Attribute/Request/Array.pm
+lib/POE/Attribute/Request/Hash.pm
+lib/POE/Attribute/Request/Scalar.pm
 lib/POE/Request.pm
 lib/POE/Request/Emit.pm
 lib/POE/Request/Recall.pm
 lib/POE/Request/Return.pm
-lib/POE/Request/TiedAttributes.pm
 lib/POE/Request/Upward.pm
 lib/POE/Stage.pm
 lib/POE/Stage/Echoer.pm

@@ -111,17 +111,15 @@ sub new {
 	confess "should always have a current request" unless $current_request;
 
 	# Record the stage that created this request.
-	my $self_data = tied(%$self);
-	my $current_data = tied(%$current_request);
-	$self_data->[REQ_CREATE_STAGE] = $current_data->[REQ_TARGET_STAGE];
-	weaken $self_data->[REQ_CREATE_STAGE];
+	$self->[REQ_CREATE_STAGE] = $current_request->[REQ_TARGET_STAGE];
+	weaken $self->[REQ_CREATE_STAGE];
 
 	# Upward requests target the current request's parent request.
-	$self_data->[REQ_DELIVERY_REQ] = $current_data->[REQ_PARENT_REQUEST];
+	$self->[REQ_DELIVERY_REQ] = $current_request->[REQ_PARENT_REQUEST];
 
 	# Upward requests' "rsp" values point to the current request at the
 	# time the upward one is created.
-	$self_data->[REQ_DELIVERY_RSP] = $self;
+	$self->[REQ_DELIVERY_RSP] = $self;
 
 	# The main difference between upward requests is their parents.
 	$self->_init_subclass($current_request);
@@ -129,26 +127,26 @@ sub new {
 	# Context is the delivery req's context.  It may not always exist,
 	# as in the case of an upward request leaving the top-level
 	# "application" stage and returning to the outside.
-	if ($self_data->[REQ_DELIVERY_REQ]) {
-		my $delivery_data = tied(%{$self_data->[REQ_DELIVERY_REQ]});
-#		$self_data->[REQ_CONTEXT] = $current_data->[REQ_CONTEXT];
+	if ($self->[REQ_DELIVERY_REQ]) {
+		my $delivery_data = $self->[REQ_DELIVERY_REQ];
+#		$self->[REQ_CONTEXT] = $current_request->[REQ_CONTEXT];
 	}
 #	else {
-#		$self_data->[REQ_CONTEXT] = { };
+#		$self->[REQ_CONTEXT] = { };
 #	}
 
-	$self_data->[REQ_ID] = $self->_reallocate_request_id(
-		tied(%$current_request)->[REQ_ID]
+	$self->[REQ_ID] = $self->_reallocate_request_id(
+		$current_request->[REQ_ID]
 	);
 
 	# Upward requests can be of various types.
-	$self_data->[REQ_TYPE] = delete $args{type};
+	$self->[REQ_TYPE] = delete $args{type};
 
 	DEBUG and warn(
 		"$current_request created ", ref($self), " $self:\n",
-		"\tMy parent request = $self_data->[REQ_PARENT_REQUEST]\n",
-		"\tDelivery request  = $self_data->[REQ_DELIVERY_REQ]\n",
-		"\tDelivery response = $self_data->[REQ_DELIVERY_RSP]\n",
+		"\tMy parent request = $self->[REQ_PARENT_REQUEST]\n",
+		"\tDelivery request  = $self->[REQ_DELIVERY_REQ]\n",
+		"\tDelivery response = $self->[REQ_DELIVERY_RSP]\n",
 	);
 
 	$self->_assimilate_args($args{args} || {});
@@ -164,36 +162,34 @@ sub new {
 sub deliver {
 	my $self = shift;
 
-	my $self_data = tied(%$self);
-
-	my $target_stage_data = tied(%{$self_data->[REQ_TARGET_STAGE]});
-	$target_stage_data->[REQUEST]  = $self_data->[REQ_DELIVERY_REQ];
-	$target_stage_data->[RESPONSE] = $self_data->[REQ_DELIVERY_RSP];
+	my $target_stage_data = tied(%{$self->[REQ_TARGET_STAGE]});
+	$target_stage_data->[REQUEST]  = $self->[REQ_DELIVERY_REQ];
+	$target_stage_data->[RESPONSE] = $self->[REQ_DELIVERY_RSP];
 
 	$self->_push(
-		$self_data->[REQ_DELIVERY_REQ],
-		$self_data->[REQ_TARGET_STAGE],
-		$self_data->[REQ_TARGET_METHOD],
+		$self->[REQ_DELIVERY_REQ],
+		$self->[REQ_TARGET_STAGE],
+		$self->[REQ_TARGET_METHOD],
 	);
 
-	$self->_invoke($self_data->[REQ_TARGET_METHOD]);
+	$self->_invoke($self->[REQ_TARGET_METHOD]);
 
 	$self->_pop(
-		$self_data->[REQ_DELIVERY_REQ],
-		$self_data->[REQ_TARGET_STAGE],
-		$self_data->[REQ_TARGET_METHOD],
+		$self->[REQ_DELIVERY_REQ],
+		$self->[REQ_TARGET_STAGE],
+		$self->[REQ_TARGET_METHOD],
 	);
 
 	my $old_rsp = splice( @$target_stage_data, RESPONSE, 1, 0 );
 	my $old_req = splice( @$target_stage_data, REQUEST,  1, 0 );
 
-#	die "bad rsp" unless $old_rsp == $self_data->[REQ_DELIVERY_RSP];
-#	die "bad req" unless $old_req == $self_data->[REQ_DELIVERY_REQ];
+#	die "bad rsp" unless $old_rsp == $self->[REQ_DELIVERY_RSP];
+#	die "bad req" unless $old_req == $self->[REQ_DELIVERY_REQ];
 
 
 	# Break circular references.
-	$self_data->[REQ_DELIVERY_RSP] = undef;
-	$self_data->[REQ_DELIVERY_REQ] = undef;
+	$self->[REQ_DELIVERY_RSP] = undef;
+	$self->[REQ_DELIVERY_REQ] = undef;
 }
 
 # Rules for all upward messages.  These methods are not supported by

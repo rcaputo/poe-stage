@@ -95,7 +95,6 @@ BEGIN {
 	);
 }
 
-use POE::Request::TiedAttributes;
 use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
 
 my $last_request_id = 0;
@@ -136,11 +135,11 @@ sub get_id {
 
 use overload (
 	'""' => sub {
-		my $id = tied(%{shift()})->[REQ_ID];
+		my $id = shift()->[REQ_ID];
 		return "(request $id)";
 	},
 	'0+' => sub {
-		my $id = tied(%{shift()})->[REQ_ID];
+		my $id = shift()->[REQ_ID];
 		return $id;
 	},
 	fallback => 1,
@@ -148,15 +147,13 @@ use overload (
 
 sub DESTROY {
 	my $self = shift;
-	my $inner_object = tied %$self;
-	return unless $inner_object;
-	my $id = $inner_object->[REQ_ID];
+	my $id = $self->[REQ_ID];
 
 	if (_free_request_id($id)) {
-		tied(%{$inner_object->[REQ_CREATE_STAGE]})->_request_context_destroy($id)
-			if $inner_object->[REQ_CREATE_STAGE];
-		tied(%{$inner_object->[REQ_TARGET_STAGE]})->_request_context_destroy($id)
-			if $inner_object->[REQ_TARGET_STAGE];
+		tied(%{$self->[REQ_CREATE_STAGE]})->_request_context_destroy($id)
+			if $self->[REQ_CREATE_STAGE];
+		tied(%{$self->[REQ_TARGET_STAGE]})->_request_context_destroy($id)
+			if $self->[REQ_TARGET_STAGE];
 	}
 }
 
@@ -198,17 +195,16 @@ sub _push {
 
 sub _invoke {
 	my ($self, $method, $override_args) = @_;
-	my $self_data = tied(%$self);
 
 	DEBUG and warn(
-		"\t$self invoking $self_data->[REQ_TARGET_STAGE] method $method:\n",
-		"\t\tMy req  = $self_data->[REQ_TARGET_STAGE]{req}\n",
-		"\t\tMy rsp  = $self_data->[REQ_TARGET_STAGE]{rsp}\n",
-		"\t\tPar req = $self_data->[REQ_PARENT_REQUEST]\n",
+		"\t$self invoking $self->[REQ_TARGET_STAGE] method $method:\n",
+		"\t\tMy req  = $self->[REQ_TARGET_STAGE]{req}\n",
+		"\t\tMy rsp  = $self->[REQ_TARGET_STAGE]{rsp}\n",
+		"\t\tPar req = $self->[REQ_PARENT_REQUEST]\n",
 	);
 
-	$self_data->[REQ_TARGET_STAGE]->$method(
-		$override_args || $self_data->[REQ_ARGS]
+	$self->[REQ_TARGET_STAGE]->$method(
+		$override_args || $self->[REQ_ARGS]
 	);
 }
 
@@ -233,7 +229,7 @@ sub _request_constructor {
 	# TODO - What's the "right" way to make fields inheritable without
 	# clashing in Perl?
 
-	tie my (%self), "POE::Request::TiedAttributes", [
+	my $self = bless [
 		delete $args->{stage},        # REQ_TARGET_STAGE
 		delete $args->{method},       # REQ_TARGET_METHOD
 		{ },                          # REQ_CHILD_REQUESTS
@@ -243,9 +239,7 @@ sub _request_constructor {
 		$line,                        # REQ_CREATE_LINE
 		0,                            # REQ_CREATE_STAGE
 		{ },                          # REQ_ARGS
-	];
-
-	my $self = bless \%self, $class;
+	], $class;
 
 	return $self;
 }
@@ -253,10 +247,9 @@ sub _request_constructor {
 # Send the request to its destination.
 sub _send_to_target {
 	my $self = shift;
-	my $self_data = tied(%$self);
-	Carp::confess "whoops" unless $self_data->[REQ_TARGET_STAGE];
+	Carp::confess "whoops" unless $self->[REQ_TARGET_STAGE];
 	$poe_kernel->post(
-		$self_data->[REQ_TARGET_STAGE]->_get_session_id(), "stage_request", $self
+		$self->[REQ_TARGET_STAGE]->_get_session_id(), "stage_request", $self
 	);
 }
 
@@ -300,7 +293,6 @@ sub new {
 	my ($class, %args) = @_;
 
 	my $self = $class->_request_constructor(\%args);
-	my $self_data = tied(%$self);
 
 	# Gather up the type/method mapping for any responses to this
 	# request.
@@ -311,32 +303,32 @@ sub new {
 		$returns{$1} = delete $args{$_};
 	}
 
-	$self_data->[REQ_RETURNS] = \%returns;
+	$self->[REQ_RETURNS] = \%returns;
 
 	# Set the parent request to be the currently active request.
 	# New request = new context.
 
 	# XXX - Only used for the request object?
-	$self_data->[REQ_PARENT_REQUEST] = POE::Request->_get_current_request();
-	$self_data->[REQ_ID] = $self->_allocate_request_id();
+	$self->[REQ_PARENT_REQUEST] = POE::Request->_get_current_request();
+	$self->[REQ_ID] = $self->_allocate_request_id();
 
 	# If we have a parent request, then we need to associate this new
 	# request with it.  The references between parent and child requests
 	# are all weak because it's up to the creator to decide when
 	# destruction happens.
 
-	if ($self_data->[REQ_PARENT_REQUEST]) {
-		my $parent_data = tied(%{$self_data->[REQ_PARENT_REQUEST]});
-		$self_data->[REQ_CREATE_STAGE] = $parent_data->[REQ_TARGET_STAGE];
-		weaken $self_data->[REQ_CREATE_STAGE];
+	if ($self->[REQ_PARENT_REQUEST]) {
+		my $parent_data = $self->[REQ_PARENT_REQUEST];
+		$self->[REQ_CREATE_STAGE] = $parent_data->[REQ_TARGET_STAGE];
+		weaken $self->[REQ_CREATE_STAGE];
 
 		$parent_data->[REQ_CHILD_REQUESTS]{$self} = $self;
 		weaken $parent_data->[REQ_CHILD_REQUESTS]{$self};
 	}
 
 	DEBUG and warn(
-		"$self_data->[REQ_PARENT_REQUEST] created $self:\n",
-		"\tMy parent request = $self_data->[REQ_PARENT_REQUEST]\n",
+		"$self->[REQ_PARENT_REQUEST] created $self:\n",
+		"\tMy parent request = $self->[REQ_PARENT_REQUEST]\n",
 		"\tDelivery request  = $self\n",
 		"\tDelivery response = 0\n",
 	);
@@ -358,8 +350,7 @@ sub _assimilate_args {
 
 	# Copy the remaining arguments into the object.
 
-	my $self_data = tied(%$self);
-	$self_data->[REQ_ARGS] = { %$args };
+	$self->[REQ_ARGS] = { %$args };
 }
 
 =head2 init HASHREF
@@ -386,16 +377,15 @@ sub init {
 
 sub deliver {
 	my ($self, $method, $override_args) = @_;
-	my $self_data = tied(%$self);
 
-	my $target_stage = $self_data->[REQ_TARGET_STAGE];
+	my $target_stage = $self->[REQ_TARGET_STAGE];
 	my $target_stage_data = tied(%$target_stage);
 
-	my $delivery_req = $self_data->[REQ_DELIVERY_REQ] || $self;
+	my $delivery_req = $self->[REQ_DELIVERY_REQ] || $self;
 	$target_stage_data->[REQUEST]  = $delivery_req;
 	$target_stage_data->[RESPONSE] = 0;
 
-	my $target_method = $method || $self_data->[REQ_TARGET_METHOD];
+	my $target_method = $method || $self->[REQ_TARGET_METHOD];
 	$self->_push($self, $target_stage, $target_method);
 
 	$self->_invoke($target_method, $override_args);
@@ -479,11 +469,10 @@ request.
 
 sub cancel {
 	my $self = shift;
-	my $self_data = tied(%$self);
 
 	# Cancel all the children first.
 
-	foreach my $child (values %{$self_data->[REQ_CHILD_REQUESTS]}) {
+	foreach my $child (values %{$self->[REQ_CHILD_REQUESTS]}) {
 		eval {
 			$child->cancel();
 		};
@@ -492,25 +481,24 @@ sub cancel {
 	# A little sanity check.  We should have no children once they're
 	# canceled.
 	die "canceled parent has children left" if (
-		keys %{$self_data->[REQ_CHILD_REQUESTS]}
+		keys %{$self->[REQ_CHILD_REQUESTS]}
 	);
 
 	# Disengage from our parent.
 	# TODO - Use a mutator rather than grope inside the parent object.
 
-	if ($self_data->[REQ_PARENT_REQUEST]) {
-		my $parent_data = tied(%{$self_data->[REQ_PARENT_REQUEST]});
+	if ($self->[REQ_PARENT_REQUEST]) {
+		my $parent_data = $self->[REQ_PARENT_REQUEST];
 		delete $parent_data->[REQ_CHILD_REQUESTS]{$self};
-		$self_data->[REQ_PARENT_REQUEST] = 0;
+		$self->[REQ_PARENT_REQUEST] = 0;
 	}
 
 	# Weaken the target stage?
-	weaken $self_data->[REQ_TARGET_STAGE];
+	weaken $self->[REQ_TARGET_STAGE];
 }
 
 sub _emit {
 	my ($self, $class, %args) = @_;
-	my $self_data = tied(%$self);
 
 	# Where does the message go?
 	# TODO - Have croak() reference the proper package/file/line.
@@ -523,7 +511,7 @@ sub _emit {
 
 	# If the caller has an on_my_$mesage_type method, deliver there
 	# immediately.
-	my $emitter = $self_data->[REQ_TARGET_STAGE];
+	my $emitter = $self->[REQ_TARGET_STAGE];
 	my $emitter_method = "on_my_$message_type";
 	if ($emitter->can($emitter_method)) {
 		# TODO - This is probably wrong.  For example, do we need
@@ -532,20 +520,20 @@ sub _emit {
 	}
 
 	# Otherwise we propagate the message back to the request's sender.
-	my $parent_stage = $self_data->[REQ_CREATE_STAGE];
+	my $parent_stage = $self->[REQ_CREATE_STAGE];
 	confess "Can't emit message: Requester is not a POE::Stage class" unless (
 		$parent_stage
 	);
 
 	my $message_method = (
-		(exists $self_data->[REQ_RETURNS]{$message_type})
-		? $self_data->[REQ_RETURNS]{$message_type}
+		(exists $self->[REQ_RETURNS]{$message_type})
+		? $self->[REQ_RETURNS]{$message_type}
 		: "unknown_type($message_type)"
 	);
 
 	# Reconstitute the parent's context.
 	my $parent_context;
-	my $parent_request = $self_data->[REQ_PARENT_REQUEST];
+	my $parent_request = $self->[REQ_PARENT_REQUEST];
 	croak "Cannot emit message: The requester has no context" unless (
 		$parent_request
 	);
