@@ -295,11 +295,10 @@ depending on the type of variable declared.
 		# the tie handler.  Then the tied variable can work directly with
 		# the field, or perhaps a weak copy of it.
 
-		# XXX - _get_current_request() only used to get the ID.
 		return tie(
 			$$ref, "POE::Attribute::Request::Scalar",
 			POE::Request->_get_current_stage(),
-			0 + $request,  # XXX - OVERLOADED +0
+			$request->get_id(),
 			$name
 		);
 	}
@@ -334,7 +333,7 @@ depending on the type of variable declared.
 		return tie(
 			%$ref, "POE::Attribute::Request::Hash",
 			POE::Request->_get_current_stage(),
-			0 + $request,  # XXX - OVERLOADED +0
+			$request->get_id(),
 			$name
 		);
 	}
@@ -369,7 +368,7 @@ depending on the type of variable declared.
 		return tie(
 			@$ref, "POE::Attribute::Request::Array",
 			POE::Request->_get_current_stage(),
-			0 + $request,  # XXX - OVERLOADED +0
+			$request->get_id(),
 			$name
 		);
 	}
@@ -392,7 +391,7 @@ depending on the type of variable declared.
 		# the field, or perhaps a weak copy of it.
 
 		my $stage = POE::Request->_get_current_stage();
-		my $response_id = 0 + $stage->{rsp};  # XXX - tie magic and overloaded +0
+		my $response_id = $stage->{rsp}->get_id();
 
 		return tie(
 			$$ref, "POE::Attribute::Request::Scalar",
@@ -416,7 +415,7 @@ depending on the type of variable declared.
 		# the field, or perhaps a weak copy of it.
 
 		my $stage = POE::Request->_get_current_stage();
-		my $response_id = 0 + $stage->{rsp};  # XXX - tie magic and overloaded +0
+		my $response_id = $stage->{rsp}->get_id();
 
 		return tie(
 			%$ref, "POE::Attribute::Request::Hash",
@@ -440,7 +439,7 @@ depending on the type of variable declared.
 		# the field, or perhaps a weak copy of it.
 
 		my $stage = POE::Request->_get_current_stage();
-		my $response_id = 0 + $stage->{rsp};  # XXX - tie magic and overloaded +0
+		my $response_id = $stage->{rsp}->get_id();
 
 		return tie(
 			@$ref, "POE::Attribute::Request::Array",

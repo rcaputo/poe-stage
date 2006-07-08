@@ -5,7 +5,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 25;
+use Test::More tests => 19;
 
 my $go_req;
 my $key_value;
@@ -28,13 +28,9 @@ my $key_value;
 		);
 
 		ok(
-			$self->{req} == $go_req,
-			"do_emit req (".($self->{req}+0).") should match go_req (".($go_req+0).")"
-		);
-
-		ok(
-			$self->{req} eq $go_req,
-			"do_emit req ($self->{req}) should match go_req ($go_req)"
+			$self->{req}->get_id() == $go_req->get_id(),
+			"do_emit req (" .  $self->{req}->get_id() .
+			") should match go_req (" . $go_req->get_id() . ")"
 		);
 
 		ok(
@@ -69,14 +65,9 @@ my $key_value;
 		);
 
 		ok(
-			$self->{req} == $go_req,
-			"do_return req (" . ($self->{req}+0) . ") should match go_req (" .
-			($go_req+0) . ")"
-		);
-
-		ok(
-			$self->{req} eq $go_req,
-			"do_return req ($self->{req}) should match go_req ($go_req)"
+			$self->{req}->get_id() == $go_req->get_id(),
+			"do_return req (" . $self->{req}->get_id() . ") should match go_req (" .
+			$go_req->get_id() . ")"
 		);
 
 		ok(
@@ -147,25 +138,15 @@ my $key_value;
 		);
 
 		ok(
-			$self->{req} == $self->{original_req},
-			"emit req (" . ($self->{req}+0) . ") should match original (" .
-			($self->{original_req}+0) . ")"
+			$self->{req}->get_id() == $self->{original_req}->get_id(),
+			"emit req (" . $self->{req}->get_id() . ") should match original (" .
+			$self->{original_req}->get_id() . ")"
 		);
 
 		ok(
-			$self->{req} eq $self->{original_req},
-			"emit req ($self->{req}) should match original ($self->{original_req})"
-		);
-
-		ok(
-			$self->{rsp} == $self->{original_sub},
-			"emit rsp (" . ($self->{rsp}+0) . ") should match original (" .
-			($self->{original_sub}+0) . ")"
-		);
-
-		ok(
-			$self->{rsp} eq $self->{original_sub},
-			"emit rsp ($self->{rsp}) should match original ($self->{original_sub})"
+			$self->{rsp}->get_id() == $self->{original_sub}->get_id(),
+			"emit rsp (" . ($self->{rsp}->get_id()) . ") should match original (" .
+			($self->{original_sub}->get_id()) . ")"
 		);
 
 		my $key :Rsp;
@@ -192,26 +173,15 @@ my $key_value;
 		);
 
 		ok(
-			$self->{req} == $self->{original_req},
-			"ret req (" . ($self->{req}+0) . ") should match original (" .
-			($self->{original_req}+0) . ")"
+			$self->{req}->get_id() == $self->{original_req}->get_id(),
+			"ret req (" . $self->{req}->get_id() . ") should match original (" .
+			$self->{original_req}->get_id() . ")"
 		);
 
 		ok(
-			$self->{req} eq $self->{original_req},
-			"ret req ($self->{req}) should match original ($self->{original_req})"
-		);
-
-		ok(
-			$self->{rsp} == $self->{original_sub},
-			"ret rsp (" . ($self->{rsp}+0) . ") " .
-			"should match original sub (" . ($self->{original_sub}+0) . ")"
-		);
-
-		ok(
-			$self->{rsp} eq $self->{original_sub},
-			"ret rsp ($self->{rsp}) " .
-			"should match original sub ($self->{original_sub})"
+			$self->{rsp}->get_id() == $self->{original_sub}->get_id(),
+			"ret rsp (" . $self->{rsp}->get_id() . ") " .
+			"should match original sub (" . $self->{original_sub}->get_id() . ")"
 		);
 
 		my $key :Rsp;

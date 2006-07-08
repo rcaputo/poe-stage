@@ -165,18 +165,6 @@ sub get_id {
 	return $self->[REQ_ID];
 }
 
-use overload (
-	'""' => sub {
-		my $id = shift()->[REQ_ID];
-		return "(request $id)";
-	},
-	'0+' => sub {
-		my $id = shift()->[REQ_ID];
-		return $id;
-	},
-	fallback => 1,
-);
-
 sub DESTROY {
 	my $self = shift;
 	my $id = $self->[REQ_ID];
