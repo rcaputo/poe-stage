@@ -70,16 +70,16 @@ message types to appropriate handlers.
 sub listen {
 	my ($self, $args) = @_;
 
-	$self->{req}{bind_port} = delete $args->{bind_port};
+	my $bind_port :Req = delete $args->{bind_port};
 
-	$self->{req}{socket} = IO::Socket::INET->new(
+	my $socket :Req = IO::Socket::INET->new(
 		Proto     => 'udp',
-		LocalPort => $self->{req}{bind_port},
+		LocalPort => $bind_port,
 	);
-	die "Can't create UDP socket: $!" unless $self->{req}{socket};
+	die "Can't create UDP socket: $!" unless $socket;
 
-	$self->{req}{udp_watcher} = POE::Watcher::Input->new(
-		handle    => $self->{req}{socket},
+	my $udp_watcher :Req = POE::Watcher::Input->new(
+		handle    => $socket,
 		on_input  => "handle_input"
 	);
 }
@@ -87,8 +87,9 @@ sub listen {
 sub handle_input {
 	my ($self, $args) = @_;
 
+	my $socket :Req;
 	my $remote_address = recv(
-		$self->{req}{socket},
+		$socket,
 		my $datagram = "",
 		DATAGRAM_MAXLEN,
 		0
@@ -124,8 +125,9 @@ respond to a datagram emitted by the Receiver.
 sub send {
 	my ($self, $args) = @_;
 
+	my $socket :Req;
 	return if send(
-		$self->{req}{socket},
+		$socket,
 		$args->{datagram},
 		0,
 		$args->{remote_address},

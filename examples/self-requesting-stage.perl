@@ -47,7 +47,8 @@
 	sub set_thingy {
 		my ($self, $args) = @_;
 		warn 1;
-		$self->{req}{delay} = POE::Watcher::Delay->new(
+
+		my $delay :Req = POE::Watcher::Delay->new(
 			seconds     => $args->{seconds},
 			on_success  => "time_is_up",
 		);
@@ -63,7 +64,7 @@
 		# Don't need to delete these as long as the request is canceled,
 		# either by calling $self->{req}->return() on ->cancel().
 		#delete $self->{request};
-		#delete $self->{req}{delay};
+		#my $delay :Req = undef;
 	}
 }
 
@@ -88,7 +89,8 @@
 	sub spawn_requester {
 		my $self = shift;
 		warn 5;
-		$self->{req}{self_requester} = SelfRequester->new(
+
+		my $self_requester :Req = SelfRequester->new(
 			on_done   => "do_again",
 			args      => {
 				seconds => 0.001,

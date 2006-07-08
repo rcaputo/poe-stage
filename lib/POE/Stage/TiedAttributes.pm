@@ -130,7 +130,7 @@ sub STORE {
 	# For debugging during the transition from $stage->{req_foo} to
 	# $stage->{req}{foo} syntax.
 	if ($key =~ s/^(req|rsp)_//) {
-		croak "Use \$self->{$1}{$key} = $value instead";
+		croak "Use :Req or :Rsp attributes instead";
 	}
 
 	croak "$key is a read-only data member" if $key eq "req" or $key eq "rsp";

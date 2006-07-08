@@ -65,13 +65,13 @@ use lib qw(./lib ../lib);
 	sub listen {
 		my ($self, $args) = @_;
 
-		my $socket        = $self->{req}{socket} = $args->{socket};
+		my $socket :Req   = $args->{socket};
 		my $listen_queue  = $args->{listen_queue};
 
 		# TODO - Pass in parameters for listen.  Whee.
 		listen($socket, $listen_queue) or die "listen: $!";
 
-		$self->{req}{input_watcher} = POE::Watcher::Input->new(
+		my $input_watcher :Req = POE::Watcher::Input->new(
 			handle    => $socket,
 			on_input  => "accept_connection",
 		);
@@ -82,7 +82,7 @@ use lib qw(./lib ../lib);
 	sub accept_connection {
 		my ($self, $args) = @_;
 
-		my $new_socket = $self->{req}{socket}->accept();
+		my $new_socket = (my $socket :Req)->accept();
 		warn "accept error $!" unless $new_socket;
 
 		$self->{req}->emit( type => "accept", socket => $new_socket );
@@ -121,7 +121,7 @@ use lib qw(./lib ../lib);
 		use Data::Dumper;
 		warn Dumper($args);
 
-		$self->{req}{input_watcher} = POE::Watcher::Input->new(
+		my $input_watcher :Req = POE::Watcher::Input->new(
 			handle    => $args->{socket},
 			on_input  => "process_input",
 		);
@@ -138,7 +138,7 @@ use lib qw(./lib ../lib);
 		unless ($ret) {
 			return if $! == EAGAIN or $! == EWOULDBLOCK;
 			warn "read error: $!";
-			delete $self->{req}{input_watcher};
+			my $input_watcher :Req = undef;
 			return;
 		}
 
@@ -150,7 +150,7 @@ use lib qw(./lib ../lib);
 			unless ($wrote) {
 				next if $! == EAGAIN or $! == EWOULDBLOCK;
 				warn "write error: $!";
-				delete $self->{req}{input_watcher};
+				my $input_watcher :Req = undef;
 				return;
 			}
 
@@ -179,10 +179,11 @@ use lib qw(./lib ../lib);
 
 		# Do we need to save this reference?  Self-requesting stages
 		# should do something magical here.
-		$self->{req}{$socket} = POE::Stage::EchoSession->new(
+		my %sockets :Req;
+		$sockets{$socket} = POE::Stage::EchoSession->new(
 			socket => $socket,
 		);
-		weaken $self->{req}{$socket};
+		weaken $sockets{$socket};
 	}
 }
 

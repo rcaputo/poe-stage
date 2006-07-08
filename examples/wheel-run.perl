@@ -17,8 +17,8 @@
 	sub run {
 		my ($self, $args) = @_;
 
-		$self->{req}{process} = POE::Watcher::Wheel::Run->new(
-			Program         => "$^X -wle 'print qq[pid(\$\$) moo(\$_)] for 1..10'",
+		my $process :Req = POE::Watcher::Wheel::Run->new(
+			Program         => "$^X -wle 'print qq[pid(\$\$) moo(\$_)] for 1..10; exit'",
 			StdoutMethod    => "handle_stdout",
 			CloseMethod     => "handle_close",
 		);
@@ -32,7 +32,8 @@
 
 	sub handle_close {
 		my ($self, $args) = @_;
-		delete $self->{req}{process};
+		warn "process closed";
+		my $process :Req = undef;
 	}
 }
 
@@ -50,6 +51,7 @@ my $req = POE::Request->new(
 # timing will become apparent when warnings in them say "during global
 # destruction."
 
+$SIG{CHLD} = "IGNORE";
 $SIG{INT} = sub { warn "sigint"; exit };
 
 POE::Kernel->run();

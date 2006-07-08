@@ -9,7 +9,7 @@ POE::Stage::Resolver - a fake non-blocking DNS resolver
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	$self->{req}{resolver} = POE::Stage::Resolver->new(
+	my $resolver :Req = POE::Stage::Resolver->new(
 		method      => "resolve",
 		on_success  => "handle_host",
 		on_error    => "handle_error",
@@ -34,7 +34,7 @@ POE::Stage::Resolver - a fake non-blocking DNS resolver
 			);
 		}
 
-		delete $self->{req}{resolver};
+		my $resolver :Req = undef;
 	}
 
 =head1 DESCRIPTION
