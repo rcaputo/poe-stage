@@ -12,8 +12,12 @@ WriteMakefile(
   ABSTRACT     => 'a prototype of a successor to POE::Component',
   VERSION_FROM => 'lib/POE/Stage.pm',
   PREREQ_PM    => {
-    POE        => 0.31,
-    Test::More => 0,
+		Attribute::Handlers => 0.78,
+		Net::DNS            => 0.53,
+		PadWalker           => 1.0,
+		Scalar::Util        => 1.18,
+    POE                 => 0.3502,
+    Test::More          => 0,
   },
   dist         => {
     COMPRESS   => 'gzip -9f',
