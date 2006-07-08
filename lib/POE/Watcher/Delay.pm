@@ -10,7 +10,7 @@ POE::Watcher::Delay - wait for a length of time to pass
 	# See the distribution's examples directory.
 
 	# Request a delay notification.
-	$self->{req}{watcher} = POE::Watcher::Delay->new(
+	my $watcher :Req = POE::Watcher::Delay->new(
 		seconds     => 10,            # wait 10 seconds, then
 		on_success  => "time_is_up",  # call $self->time_is_up()
 		args        => {
@@ -24,7 +24,7 @@ POE::Watcher::Delay - wait for a length of time to pass
 		my ($self, $args) = @_;
 		print "$args->{param_1}\n";   # 123
 		print "$args->{param_2}\n";   # abc
-		delete $self->{req}{watcher}; # Destroy the watcher.
+		my $watcher :Req = undef;     # Destroy the watcher.
 	}
 
 =head1 DESCRIPTION
@@ -32,8 +32,8 @@ POE::Watcher::Delay - wait for a length of time to pass
 A POE::Watcher::Delay object waits a certain amount of time before
 invoking a method on the current Stage object.  Both the time to wait
 and the method to invoke are given as constructor parameters.
-Additional parameters are passed unchanged to the desired callback
-method after the specified time has elapsed.
+Parameters included in the C<args> hash are passed unchanged to the
+desired callback method after the specified time has elapsed.
 
 =cut
 
@@ -57,7 +57,8 @@ parameters: "seconds" is the number of seconds to wait.  "on_success"
 is the name of the mothod in the current Stage to invoke when length
 seconds have elapsed.
 
-Destroy this object to cancel it.
+Like every other watcher object, this one must be saved in order to
+remain active.  Destroy this object to cancel it.
 
 =cut
 
@@ -126,12 +127,13 @@ sub deliver {
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report one.
 
 =head1 SEE ALSO
 
-POE::Watcher describes concepts that are common to all POE::Watcher
+L<POE::Watcher> describes concepts that are common to all POE::Watcher
 classes.  It's required reading if you want to fully understand what's
 going on.
 
@@ -141,8 +143,8 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Watcher::Delay is Copyright 2005 by Rocco Caputo.  All rights are
-reserved.  You may use, modify, and/or distribute this module under
-the same terms as Perl itself.
+POE::Watcher::Delay is Copyright 2005-2006 by Rocco Caputo.  All
+rights are reserved.  You may use, modify, and/or distribute this
+module under the same terms as Perl itself.
 
 =cut

@@ -11,7 +11,7 @@ POE::Request::Upward - internal base class for POE::Stage response messages
 =head1 DESCRIPTION
 
 POE::Request::Upward is a base class for POE::Request messages that
-flow up the POE::Stage parent/child tree.  These messages are
+flow up from sub-stages to their parents.  These messages are
 instances of POE::Request::Emit and POE::Request::Return.
 
 The Emit and Return message classes share a lot of common code.  That
@@ -54,13 +54,13 @@ These methods are called directly on the class or object.
 
 POE::Request::Upward's new() constructor is almost always called
 internally by POE::Request->emit() or POE::Request->return().  Most
-parameters to emit() and return() are passed through to this
+parameters to emit() and return() are passed directly to this
 constructor.
 
 POE::Request::Upward has one mandatory parameter: "type".  This
 defines the type of response being created.  The optional "args"
 parameter should contain a hashref with response payloads.  The
-contents of "args" are passed unchanged to the respones's handler as
+contents of "args" are passed unchanged to the response's handler as
 its $args parameter.
 
 Response types are mapped to methods in the original requester's stage
@@ -69,7 +69,7 @@ responses of type "success" are mapped to the requester's
 continue_on() method.  Likewise "error" responses are mapped to the
 requester's log_and_stop() method.
 
-	$self->{req}{foo} = POE::Request->new(
+	my $foo :Req = POE::Request->new(
 		stage       => $some_stage_object,
 		method      => "some_method_name",
 		on_success  => "continue_on",
@@ -220,14 +220,15 @@ sub recall {
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report one.
 
 =head1 SEE ALSO
 
-POE::Request::Upward has two subclasses: POE::Request::Emit for
+POE::Request::Upward has two subclasses: L<POE::Request::Emit> for
 emitting multiple responses to a single request, and
-POE::Request::Return for sending a final response to end a request.
+L<POE::Request::Return> for sending a final response to end a request.
 
 =head1 AUTHORS
 
@@ -235,8 +236,8 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Request::Upward is Copyright 2005 by Rocco Caputo.  All rights
-are reserved.  You may use, modify, and/or distribute this module
-under the same terms as Perl itself.
+POE::Request::Upward is Copyright 2005-2006 by Rocco Caputo.  All
+rights are reserved.  You may use, modify, and/or distribute this
+module under the same terms as Perl itself.
 
 =cut

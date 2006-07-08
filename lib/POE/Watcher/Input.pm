@@ -10,9 +10,9 @@ POE::Watcher::Input - watch a socket or other handle for input readiness
 	# See the distribution's examples directory.
 
 	# Request a delay notification.
-	$self->{req}{socket} = $socket_handle;
-	$self->{req}{input} = POE::Watcher::Input->new(
-		handle    => $self->{req}{socket},
+	my $socket :Req = $socket_handle;
+	my $input :Req = POE::Watcher::Input->new(
+		handle    => $socket,
 		on_input  => "read_from_socket",
 		args      => \%passed_to_callbacks,
 	);
@@ -20,7 +20,8 @@ POE::Watcher::Input - watch a socket or other handle for input readiness
 	# Handle the delay notification.
 	sub read_from_socket {
 		my ($self, $args) = @_;
-		my $octets = sysread($self->{req}{handle}, my $buf = "", 65536);
+		my $socket :Req;
+		my $octets = sysread($socket, my $buf = "", 65536);
 		...;
 	}
 
@@ -46,7 +47,7 @@ use POE::Kernel;
 
 =head2 new handle => HANDLE, on_input => METHOD_NAME
 
-construct a new POE::Watcher::Input object.  The constructor takes two
+Construct a new POE::Watcher::Input object.  The constructor takes two
 parameters: "handle" is the socket or other file handle to watch for
 input readiness.  "on_input" is the name of the method in the current
 Stage to invoke when the handle is ready to be read from.
@@ -117,12 +118,13 @@ sub deliver {
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report one.
 
 =head1 SEE ALSO
 
-POE::Watcher describes concepts that are common to all POE::Watcher
+L<POE::Watcher> describes concepts that are common to all POE::Watcher
 classes.  It's required reading in order to understand fully what's
 going on.
 
@@ -132,8 +134,8 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Watcher::Input is Copyright 2005 by Rocco Caputo.  All rights are
-reserved.  You may use, modify, and/or distribute this module under
-the same terms as Perl itself.
+POE::Watcher::Input is Copyright 2005-2006 by Rocco Caputo.  All
+rights are reserved.  You may use, modify, and/or distribute this
+module under the same terms as Perl itself.
 
 =cut

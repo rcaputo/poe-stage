@@ -2,14 +2,14 @@
 
 =head1 NAME
 
-POE::Watcher::Wheel - watch a legacy POE::Wheel
+POE::Watcher::Wheel - watch a POE::Wheel rather than reinvent it
 
 =head1 SYNOPSIS
 
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	$self->{req}{wheel} = POE::Watcher::Wheel->new(
+	my $wheel :Req = POE::Watcher::Wheel->new(
 		wheel_class => "POE::Wheel::Run",
 		wheel_parameters => {
 			Program => "...",
@@ -39,14 +39,14 @@ Create a new POE::Watcher::Wheel, encapsulating a CLASS_NAME type of
 wheel object.  The wheel is constructed using WHEEL_PARAMS, which are
 for the most part passed directly to the wheel's constructor.
 
+The CLASS_NAME wheel should be loaded ahead of time.
+
 Since POE::Watcher classes invoke callbacks rather than emit events,
 use /.*Method$/ parameters wherever you would normally use /.*Event$/
 parameters in the Wheel constructor.  The SYNOPSIS might shed some
-light on this.
+light on this if it were complete.
 
 Destroy this object to cancel it.
-
-Oh, you should load any classes you'll need ahead of time.
 
 =cut
 
@@ -138,12 +138,13 @@ sub deliver {
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report one.
 
 =head1 SEE ALSO
 
-POE::Watcher describes concepts that are common to all POE::Watcher
+L<POE::Watcher> describes concepts that are common to all POE::Watcher
 classes.  It's required reading in order to understand fully what's
 going on.
 
@@ -153,8 +154,8 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Watcher::Input is Copyright 2005 by Rocco Caputo.  All rights are
-reserved.  You may use, modify, and/or distribute this module under
-the same terms as Perl itself.
+POE::Watcher::Input is Copyright 2005-2006 by Rocco Caputo.  All
+rights are reserved.  You may use, modify, and/or distribute this
+module under the same terms as Perl itself.
 
 =cut

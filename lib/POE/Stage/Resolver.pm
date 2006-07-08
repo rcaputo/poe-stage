@@ -39,8 +39,8 @@ POE::Stage::Resolver - a fake non-blocking DNS resolver
 
 =head1 DESCRIPTION
 
-POE::Stage::Resolver is a simple non-blocking DNS resolver.  It uses
-Net::DNS::Resolver for the bulk of its work.  It returns
+POE::Stage::Resolver is a simple non-blocking DNS resolver.  For now
+it uses Net::DNS::Resolver for the bulk of its work.  It returns
 Net::DNS::Packet objects in its "success" responses.  Making heads or
 tails of them will require perusal of Net::DNS's documentation.
 
@@ -173,15 +173,17 @@ parameter.  Net::DNS::Resolver's error message comes back as "error".
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report one.
 
 =head1 SEE ALSO
 
-POE::Stage and POE::Request.  The examples/log-resolver.perl program
-in POE::Stage's distribution.  Net::DNS::Packet for an explanation of
-returned packets.  POE::Component::Client::DNS for the original
-inspiration.
+L<POE::Stage> and L<POE::Request>.  The examples/log-resolver.perl
+program in POE::Stage's distribution.  L<Net::DNS::Packet> for an
+explanation of returned packets.  L<POE::Component::Client::DNS> for
+the original inspiration and a much more complete asynchronous DNS
+implementation.
 
 =head1 AUTHORS
 
@@ -189,8 +191,8 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Stage::Resolver is Copyright 2005 by Rocco Caputo.  All rights
-are reserved.  You may use, modify, and/or distribute this module
-under the same terms as Perl itself.
+POE::Stage::Resolver is Copyright 2005-2006 by Rocco Caputo.  All
+rights are reserved.  You may use, modify, and/or distribute this
+module under the same terms as Perl itself.
 
 =cut

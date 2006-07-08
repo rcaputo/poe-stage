@@ -37,10 +37,14 @@ Consider this persistent dialogue between two stages:
 	$self->{rsp}->recall()  .
 	.                       $self->{req}->return()
 
-A stage requests a service from another stage.  The servicing stage
+A stage requests a service from another stage.  The servicer stage
 emits a response, which is handled by the requester.  The requester
-responds with recall().  The servicing stage handles the new message
-by calling return(), ending the dialogue.
+responds with recall().  The servicer stage handles the new message by
+calling return(), ending the dialogue.
+
+POE::Request::Emit and POE::Request::Recall reuse the original
+POE::Request continuation rather than create new ones.  :Req and :Rsp
+data persist for the lifetime of the dialog.
 
 =cut
 
@@ -138,12 +142,13 @@ sub recall {
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report one.
 
 =head1 SEE ALSO
 
-POE::Request, POE::Request::Emit, and probably POE::Stage.
+L<POE::Request>, L<POE::Request::Emit>, and probably L<POE::Stage>.
 
 =head1 AUTHORS
 
@@ -151,8 +156,8 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Request::Recall is Copyright 2005 by Rocco Caputo.  All rights
-are reserved.  You may use, modify, and/or distribute this module
-under the same terms as Perl itself.
+POE::Request::Recall is Copyright 2005-2006 by Rocco Caputo.  All
+rights are reserved.  You may use, modify, and/or distribute this
+module under the same terms as Perl itself.
 
 =cut

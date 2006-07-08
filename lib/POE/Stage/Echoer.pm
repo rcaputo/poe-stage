@@ -30,7 +30,7 @@ POE::Stage::Echoer - a stage that echoes back whatever it's given
 
 POE::Stage::Echoer receives messages through its echo() method.
 echo() sends back the contents of its "message" parameter as the
-"echo" parameter of an "echo" message.
+"echo" parameter of an "echo" response message.
 
 Ok, that's confusing.  Perhaps the SYNOPSIS is clearer?
 
@@ -76,7 +76,7 @@ sub echo {
 
 Responses are returned by POE::Request->return() or emit().
 
-=head2 "echo" (echo)
+=head2 "echo" (echo => SCALAR)
 
 Returns an echo of the "message" given to this stage's echo() command.
 The echo is passed in the "echo" parameter to the "echo" response.
@@ -97,8 +97,8 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Stage::Echoer is Copyright 2005 by Rocco Caputo.  All rights are
-reserved.  You may use, modify, and/or distribute this module under
-the same terms as Perl itself.
+POE::Stage::Echoer is Copyright 2005-2006 by Rocco Caputo.  All rights
+are reserved.  You may use, modify, and/or distribute this module
+under the same terms as Perl itself.
 
 =cut

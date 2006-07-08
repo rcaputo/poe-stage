@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-POE::Stage::TiedAttributes - internal class for request-scoped storage
+POE::Stage::TiedAttributes - implements magic "req" and "rsp" members
 
 =head1 SYNOPSIS
 
@@ -45,7 +45,7 @@ example, handle_it() only prints the request object:
 
 Actually, it may not be exactly the same as $req, but it will be its
 moral equivalent.  This caveat leaves a loophole through which we can
-pass requests across process boundaries later.
+later pass requests across process boundaries.
 
 $self->{req} is also great for responding to requests:
 
@@ -63,11 +63,12 @@ up the request chain.
 
 	sub handle_a_response {
 		my ($self, $args) = @_;
+		my $cookie :Req;  # initialized elsewhere
 		$self->{req}->return(
 			type      => "done",
 			args      => {
 				result  => $args->{sub_result},
-				cookie  => $self->{req}{cookie},
+				cookie  => $cookie,
 			},
 		);
 	}
@@ -76,17 +77,19 @@ up the request chain.
 
 The special $self->{rsp} data member refers to responses to requests
 made by a stage.  It's only valid when a response handler is currently
-executing.
+executing.  Here a response object is used to re-call a sub-stage in
+response to an emitted interim response.
 
 	sub handle_sub_response {
 		my ($self, $args) = @_;
 		$self->{rsp}->recall( ... );
 	}
 
-When used as a hash, the response in $self->{rsp} refers to the scope
-of the request that generated it.  Therefore you can store data in the
-original request and automatically have access to it from the response
-handler.
+Responses share a continuation with the requests that triggered them.
+Variables declared with the C<:Rsp> attribute in a response handler
+refer to ones associated to the request via C<:Req($request)>.  In
+other words, you can store data in the original request and have
+access to it again from each corresponding response handler.
 
 =cut
 
@@ -223,14 +226,13 @@ data members.  It is indirectly used by POE::Request as well.
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report one.
 
 =head1 SEE ALSO
 
-POE::Request::TiedAttributes, which implements the POE::Request side
-of this magic and discusses the request-scoped namespaces in a little
-more detail.
+L<POE::Stage> and L<POE::Request>.
 
 =head1 AUTHORS
 
@@ -238,8 +240,8 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Stage::TiedAttributes is Copyright 2005 by Rocco Caputo.  All
-rights are reserved.  You may use, modify, and/or distribute this
+POE::Stage::TiedAttributes is Copyright 2005-2006 by Rocco Caputo.
+All rights are reserved.  You may use, modify, and/or distribute this
 module under the same terms as Perl itself.
 
 =cut

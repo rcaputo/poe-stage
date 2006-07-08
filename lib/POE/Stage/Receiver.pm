@@ -173,13 +173,14 @@ string form.
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report one.
 
 =head1 SEE ALSO
 
-POE::Stage and POE::Request.  The examples/udp-peer.perl program in
-POE::Stage's distribution.
+L<POE::Stage> and L<POE::Request>.  The examples/udp-peer.perl program
+in POE::Stage's distribution.
 
 =head1 AUTHORS
 
@@ -187,7 +188,7 @@ Rocco Caputo <rcaputo@cpan.org>.
 
 =head1 LICENSE
 
-POE::Stage::Receiver is Copyright 2005 by Rocco Caputo.  All rights
+POE::Stage::Receiver is Copyright 2005-2006 by Rocco Caputo.  All rights
 are reserved.  You may use, modify, and/or distribute this module
 under the same terms as Perl itself.
 
