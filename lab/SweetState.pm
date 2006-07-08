@@ -8,11 +8,11 @@ use warnings;
 use strict;
 
 use Attribute::Handlers;
-use PadWalker qw(var_name);
+use PadWalker qw(var_name peek_my);
 use Scalar::Util qw(blessed reftype);
 use Carp qw(croak);
 
-sub Req :ATTR {
+sub Req :ATTR(ANY,RAWDATA) {
 	my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
 	#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
 
@@ -20,6 +20,12 @@ sub Req :ATTR {
 
 	my $type = reftype($ref);
 	my $name = var_name(4, $ref);
+
+	if (defined $data) {
+		my $my = peek_my(4);
+		warn $data;
+		die "${$my->{$data}}\n\n";
+	}
 
 	# TODO - To make this work tidily, we should translate $name into a
 	# reference to the proper request/response field and pass that into

@@ -22,6 +22,8 @@ sub try {
 
 	my @baz :Req = qw(a e i o u y);
 	print "@baz\n";
+
+	my $two :Req($foo);
 }
 
 try();
