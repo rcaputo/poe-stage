@@ -24,7 +24,7 @@
 		my $self :Self;
 		my $member :Memb;
 
-		warn "Invoked $self -> method() ... has member($member)\n";
+		warn "Invoked $self -> method()\n  has member($member)\n";
 	}
 }
 
@@ -32,3 +32,11 @@ my $moo = Moo->new({ init_1 => "testing 123", init_2 => "testing abc" });
 $moo->method();
 
 exit;
+
+__END__
+
+Sample output:
+
+class(Moo) new( init_1 => 'testing 123', init_2 => 'testing abc')
+Invoked Moo=HASH(0x18225e0) -> method()
+  has member((testing 123) (testing abc))
