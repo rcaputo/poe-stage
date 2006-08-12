@@ -15,23 +15,20 @@
 	use POE::Filter::Line;
 
 	sub run {
-		my ($self, $args) = @_;
-
 		my $process :Req = POE::Watcher::Wheel::Run->new(
-			Program         => "$^X -wle 'print qq[pid(\$\$) moo(\$_)] for 1..10; exit'",
-			StdoutMethod    => "handle_stdout",
-			CloseMethod     => "handle_close",
+			Program      => "$^X -wle 'print qq[pid(\$\$) moo(\$_)] for 1..10; exit'",
+			StdoutMethod => "handle_stdout",
+			CloseMethod  => "handle_close",
 		);
 	}
 
 	sub handle_stdout {
-		my ($self, $args) = @_;
+		my $args = $_[1];
 		use YAML;
 		warn YAML::Dump($args);
 	}
 
 	sub handle_close {
-		my ($self, $args) = @_;
 		warn "process closed";
 		my $process :Req = undef;
 	}

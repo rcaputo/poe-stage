@@ -20,7 +20,7 @@ use strict;
 	use POE::Stage::Receiver;
 
 	sub run {
-		my ($self, $args) = @_;
+		my $bind_port :Arg;
 
 		# TODO - The next two statements seem unnecessarily cumbersome.
 		# What can be done to simplify them?
@@ -33,7 +33,7 @@ use strict;
 			on_recv_error => "handle_error",
 			on_send_error => "handle_error",
 			args          => {
-				bind_port   => $args->{bind_port},
+				bind_port   => $bind_port,
 			},
 		);
 
@@ -41,9 +41,9 @@ use strict;
 	}
 
 	sub handle_datagram {
-		my ($self, $args) = @_;
+		my $self :Self;
+		my ($datagram, $remote_address) :Arg;
 
-		my $datagram = $args->{datagram};
 		my $name :Rsp;
 		print "$name received datagram: $datagram\n";
 		$datagram =~ tr[a-zA-Z][n-za-mN-ZA-M];
@@ -51,7 +51,7 @@ use strict;
 		$self->{rsp}->recall(
 			method            => "send",
 			args              => {
-				remote_address  => $args->{remote_address},
+				remote_address  => $remote_address,
 				datagram        => $datagram,
 			},
 		);

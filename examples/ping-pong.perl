@@ -21,7 +21,7 @@ use strict;
 	use base qw(POE::Stage);
 
 	sub run {
-		my ($self, $args) = @_;
+		my $self :Self;
 
 		my $echoer :Req = POE::Stage::Echoer->new();
 		my $i :Req = 1;
@@ -30,9 +30,10 @@ use strict;
 	}
 
 	sub got_echo {
-		my ($self, $args) = @_;
+		my $self :Self;
+		my $echo :Arg;
 
-		print "got echo: $args->{echo}\n";
+		print "got echo: $echo\n";
 
 		my $i :Req;
 		$i++;
@@ -45,8 +46,6 @@ use strict;
 	}
 
 	sub send_request {
-		my $self = shift;
-
 		my ($i, $echoer) :Req;
 		my $echo_request :Req = POE::Request->new(
 			stage     => $echoer,

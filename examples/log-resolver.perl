@@ -18,7 +18,7 @@ use strict;
 	use POE::Stage::Resolver;
 
 	sub run {
-		my ($self, $args) = @_;
+		my $self :Self;
 
 		# Start a handful of initial requests.
 		for (1..5) {
@@ -30,10 +30,8 @@ use strict;
 	}
 
 	sub handle_host {
-		my ($self, $args) = @_;
-
-		my $input = $args->{input};
-		my $packet = $args->{packet};
+		my $self :Self;
+		my ($input, $packet) :Arg;
 
 		my @answers = $packet->answer();
 		foreach my $answer (@answers) {
@@ -54,9 +52,8 @@ use strict;
 
 	# Handle some error.
 	sub handle_error {
-		my ($self, $args) = @_;
-		my $input = $args->{input};
-		my $error = $args->{error};
+		my $self :Self;
+		my ($input, $error) :Args;
 
 		print "Error: $input = $error\n";
 

@@ -33,10 +33,13 @@
 	# too much ugliness.
 
 	sub init {
-		my ($self, $args) = @_;
+		my $self :Self;
+		my $auto_request :Memb;
+		my $args = $_[1];
+
 		warn 0;
 		my $passthrough_args = delete $args->{args} || {};
-		$self->{request} = POE::Request->new(
+		$auto_request = POE::Request->new(
 			stage   => $self,
 			method  => "set_thingy",
 			%$args,
@@ -45,19 +48,19 @@
 	}
 
 	sub set_thingy {
-		my ($self, $args) = @_;
+		my $seconds :Arg;
 		warn 1;
 
 		my $delay :Req = POE::Watcher::Delay->new(
-			seconds     => $args->{seconds},
+			seconds     => $seconds,
 			on_success  => "time_is_up",
 		);
 	}
 
 	sub time_is_up {
-		my ($self, $args) = @_;
+		my $auto_request :Req;
 		warn 2;
-		$self->{req}->return(
+		$auto_request->return(
 			type => "done",
 		);
 
@@ -75,19 +78,19 @@
 	use base qw(POE::Stage);
 
 	sub run {
-		my ($self, $args) = @_;
+		my $self :Self;
 		warn 3;
 		$self->spawn_requester();
 	}
 
 	sub do_again {
-		my ($self, $args) = @_;
+		my $self :Self;
 		warn 4;
 		$self->spawn_requester();
 	}
 
 	sub spawn_requester {
-		my $self = shift;
+		my $self :Self;
 		warn 5;
 
 		my $self_requester :Req = SelfRequester->new(

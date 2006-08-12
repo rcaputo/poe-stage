@@ -17,7 +17,7 @@ use POE::Stage;
 	use base qw(POE::Stage);
 
 	sub do_something {
-		my ($self, $args) = @_;
+		my $self :Self;
 		print "Helper ($self) is executing a request.\n";
 		$self->{req}->emit(args => { value => "EmitValue123" });
 		$self->{req}->return(args => { value => "ReturnValueXyz" });
@@ -34,7 +34,7 @@ use POE::Stage;
 	use base qw(POE::Stage);
 
 	sub call_helper {
-		my $self = shift;
+		my $self :Self;
 
 		my $helper :Req = Helper->new();
 		my $helper_request :Req = POE::Request->new(
@@ -55,11 +55,12 @@ use POE::Stage;
 	}
 
 	sub catch_return {
-		my ($self, $args) = @_;
+		my $self :Self;
+		my $value :Arg;
 		my ($helper, $helper_request, %hash, @array) :Req;
 		my $name :Rsp;
 		print(
-			"App return: return value '$args->{value}'\n",
+			"App return: return value '$value'\n",
 			"App return: $helper was called via $helper_request\n",
 			"App return: hash keys: ", join(" ", keys %hash), "\n",
 			"App return: hash values: ", join(" ", values %hash), "\n",
@@ -69,11 +70,12 @@ use POE::Stage;
 	}
 
 	sub catch_emit {
-		my ($self, $args) = @_;
+		my $self :Self;
+		my $value :Arg;
 		my ($helper, $helper_request, %hash, @array) :Req;
 		my $name :Rsp;
 		print(
-			"App emit: return value '$args->{value}'\n",
+			"App emit: return value '$value'\n",
 			"App emit: $helper was called via $helper_request\n",
 			"App emit: hash keys: ", join(" ", keys %hash), "\n",
 			"App emit: hash values: ", join(" ", values %hash), "\n",

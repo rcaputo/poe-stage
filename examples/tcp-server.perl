@@ -31,7 +31,10 @@ use lib qw(./lib ../lib);
 	# problem.  Hell, if *I* can't figure it out, then it sucks.
 
 	sub init {
-		my ($self, $args) = @_;
+		my $self :Self;
+		my $args = $_[1];
+		my $init_request :Memb;
+		my ($socket, $listen_queue) :Arg;
 
 		# TODO - This idiom happens enough that we should abstract it.
 		my $passthrough_args = delete($args->{args}) || { };
@@ -40,12 +43,11 @@ use lib qw(./lib ../lib);
 		# them into a request's args.  It's a butt-ugly, repetitive thing
 		# to do.  Find a better way.
 
-		my $socket = delete $args->{socket};
 		die "POE::Stage::Listener requires a socket" unless $socket;
 
-		my $listen_queue = delete($args->{listen_queue}) || SOMAXCONN;
+		$listen_queue ||= SOMAXCONN;
 
-		$self->{init_request} = POE::Request->new(
+		$init_request = POE::Request->new(
 			stage   => $self,
 			method  => "listen",
 			%$args,
@@ -63,10 +65,10 @@ use lib qw(./lib ../lib);
 	# Set up the listener.
 
 	sub listen {
-		my ($self, $args) = @_;
+		my ($socket, $listen_queue) :Arg;
 
-		my $socket :Req   = $args->{socket};
-		my $listen_queue  = $args->{listen_queue};
+		my $req_socket :Req = $socket;
+		my $req_listen_queue = $listen_queue;
 
 		# TODO - Pass in parameters for listen.  Whee.
 		listen($socket, $listen_queue) or die "listen: $!";
@@ -80,11 +82,10 @@ use lib qw(./lib ../lib);
 	# Ready to accept from the socket.  Do it.
 
 	sub accept_connection {
-		my ($self, $args) = @_;
+		my $self :Self;
 
-		my $new_socket = (my $socket :Req)->accept();
+		my $new_socket = (my $req_socket :Req)->accept();
 		warn "accept error $!" unless $new_socket;
-
 		$self->{req}->emit( type => "accept", socket => $new_socket );
 	}
 }
@@ -100,12 +101,14 @@ use lib qw(./lib ../lib);
 	use base qw(POE::Stage);
 
 	sub init {
-		my ($self, $args) = @_;
+		my $args = $_[1];
+		my $self :Self;
+		my $init_request :Memb;
+		my $socket :Arg;
 
 		my $passthrough_args = delete($args->{args}) || { };
-		my $socket = delete $args->{socket};
 
-		$self->{init_request} = POE::Request->new(
+		$init_request = POE::Request->new(
 			stage => $self,
 			method => "interact",
 			%$args,
@@ -116,20 +119,19 @@ use lib qw(./lib ../lib);
 	}
 
 	sub interact {
-		my ($self, $args) = @_;
+		my $socket :Arg;
 
 		use Data::Dumper;
-		warn Dumper($args);
+		warn Dumper($_[1]);
 
 		my $input_watcher :Req = POE::Watcher::Input->new(
-			handle    => $args->{socket},
+			handle    => $socket,
 			on_input  => "process_input",
 		);
 	}
 
 	sub process_input {
-		my ($self, $args)= @_;
-		my $socket = $args->{socket};
+		my $socket :Arg;
 
 		my $ret = sysread($socket, my $buf = "", 65536);
 
@@ -173,9 +175,7 @@ use lib qw(./lib ../lib);
 	use base qw(POE::Stage::Listener);
 
 	sub on_my_accept {
-		my ($self, $args) = @_;
-
-		my $socket = $args->{socket};
+		my $socket :Arg;
 
 		# Do we need to save this reference?  Self-requesting stages
 		# should do something magical here.

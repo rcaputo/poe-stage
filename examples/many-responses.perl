@@ -18,35 +18,39 @@ use strict;
 	use base qw(POE::Stage);
 
 	sub init {
-		my ($self, $args) = @_;
-		$self->{name} = $args->{name};
+		my $self :Self;
+		my $name :Arg;
+		my $my_name :Memb = $name;
 	}
 
 	sub run {
-		my ($self, $args) = @_;
+		my $self :Self;
+		my ($name, $interval) :Arg;
 
 		my $ticker :Req   = POE::Stage::Ticker->new();
-		my $name :Req     = $args->{name} || "unnamed";
-		my $interval :Req = $args->{interval} || 0.001;
+		my $req_name :Req = $name || "unnamed";
+		my $req_interval :Req = $interval || 0.001;
 
 		my $ticker_request :Req = POE::Request->new(
 			stage       => $ticker,
 			method      => "start_ticking",
 			on_tick     => "handle_tick",
 			args        => {
-				interval  => $interval,
+				interval  => $req_interval,
 			},
 		);
 	}
 
 	sub handle_tick {
-		my ($self, $args) = @_;
-		my $name :Req;
+		my $self :Self;
+		my $id :Arg;
+		my $req_name :Req;
+		my $my_name :Memb;
 
 		print(
-			"app($self->{name}) ",
-			"request($name) ",
-			"handled tick $args->{id}\n"
+			"app($my_name) ",
+			"request($req_name) ",
+			"handled tick $id\n"
 		);
 	}
 }
