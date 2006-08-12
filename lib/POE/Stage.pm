@@ -76,6 +76,10 @@ use POE::Attribute::Request::Scalar;
 use POE::Attribute::Request::Hash;
 use POE::Attribute::Request::Array;
 
+use POE::Member::Scalar;
+use POE::Member::Array;
+use POE::Member::Hash;
+
 # An internal singleton POE::Session that will drive all the stages
 # for the application.  This should be structured such that we can
 # create multiple stages later, each driving some smaller part of the
@@ -270,7 +274,6 @@ depending on the type of variable declared.
 
 	sub Req :ATTR(SCALAR,RAWDATA) {
 		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
 
 		croak "can't declare a blessed variable as :Req" if blessed($ref);
 
@@ -305,7 +308,6 @@ depending on the type of variable declared.
 
 	sub Req :ATTR(HASH,RAWDATA) {
 		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
 
 		croak "can't declare a blessed variable as :Req" if blessed($ref);
 
@@ -340,7 +342,6 @@ depending on the type of variable declared.
 
 	sub Req :ATTR(ARRAY,RAWDATA) {
 		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
 
 		croak "can't declare a blessed variable as :Req" if blessed($ref);
 
@@ -371,6 +372,72 @@ depending on the type of variable declared.
 			$request->get_id(),
 			$name
 		);
+	}
+
+	### XXX - Experimental :Self handler.
+	# Only for scalars (self reference).
+	# TODO - Try to also get it working for hashes.  That is, make
+	#   my %self :Self;
+	# cause %self to be an alias for %$self ... somehow.
+
+	sub Self :ATTR(SCALAR,RAWDATA) {
+		my $ref = $_[2];
+		croak "can't register blessed things as Self fields" if blessed($ref);
+
+		package DB;
+		my @x = caller(4);
+		$$ref = $DB::args[0];
+	}
+
+	### XXX - Experimental :Arg handler.
+	# TODO - Support other types?
+
+	sub Arg :ATTR(SCALAR,RAWDATA) {
+		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
+		croak "can't register blessed things as Arg fields" if blessed($ref);
+		croak "can only register scalars as Arg fields" if ref($ref) ne "SCALAR";
+
+		my $name = var_name(4, $ref);
+		$name =~ s/^\$//;
+
+		package DB;
+		my @x = caller(4);
+		$$ref = $DB::args[1]{$name};
+	}
+
+	### XXX - Experimental :Memb handlers.
+
+	sub Memb :ATTR(SCALAR,RAWDATA) {
+		my $ref = $_[2];
+		croak "can't register blessed things as Memb fields" if blessed($ref);
+
+		my $name = var_name(4, $ref);
+
+		package DB;
+		my @x = caller(4);
+		return tie( $$ref, "POE::Member::Scalar", $DB::args[0], $name);
+	}
+
+	sub Memb :ATTR(ARRAY,RAWDATA) {
+		my $ref = $_[2];
+		croak "can't register blessed things as Memb fields" if blessed($ref);
+
+		my $name = var_name(4, $ref);
+
+		package DB;
+		my @x = caller(4);
+		return tie( $$ref, "POE::Member::Scalar", $DB::args[0], $name);
+	}
+
+	sub Memb :ATTR(HASH,RAWDATA) {
+		my $ref = $_[2];
+		croak "can't register blessed things as Memb fields" if blessed($ref);
+
+		my $name = var_name(4, $ref);
+
+		package DB;
+		my @x = caller(4);
+		return tie( $$ref, "POE::Member::Scalar", $DB::args[0], $name);
 	}
 }
 
