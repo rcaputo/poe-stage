@@ -115,7 +115,7 @@ sub PUSH {
 	my $ref = tied(%{$self->[ATT_STAGE]})->_request_context_fetch(
 		$self->[ATT_REQ_ID], $self->[ATT_FIELD]
 	);
-	return push @$self, @_;
+	return push @$ref, @_;
 }
 
 sub SHIFT {
