@@ -17,14 +17,23 @@
 
 		warn "class($class) new( init_1 => '$init_1', init_2 => '$init_2')\n";
 
-		return bless { member => "($init_1) ($init_2)" }, $class;
+		return bless {
+			'$member' => "($init_1) ($init_2)",
+			'@member' => [ $init_1, $init_2 ],
+			'%member' => { $init_1, $init_2 },
+		}, $class;
 	}
 
 	sub method {
 		my $self :Self;
-		my $member :Memb;
+		my ($member, %member, @member) :Memb;
 
-		warn "Invoked $self -> method()\n  has member($member)\n";
+		warn(
+			"Invoked $self -> method()\n",
+			"  has scalar member($member)\n",
+			"  has array member(@member)\n",
+			"  has hash member($member[0] => $member{$member[0]})\n",
+		);
 	}
 }
 

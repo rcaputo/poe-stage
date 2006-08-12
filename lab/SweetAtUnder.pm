@@ -35,16 +35,36 @@ sub Self :ATTR(ANY,RAWDATA) {
 	$$ref = $DB::args[0];
 }
 
-sub Memb :ATTR(ANY,RAWDATA) {
+sub Memb :ATTR(SCALAR,RAWDATA) {
 	my $ref = $_[2];
 	croak "can't register blessed things as Memb fields" if blessed($ref);
 
 	my $name = var_name(4, $ref);
-	$name =~ s/^[\$\%\@]//;
 
 	package DB;
 	my @x = caller(4);
 	$$ref = $DB::args[0]->{$name};
 }
 
+sub Memb :ATTR(ARRAY,RAWDATA) {
+	my $ref = $_[2];
+	croak "can't register blessed things as Memb fields" if blessed($ref);
+
+	my $name = var_name(4, $ref);
+
+	package DB;
+	my @x = caller(4);
+	@$ref = @{$DB::args[0]->{$name}};
+}
+
+sub Memb :ATTR(HASH,RAWDATA) {
+	my $ref = $_[2];
+	croak "can't register blessed things as Memb fields" if blessed($ref);
+
+	my $name = var_name(4, $ref);
+
+	package DB;
+	my @x = caller(4);
+	%$ref = %{$DB::args[0]->{$name}};
+}
 1;
