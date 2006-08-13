@@ -19,6 +19,8 @@ POE::Stage - a proposed base class for formalized POE components
 
 =head1 DESCRIPTION
 
+TODO - This documentation is out of date.
+
 POE::Stage is a proposed base class for POE components.  Its purpose
 is to standardize the most common design patterns that have arisen
 through years of POE::Component development.
@@ -72,10 +74,6 @@ use POE::Request::Emit;
 use POE::Request::Return;
 use POE::Request::Recall;
 use POE::Request qw(REQ_ID);
-
-use POE::Attribute::Request::Scalar;
-use POE::Attribute::Request::Hash;
-use POE::Attribute::Request::Array;
 
 # An internal singleton POE::Session that will drive all the stages
 # for the application.  This should be structured such that we can
@@ -261,7 +259,7 @@ for responses to the associated request will also be visible.
 	}
 
 Three versions of Req() are defined: One each for scalars, arrays, and
-hashes.  You needn't know this since the appropriate one will be used
+hashes.  You need not know this since the appropriate one will be used
 depending on the type of variable declared.
 
 =cut
@@ -290,17 +288,19 @@ depending on the type of variable declared.
 			$request = POE::Request->_get_current_request();
 		}
 
-		# TODO - To make this work tidily, we should translate $name into a
-		# reference to the proper request/response field and pass that into
-		# the tie handler.  Then the tied variable can work directly with
-		# the field, or perhaps a weak copy of it.
+		# Alias the attributed lexical variable with the appropriate
+		# request member.
 
-		return tie(
-			$$ref, "POE::Attribute::Request::Scalar",
-			POE::Request->_get_current_stage(),
-			$request->get_id(),
-			$name
-		);
+		my $stage = tied(%{POE::Request->_get_current_stage()});
+		my $scalar = $stage->_request_context_fetch($request->get_id(), $name);
+		unless (defined $scalar) {
+			# Because I'm afraid to say $scalar = \$scalar.
+			my $new_scalar = undef;
+			$scalar = \$new_scalar;
+			$stage->_request_context_store($request->get_id(), $name, $scalar);
+		}
+
+		lexalias(4, $name, $scalar);
 	}
 
 	sub Req :ATTR(HASH,RAWDATA) {
@@ -324,17 +324,17 @@ depending on the type of variable declared.
 			$request = POE::Request->_get_current_request();
 		}
 
-		# TODO - To make this work tidily, we should translate $name into a
-		# reference to the proper request/response field and pass that into
-		# the tie handler.  Then the tied variable can work directly with
-		# the field, or perhaps a weak copy of it.
+		# Alias the attributed lexical variable with the appropriate
+		# request member.
 
-		return tie(
-			%$ref, "POE::Attribute::Request::Hash",
-			POE::Request->_get_current_stage(),
-			$request->get_id(),
-			$name
-		);
+		my $stage = tied(%{POE::Request->_get_current_stage()});
+		my $hash = $stage->_request_context_fetch($request->get_id(), $name);
+		unless (defined $hash) {
+			$hash = { };
+			$stage->_request_context_store($request->get_id(), $name, $hash);
+		}
+
+		lexalias(4, $name, $hash);
 	}
 
 	sub Req :ATTR(ARRAY,RAWDATA) {
@@ -358,17 +358,17 @@ depending on the type of variable declared.
 			$request = POE::Request->_get_current_request();
 		}
 
-		# TODO - To make this work tidily, we should translate $name into a
-		# reference to the proper request/response field and pass that into
-		# the tie handler.  Then the tied variable can work directly with
-		# the field, or perhaps a weak copy of it.
+		# Alias the attributed lexical variable with the appropriate
+		# request member.
 
-		return tie(
-			@$ref, "POE::Attribute::Request::Array",
-			POE::Request->_get_current_stage(),
-			$request->get_id(),
-			$name
-		);
+		my $stage = tied(%{POE::Request->_get_current_stage()});
+		my $array = $stage->_request_context_fetch($request->get_id(), $name);
+		unless (defined $array) {
+			$array = [ ];
+			$stage->_request_context_store($request->get_id(), $name, $array);
+		}
+
+		lexalias(4, $name, $array);
 	}
 
 	### XXX - Experimental :Self handler.
@@ -467,20 +467,21 @@ depending on the type of variable declared.
 
 		my $name = var_name(4, $ref);
 
-		# TODO - To make this work tidily, we should translate $name into a
-		# reference to the proper request/response field and pass that into
-		# the tie handler.  Then the tied variable can work directly with
-		# the field, or perhaps a weak copy of it.
+		# Alias the attributed lexical variable with the appropriate
+		# response member.
 
 		my $stage = POE::Request->_get_current_stage();
 		my $response_id = $stage->{rsp}->get_id();
 
-		return tie(
-			$$ref, "POE::Attribute::Request::Scalar",
-			$stage,
-			$response_id,
-			$name
-		);
+		my $scalar = tied(%$stage)->_request_context_fetch($response_id, $name);
+		unless (defined $scalar) {
+			# Because I'm afraid to say $scalar = \$scalar.
+			my $new_scalar = undef;
+			$scalar = \$new_scalar;
+			tied(%$stage)->_request_context_store($response_id, $name, $scalar);
+		}
+
+		lexalias(4, $name, $scalar);
 	}
 
 	sub Rsp :ATTR(HASH,RAWDATA) {
@@ -491,20 +492,19 @@ depending on the type of variable declared.
 
 		my $name = var_name(4, $ref);
 
-		# TODO - To make this work tidily, we should translate $name into a
-		# reference to the proper request/response field and pass that into
-		# the tie handler.  Then the tied variable can work directly with
-		# the field, or perhaps a weak copy of it.
+		# Alias the attributed lexical variable with the appropriate
+		# response member.
 
 		my $stage = POE::Request->_get_current_stage();
 		my $response_id = $stage->{rsp}->get_id();
 
-		return tie(
-			%$ref, "POE::Attribute::Request::Hash",
-			$stage,
-			$response_id,
-			$name
-		);
+		my $hash = tied(%$stage)->_request_context_fetch($response_id, $name);
+		unless (defined $hash) {
+			$hash = { };
+			tied(%$stage)->_request_context_store($response_id, $name, $hash);
+		}
+
+		lexalias(4, $name, $hash);
 	}
 
 	sub Rsp :ATTR(ARRAY,RAWDATA) {
@@ -515,20 +515,19 @@ depending on the type of variable declared.
 
 		my $name = var_name(4, $ref);
 
-		# TODO - To make this work tidily, we should translate $name into a
-		# reference to the proper request/response field and pass that into
-		# the tie handler.  Then the tied variable can work directly with
-		# the field, or perhaps a weak copy of it.
+		# Alias the attributed lexical variable with the appropriate
+		# response member.
 
 		my $stage = POE::Request->_get_current_stage();
 		my $response_id = $stage->{rsp}->get_id();
 
-		return tie(
-			@$ref, "POE::Attribute::Request::Array",
-			$stage,
-			$response_id,
-			$name
-		);
+		my $array = tied(%$stage)->_request_context_fetch($response_id, $name);
+		unless (defined $array) {
+			$array = { };
+			tied(%$stage)->_request_context_store($response_id, $name, $array);
+		}
+
+		lexalias(4, $name, $array);
 	}
 }
 

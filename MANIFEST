@@ -10,9 +10,6 @@ examples/self-requesting-stage.perl
 examples/tcp-server.perl
 examples/udp-peer.perl
 examples/wheel-run.perl
-lib/POE/Attribute/Request/Array.pm
-lib/POE/Attribute/Request/Hash.pm
-lib/POE/Attribute/Request/Scalar.pm
 lib/POE/Request.pm
 lib/POE/Request/Emit.pm
 lib/POE/Request/Recall.pm
