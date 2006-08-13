@@ -66,6 +66,7 @@ use PadWalker qw(var_name peek_my);
 use Scalar::Util qw(blessed reftype);
 use Carp qw(croak);
 use POE::Stage::TiedAttributes;
+use Devel::LexAlias qw(lexalias);
 
 use POE::Request::Emit;
 use POE::Request::Return;
@@ -75,10 +76,6 @@ use POE::Request qw(REQ_ID);
 use POE::Attribute::Request::Scalar;
 use POE::Attribute::Request::Hash;
 use POE::Attribute::Request::Array;
-
-use POE::Member::Scalar;
-use POE::Member::Array;
-use POE::Member::Hash;
 
 # An internal singleton POE::Session that will drive all the stages
 # for the application.  This should be structured such that we can
@@ -413,9 +410,15 @@ depending on the type of variable declared.
 
 		my $name = var_name(4, $ref);
 
-		package DB;
-		my @x = caller(4);
-		return tie( $$ref, "POE::Member::Scalar", $DB::args[0], $name);
+		my $self;
+		{
+			package DB;
+			my @x = caller(4);
+			$self = $DB::args[0];
+		}
+
+		$self->{$name} = undef unless exists $self->{$name};
+		lexalias(4, $name, \$self->{$name});
 	}
 
 	sub Memb :ATTR(ARRAY,RAWDATA) {
@@ -424,9 +427,15 @@ depending on the type of variable declared.
 
 		my $name = var_name(4, $ref);
 
-		package DB;
-		my @x = caller(4);
-		return tie( $$ref, "POE::Member::Scalar", $DB::args[0], $name);
+		my $self;
+		{
+			package DB;
+			my @x = caller(4);
+			$self = $DB::args[0];
+		}
+
+		$self->{$name} = [] unless exists $self->{$name};
+		lexalias(4, $name, \$self->{$name});
 	}
 
 	sub Memb :ATTR(HASH,RAWDATA) {
@@ -435,9 +444,15 @@ depending on the type of variable declared.
 
 		my $name = var_name(4, $ref);
 
-		package DB;
-		my @x = caller(4);
-		return tie( $$ref, "POE::Member::Scalar", $DB::args[0], $name);
+		my $self;
+		{
+			package DB;
+			my @x = caller(4);
+			$self = $DB::args[0];
+		}
+
+		$self->{$name} = {} unless exists $self->{$name};
+		lexalias(4, $name, \$self->{$name});
 	}
 }
 

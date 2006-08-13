@@ -18,6 +18,7 @@ WriteMakefile(
 		Scalar::Util        => 1.18,
     POE                 => 0.3502,
     Test::More          => 0,
+		Devel::LexAlias     => 0.04,
   },
   dist         => {
     COMPRESS   => 'gzip -9f',
