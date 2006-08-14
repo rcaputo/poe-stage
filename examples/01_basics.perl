@@ -14,13 +14,13 @@ use POE::Stage;
 
 	use warnings;
 	use strict;
+	use POE::Stage qw(self req);
 	use base qw(POE::Stage);
 
 	sub do_something {
-		my $self :Self;
-		print "Helper ($self) is executing a request.\n";
-		$self->{req}->emit(args => { value => "EmitValue123" });
-		$self->{req}->return(args => { value => "ReturnValueXyz" });
+		print "Helper (", self, ") is executing a request.\n";
+		req()->emit(args => { value => "EmitValue123" });
+		req()->return(args => { value => "ReturnValueXyz" });
 	}
 }
 
@@ -34,8 +34,6 @@ use POE::Stage;
 	use base qw(POE::Stage);
 
 	sub call_helper {
-		my $self :Self;
-
 		my $helper :Req = Helper->new();
 		my $helper_request :Req = POE::Request->new(
 			stage     => $helper,
@@ -55,7 +53,6 @@ use POE::Stage;
 	}
 
 	sub catch_return {
-		my $self :Self;
 		my $value :Arg;
 		my ($helper, $helper_request, %hash, @array) :Req;
 		my $name :Rsp;
@@ -70,7 +67,6 @@ use POE::Stage;
 	}
 
 	sub catch_emit {
-		my $self :Self;
 		my $value :Arg;
 		my ($helper, $helper_request, %hash, @array) :Req;
 		my $name :Rsp;

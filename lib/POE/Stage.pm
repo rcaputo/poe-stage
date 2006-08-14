@@ -67,13 +67,16 @@ use Attribute::Handlers;
 use PadWalker qw(var_name peek_my);
 use Scalar::Util qw(blessed reftype);
 use Carp qw(croak);
-use POE::Stage::TiedAttributes;
+use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
 use Devel::LexAlias qw(lexalias);
 
 use POE::Request::Emit;
 use POE::Request::Return;
 use POE::Request::Recall;
 use POE::Request qw(REQ_ID);
+
+use Exporter qw(import);
+our @EXPORT = qw(&self &req &rsp);
 
 # An internal singleton POE::Session that will drive all the stages
 # for the application.  This should be structured such that we can
@@ -97,18 +100,16 @@ my $singleton_session_id = POE::Session->create(
 		# $resource is an envelope around a weak POE::Watcher reference.
 		stage_timer => sub {
 			my $resource = $_[ARG0];
-			eval {
-				$resource->[0]->deliver();
-			};
+			eval { $resource->[0]->deliver(); };
+			die if $@;
 		},
 
 		# Handle an I/O event.  Deliver it to its resource.
 		# $resource is an envelope around a weak POE::Watcher reference.
 		stage_io => sub {
 			my $resource = $_[ARG2];
-			eval {
-				$resource->[0]->deliver();
-			};
+			eval { $resource->[0]->deliver(); };
+			die if $@;
 		},
 
 		# Deliver to wheels based on the wheel ID.  Different wheels pass
@@ -116,22 +117,27 @@ my $singleton_session_id = POE::Session->create(
 		wheel_event_0 => sub {
 			$_[CALLER_FILE] =~ m{/([^/.]+)\.pm};
 			eval { "POE::Watcher::Wheel::$1"->deliver(0, @_[ARG0..$#_]); };
+			die if $@;
 		},
 		wheel_event_1 => sub {
 			$_[CALLER_FILE] =~ m{/([^/.]+)\.pm};
 			eval { "POE::Watcher::Wheel::$1"->deliver(1, @_[ARG0..$#_]); };
+			die if $@;
 		},
 		wheel_event_2 => sub {
 			$_[CALLER_FILE] =~ m{/([^/.]+)\.pm};
 			eval { "POE::Watcher::Wheel::$1"->deliver(2, @_[ARG0..$#_]); };
+			die if $@;
 		},
 		wheel_event_3 => sub {
 			$_[CALLER_FILE] =~ m{/([^/.]+)\.pm};
 			eval { "POE::Watcher::Wheel::$1"->deliver(3, @_[ARG0..$#_]); };
+			die if $@;
 		},
 		wheel_event_4 => sub {
 			$_[CALLER_FILE] =~ m{/([^/.]+)\.pm};
 			eval { "POE::Watcher::Wheel::$1"->deliver(4, @_[ARG0..$#_]); };
+			die if $@;
 		},
 	},
 )->ID();
@@ -174,8 +180,8 @@ sub new {
 	# self-referential.  So what should the context of init() be like?
 	#
 	# I think the current stage should be $self here.
-	# $self->{req} is undef.  That's probably good.
-	# $self->{rsp} is also undef.  That's also good.
+	# req() is undef.  That's probably good.
+	# rsp() is also undef.  That's also good.
 	#
 	# We should be able to store the internal request in $self.  Let's
 	# try that.  To do it, though, we'll need to break POE::Request
@@ -207,6 +213,22 @@ through to $self->init($key_value_pairs).
 
 sub init {
 	# Do nothing.  Don't even throw an error.
+}
+
+sub self {
+	package DB;
+	my @x = caller(1);
+	return $DB::args[0];
+}
+
+sub req {
+	my $stage = tied(%{POE::Request->_get_current_stage()});
+	return $stage->[REQUEST];
+}
+
+sub rsp {
+	my $stage = tied(%{POE::Request->_get_current_stage()});
+	return $stage->[RESPONSE];
 }
 
 =head2 Req (attribute)
@@ -371,21 +393,6 @@ depending on the type of variable declared.
 		lexalias(4, $name, $array);
 	}
 
-	### XXX - Experimental :Self handler.
-	# Only for scalars (self reference).
-	# TODO - Try to also get it working for hashes.  That is, make
-	#   my %self :Self;
-	# cause %self to be an alias for %$self ... somehow.
-
-	sub Self :ATTR(SCALAR,RAWDATA) {
-		my $ref = $_[2];
-		croak "can't register blessed things as Self fields" if blessed($ref);
-
-		package DB;
-		my @x = caller(4);
-		$$ref = $DB::args[0];
-	}
-
 	### XXX - Experimental :Arg handler.
 	# TODO - Support other types?
 
@@ -404,7 +411,7 @@ depending on the type of variable declared.
 
 	### XXX - Experimental :Memb handlers.
 
-	sub Memb :ATTR(SCALAR,RAWDATA) {
+	sub Self :ATTR(SCALAR,RAWDATA) {
 		my $ref = $_[2];
 		croak "can't register blessed things as Memb fields" if blessed($ref);
 
@@ -421,7 +428,7 @@ depending on the type of variable declared.
 		lexalias(4, $name, \$self->{$name});
 	}
 
-	sub Memb :ATTR(ARRAY,RAWDATA) {
+	sub Self :ATTR(ARRAY,RAWDATA) {
 		my $ref = $_[2];
 		croak "can't register blessed things as Memb fields" if blessed($ref);
 
@@ -438,7 +445,7 @@ depending on the type of variable declared.
 		lexalias(4, $name, \$self->{$name});
 	}
 
-	sub Memb :ATTR(HASH,RAWDATA) {
+	sub Self :ATTR(HASH,RAWDATA) {
 		my $ref = $_[2];
 		croak "can't register blessed things as Memb fields" if blessed($ref);
 
@@ -471,7 +478,7 @@ depending on the type of variable declared.
 		# response member.
 
 		my $stage = POE::Request->_get_current_stage();
-		my $response_id = $stage->{rsp}->get_id();
+		my $response_id = tied(%$stage)->_get_response()->get_id();
 
 		my $scalar = tied(%$stage)->_request_context_fetch($response_id, $name);
 		unless (defined $scalar) {
@@ -496,7 +503,7 @@ depending on the type of variable declared.
 		# response member.
 
 		my $stage = POE::Request->_get_current_stage();
-		my $response_id = $stage->{rsp}->get_id();
+		my $response_id = tied(%$stage)->_get_response()->get_id();
 
 		my $hash = tied(%$stage)->_request_context_fetch($response_id, $name);
 		unless (defined $hash) {
@@ -519,7 +526,7 @@ depending on the type of variable declared.
 		# response member.
 
 		my $stage = POE::Request->_get_current_stage();
-		my $response_id = $stage->{rsp}->get_id();
+		my $response_id = tied(%$stage)->_get_response()->get_id();
 
 		my $array = tied(%$stage)->_request_context_fetch($response_id, $name);
 		unless (defined $array) {

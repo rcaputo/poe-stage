@@ -16,25 +16,24 @@ my $key_value;
 	package Something;
 	use warnings;
 	use strict;
+	use POE::Stage qw(req rsp);
 	use base qw(POE::Stage);
 	use Test::More;
 
 	sub do_emit {
-		my ($self, $args) = @_;
-
 		ok(
-			ref($self->{req}) eq "POE::Request",
+			ref(req) eq "POE::Request",
 			"do_emit req is a POE::Request object"
 		);
 
 		ok(
-			$self->{req}->get_id() == $go_req->get_id(),
-			"do_emit req (" .  $self->{req}->get_id() .
+			req->get_id() == $go_req->get_id(),
+			"do_emit req (" .  req->get_id() .
 			") should match go_req (" . $go_req->get_id() . ")"
 		);
 
 		ok(
-			$self->{rsp} == 0,
+			rsp == 0,
 			"do_emit rsp is zero"
 		);
 
@@ -50,28 +49,26 @@ my $key_value;
 			)
 		);
 
-		my $newkey :Req = $self->{original_newkey} = 8675;
+		my $newkey :Req = my $original_newkey :Self = 8675;
 
-		$self->{req}->emit(  );
-		#$self->{req}->emit( type => "emit" );
+		req->emit(  );
+		#req->emit( type => "emit" );
 	}
 
 	sub do_return {
-		my ($self, $args) = @_;
-
 		ok(
-			ref($self->{req}) eq "POE::Request",
+			ref(req) eq "POE::Request",
 			"do_return req is a POE::Request object"
 		);
 
 		ok(
-			$self->{req}->get_id() == $go_req->get_id(),
-			"do_return req (" . $self->{req}->get_id() . ") should match go_req (" .
+			req->get_id() == $go_req->get_id(),
+			"do_return req (" . req->get_id() . ") should match go_req (" .
 			$go_req->get_id() . ")"
 		);
 
 		ok(
-			$self->{rsp} == 0,
+			rsp == 0,
 			"do_return rsp is zero"
 		);
 
@@ -89,12 +86,12 @@ my $key_value;
 
 		my $newkey :Req;
 		ok(
-			$self->{original_newkey} == $newkey,
+			my $original_newkey :Self == $newkey,
 			"do_return original_newkey should match req.newkey"
 		);
 
-		$self->{req}->return();
-		#$self->{req}->return( type => "return" );
+		req->return();
+		#req->return( type => "return" );
 	}
 }
 
@@ -102,13 +99,12 @@ my $key_value;
 	package App;
 	use warnings;
 	use strict;
+	use POE::Stage qw(req rsp);
 	use base qw(POE::Stage);
 
 	use Test::More;
 
 	sub run {
-		my ($self, $args) = @_;
-
 		my $something :Req = Something->new();
 		my $go :Req = POE::Request->new(
 			stage     => $something,
@@ -118,77 +114,77 @@ my $key_value;
 		);
 
 		# Save the original req for comparison later.
-		$self->{original_req} = $self->{req};
-		$go_req = $self->{original_sub} = $go;
-
-		$key_value = $self->{original_key} = my $key :Req($go) = 309;
+		my $original_req :Self = req;
+		$go_req = my $original_sub :Self = $go;
+		$key_value = my $original_key :Self = my $key :Req($go) = 309;
 	}
 
 	sub do_recall {
-		my ($self, $args) = @_;
-
 		ok(
-			ref($self->{req}) eq "POE::Request",
+			ref(req) eq "POE::Request",
 			"emit req is a POE::Request object"
 		);
 
 		ok(
-			ref($self->{rsp}) eq "POE::Request::Emit",
+			ref(rsp) eq "POE::Request::Emit",
 			"emit rsp is a POE::Request::Emit object"
 		);
 
+		my $original_req :Self;
 		ok(
-			$self->{req}->get_id() == $self->{original_req}->get_id(),
-			"emit req (" . $self->{req}->get_id() . ") should match original (" .
-			$self->{original_req}->get_id() . ")"
+			req->get_id() == $original_req->get_id(),
+			"emit req (" . req->get_id() . ") should match original (" .
+			$original_req->get_id() . ")"
 		);
 
+		my $original_sub :Self;
 		ok(
-			$self->{rsp}->get_id() == $self->{original_sub}->get_id(),
-			"emit rsp (" . ($self->{rsp}->get_id()) . ") should match original (" .
-			($self->{original_sub}->get_id()) . ")"
+			rsp->get_id() == $original_sub->get_id(),
+			"emit rsp (" . rsp->get_id() . ") should match original (" .
+			($original_sub->get_id()) . ")"
 		);
 
 		my $key :Rsp;
+		my $original_key :Self;
 		ok(
-			$key == $self->{original_key},
-			"emit rsp.key ($key) " .
-			"should match original ($self->{original_key})"
+			$key == $original_key,
+			"emit rsp.key ($key) should match original ($original_key)"
 		);
 
-		$self->{rsp}->recall( method => "do_return" );
+		rsp->recall( method => "do_return" );
 	}
 
 	sub do_return {
-		my ($self, $args) = @_;
-
 		ok(
-			ref($self->{req}) eq "POE::Request",
+			ref(req) eq "POE::Request",
 			"ret req is a POE::Request object"
 		);
 
 		ok(
-			ref($self->{rsp}) eq "POE::Request::Return",
+			ref(rsp) eq "POE::Request::Return",
 			"ret rsp is a POE::Request::Return object"
 		);
 
+		my $original_req :Self;
 		ok(
-			$self->{req}->get_id() == $self->{original_req}->get_id(),
-			"ret req (" . $self->{req}->get_id() . ") should match original (" .
-			$self->{original_req}->get_id() . ")"
+			req->get_id() == $original_req->get_id(),
+			"ret req (" . req->get_id() . ") should match original (" .
+			$original_req->get_id() . ")"
 		);
 
+		my $original_sub :Self;
 		ok(
-			$self->{rsp}->get_id() == $self->{original_sub}->get_id(),
-			"ret rsp (" . $self->{rsp}->get_id() . ") " .
-			"should match original sub (" . $self->{original_sub}->get_id() . ")"
+			rsp->get_id() == $original_sub->get_id(),
+			"ret rsp (" . rsp->get_id() . ") " .
+			"should match original sub (" . $original_sub->get_id() . ")"
 		);
 
 		my $key :Rsp;
+		my $original_key :Self;
 		ok(
-			$key == $self->{original_key},
+			$key == $original_key,
 			"ret key ($key) " .
-			"should match original ($self->{original_key})"
+			"should match original ($original_key)"
 		);
 
 		# Actually does nothing.

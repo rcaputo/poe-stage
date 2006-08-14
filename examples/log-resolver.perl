@@ -14,23 +14,22 @@ use strict;
 	use warnings;
 	use strict;
 
+	use POE::Stage qw(self);
 	use base qw(POE::Stage);
 	use POE::Stage::Resolver;
 
 	sub run {
-		my $self :Self;
 
 		# Start a handful of initial requests.
 		for (1..5) {
 			my $next_address = read_next_address();
 			last unless defined $next_address;
 
-			$self->resolve_address($next_address);
+			self->resolve_address($next_address);
 		}
 	}
 
 	sub handle_host {
-		my $self :Self;
 		my ($input, $packet) :Arg;
 
 		my @answers = $packet->answer();
@@ -47,17 +46,16 @@ use strict;
 		# in void context, the framework could hold onto the stage until
 		# it it called return() or cancel().  Then the framework frees it.
 
-		$self->resolve_address(read_next_address());
+		self->resolve_address(read_next_address());
 	}
 
 	# Handle some error.
 	sub handle_error {
-		my $self :Self;
 		my ($input, $error) :Args;
 
 		print "Error: $input = $error\n";
 
-		$self->resolve_address(read_next_address());
+		self->resolve_address(read_next_address());
 	}
 
 	# Plain old subroutine.  Doesn't handle events.

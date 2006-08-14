@@ -25,7 +25,7 @@ POE::Request - a common message class for POE::Stage
 		print "$args->{param_1}\n";  # 123
 		print "$args->{param_2}\n";  # abc
 		...;
-		$self->{req}->return( type => "one", moo => "retval" );
+		req()->return( type => "one", moo => "retval" );
 	}
 
 	# Handle one's return value.
@@ -216,12 +216,16 @@ sub _push {
 sub _invoke {
 	my ($self, $method, $override_args) = @_;
 
-	DEBUG and warn(
-		"\t$self invoking $self->[REQ_TARGET_STAGE] method $method:\n",
-		"\t\tMy req  = $self->[REQ_TARGET_STAGE]{req}\n",
-		"\t\tMy rsp  = $self->[REQ_TARGET_STAGE]{rsp}\n",
-		"\t\tPar req = $self->[REQ_PARENT_REQUEST]\n",
-	);
+	DEBUG and do {
+		my $tied_target = tied(%{$self->[REQ_TARGET_STAGE]});
+
+		warn(
+			"\t$self invoking $self->[REQ_TARGET_STAGE] method $method:\n",
+			"\t\tMy req  = ", $tied_target->_get_request(), "\n",
+			"\t\tMy rsp  = ", $tied_target->_get_respones(), "\n",
+			"\t\tPar req = $self->[REQ_PARENT_REQUEST]\n",
+		);
+	};
 
 	$self->[REQ_TARGET_STAGE]->$method(
 		$override_args || $self->[REQ_ARGS]

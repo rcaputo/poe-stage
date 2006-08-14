@@ -15,7 +15,7 @@ use strict;
 	use warnings;
 	use strict;
 
-	use POE::Stage;
+	use POE::Stage qw(rsp);
 	use base qw(POE::Stage);
 	use POE::Stage::Receiver;
 
@@ -41,14 +41,13 @@ use strict;
 	}
 
 	sub handle_datagram {
-		my $self :Self;
 		my ($datagram, $remote_address) :Arg;
 
 		my $name :Rsp;
 		print "$name received datagram: $datagram\n";
 		$datagram =~ tr[a-zA-Z][n-za-mN-ZA-M];
 
-		$self->{rsp}->recall(
+		rsp->recall(
 			method            => "send",
 			args              => {
 				remote_address  => $remote_address,

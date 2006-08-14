@@ -10,6 +10,7 @@
 	package SelfRequester;
 	use warnings;
 	use strict;
+	use POE::Stage qw(self);
 	use base qw(POE::Stage);
 	use POE::Watcher::Delay;
 
@@ -33,14 +34,12 @@
 	# too much ugliness.
 
 	sub init {
-		my $self :Self;
-		my $auto_request :Memb;
 		my $args = $_[1];
 
 		warn 0;
 		my $passthrough_args = delete $args->{args} || {};
-		$auto_request = POE::Request->new(
-			stage   => $self,
+		my $auto_request :Self = POE::Request->new(
+			stage   => self,
 			method  => "set_thingy",
 			%$args,
 			args    => { %$passthrough_args },
@@ -58,14 +57,14 @@
 	}
 
 	sub time_is_up {
-		my $auto_request :Req;
+		my $auto_request :Self;
 		warn 2;
 		$auto_request->return(
 			type => "done",
 		);
 
 		# Don't need to delete these as long as the request is canceled,
-		# either by calling $self->{req}->return() on ->cancel().
+		# either by calling req->return() on ->cancel().
 		#delete $self->{request};
 		#my $delay :Req = undef;
 	}
@@ -75,22 +74,20 @@
 	package App;
 	use warnings;
 	use strict;
+	use POE::Stage qw(self);
 	use base qw(POE::Stage);
 
 	sub run {
-		my $self :Self;
 		warn 3;
-		$self->spawn_requester();
+		self->spawn_requester();
 	}
 
 	sub do_again {
-		my $self :Self;
 		warn 4;
-		$self->spawn_requester();
+		self->spawn_requester();
 	}
 
 	sub spawn_requester {
-		my $self :Self;
 		warn 5;
 
 		my $self_requester :Req = SelfRequester->new(

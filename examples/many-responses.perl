@@ -15,16 +15,15 @@ use strict;
 	use strict;
 
 	use POE::Stage::Ticker;
+	use POE::Stage qw(self);
 	use base qw(POE::Stage);
 
 	sub init {
-		my $self :Self;
 		my $name :Arg;
-		my $my_name :Memb = $name;
+		my $my_name :Self = $name;
 	}
 
 	sub run {
-		my $self :Self;
 		my ($name, $interval) :Arg;
 
 		my $ticker :Req   = POE::Stage::Ticker->new();
@@ -42,10 +41,9 @@ use strict;
 	}
 
 	sub handle_tick {
-		my $self :Self;
 		my $id :Arg;
 		my $req_name :Req;
-		my $my_name :Memb;
+		my $my_name :Self;
 
 		print(
 			"app($my_name) ",

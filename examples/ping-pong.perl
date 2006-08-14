@@ -18,19 +18,17 @@ use strict;
 	use strict;
 
 	use POE::Stage::Echoer;
+	use POE::Stage qw(self);
 	use base qw(POE::Stage);
 
 	sub run {
-		my $self :Self;
-
 		my $echoer :Req = POE::Stage::Echoer->new();
 		my $i :Req = 1;
 
-		$self->send_request();
+		self->send_request();
 	}
 
 	sub got_echo {
-		my $self :Self;
 		my $echo :Arg;
 
 		print "got echo: $echo\n";
@@ -42,7 +40,7 @@ use strict;
 		# for memory leaks.
 #		return if $i > 10;
 
-		$self->send_request();
+		self->send_request();
 	}
 
 	sub send_request {

@@ -22,8 +22,8 @@ POE::Stage::Echoer - a stage that echoes back whatever it's given
 	);
 
 	sub handle_echo {
-		my ($self, $args) = @_;
-		print "Received an echo: $args->{echo}\n";
+		my $echo :Arg;
+		print "Received an echo: $echo\n";
 	}
 
 =head1 DESCRIPTION
@@ -44,6 +44,7 @@ package POE::Stage::Echoer;
 use warnings;
 use strict;
 
+use POE::Stage qw(req);
 use base qw(POE::Stage);
 
 =head1 PUBLIC COMMANDS
@@ -60,12 +61,11 @@ message.
 =cut
 
 sub echo {
-	my ($self, $args) = @_;
-
-	$self->{req}->return(
+	my $message :Arg;
+	req->return(
 		type    => "echo",
 		args    => {
-			echo  => $args->{message},
+			echo  => $message,
 		},
 	);
 }

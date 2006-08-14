@@ -13,7 +13,7 @@ use lib qw(./lib ../lib);
 	use warnings;
 	use strict;
 
-	use POE::Stage;
+	use POE::Stage qw(self req);
 	use base qw(POE::Stage);
 
 	use IO::Socket::INET;
@@ -31,9 +31,8 @@ use lib qw(./lib ../lib);
 	# problem.  Hell, if *I* can't figure it out, then it sucks.
 
 	sub init {
-		my $self :Self;
 		my $args = $_[1];
-		my $init_request :Memb;
+		my $init_request :Self;
 		my ($socket, $listen_queue) :Arg;
 
 		# TODO - This idiom happens enough that we should abstract it.
@@ -48,7 +47,7 @@ use lib qw(./lib ../lib);
 		$listen_queue ||= SOMAXCONN;
 
 		$init_request = POE::Request->new(
-			stage   => $self,
+			stage   => self,
 			method  => "listen",
 			%$args,
 			args    => {
@@ -82,11 +81,9 @@ use lib qw(./lib ../lib);
 	# Ready to accept from the socket.  Do it.
 
 	sub accept_connection {
-		my $self :Self;
-
 		my $new_socket = (my $req_socket :Req)->accept();
 		warn "accept error $!" unless $new_socket;
-		$self->{req}->emit( type => "accept", socket => $new_socket );
+		req->emit( type => "accept", socket => $new_socket );
 	}
 }
 
@@ -98,18 +95,18 @@ use lib qw(./lib ../lib);
 	use warnings;
 	use strict;
 
+	use POE::Stage qw(self req);
 	use base qw(POE::Stage);
 
 	sub init {
 		my $args = $_[1];
-		my $self :Self;
-		my $init_request :Memb;
+		my $init_request :Self;
 		my $socket :Arg;
 
 		my $passthrough_args = delete($args->{args}) || { };
 
 		$init_request = POE::Request->new(
-			stage => $self,
+			stage => self,
 			method => "interact",
 			%$args,
 			args => {
@@ -145,8 +142,8 @@ use lib qw(./lib ../lib);
 		}
 
 		my ($offset, $rest) = (0, $ret);
-		while ($ret) {
-			my $wrote = syswrite($socket, $buf, $ret, $offset);
+		while ($rest) {
+			my $wrote = syswrite($socket, $buf, $rest, $offset);
 
 			# Nasty busy loop for rapid prototyping.
 			unless ($wrote) {

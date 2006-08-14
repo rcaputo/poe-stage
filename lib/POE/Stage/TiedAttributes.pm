@@ -13,9 +13,6 @@ POE::Stage::TiedAttributes - implements magic "req" and "rsp" members
 POE::Stage::TiedAttributes implements a large chunk of POE::Stage's
 magical data scopes.
 
-It manages the special $self->{req} and $self->{rsp} fields.  They
-will always point to the proper POE::Request objects.
-
 It holds request-scoped data, which is really stage-scoped data
 associated with the request.
 
@@ -25,6 +22,9 @@ are canceled.
 It does these things as automatically as possible.
 
 =head2 POE::Stage's "req" Data Member
+
+TODO - Does not exist.  Was replaced by POE::Stage's req() export.
+Move this wonderful description there.
 
 Every POE::Stage object has two read-only data members: req and rsp.
 The req data member refers to the POE::Request object that the stage
@@ -74,6 +74,9 @@ up the request chain.
 	}
 
 =head2 POE::Stage's "rsp" Data Member
+
+TODO - Does not exist.  Was replaced by POE::Stage's rsp() export.
+Move this wonderful description there.
 
 The special $self->{rsp} data member refers to responses to requests
 made by a stage.  It's only valid when a response handler is currently
@@ -127,23 +130,16 @@ sub TIEHASH {
 	return $self;
 }
 
+sub _get_request { return $_[0][REQUEST] }
+sub _get_response { return $_[0][RESPONSE] }
+
 sub STORE {
 	my ($self, $key, $value) = @_;
-
-	# For debugging during the transition from $stage->{req_foo} to
-	# $stage->{req}{foo} syntax.
-	if ($key =~ s/^(req|rsp)_//) {
-		croak "Use :Req or :Rsp attributes instead";
-	}
-
-	croak "$key is a read-only data member" if $key eq "req" or $key eq "rsp";
 	return $self->[STAGE_DATA]{$key} = $value;
 }
 
 sub FETCH {
 	my ($self, $key) = @_;
-	return $self->[REQUEST]  if $key eq "req";
-	return $self->[RESPONSE] if $key eq "rsp";
 	return $self->[STAGE_DATA]{$key};
 }
 
@@ -156,9 +152,6 @@ sub FIRSTKEY {
 		push @keys, keys %{$self->[STAGE_DATA]};
 	}
 
-	push @keys, "req" if $self->[REQUEST];
-	push @keys, "rsp" if $self->[RESPONSE];
-
 	$self->[COMBINED_KEYS] = [ sort @keys ];
 	return shift @{$self->[COMBINED_KEYS]};
 }
@@ -170,14 +163,11 @@ sub NEXTKEY {
 
 sub EXISTS {
 	my ($self, $key) = @_;
-	return defined $self->[REQUEST]  if $key eq "req";
-	return defined $self->[RESPONSE] if $key eq "rsp";
 	return exists $self->[STAGE_DATA]{$key};
 }
 
 sub DELETE {
 	my ($self, $key) = @_;
-	croak "$key is a read-only data member" if $key eq "req" or $key eq "rsp";
 	return delete $self->[STAGE_DATA]{$key};
 }
 

@@ -25,7 +25,7 @@ POE::Stage::Receiver - a simple UDP recv/send component
 	# Echo the datagram back to its sender.
 	sub handle_datagram {
 		my ($self, $args) = @_;
-		$self->{rsp}->recall(
+		rsp()->recall(
 			method            => "send",
 			args              => {
 				remote_address  => $args->{remote_address},
@@ -49,6 +49,7 @@ package POE::Stage::Receiver;
 use warnings;
 use strict;
 
+use POE::Stage qw(req);
 use base qw(POE::Stage);
 
 use POE::Watcher::Input;
@@ -96,7 +97,7 @@ sub handle_input {
 	);
 
 	if (defined $remote_address) {
-		$self->{req}->emit(
+		req->emit(
 			type              => "datagram",
 			args              => {
 				datagram        => $datagram,
@@ -105,7 +106,7 @@ sub handle_input {
 		);
 	}
 	else {
-		$self->{req}->emit(
+		req->emit(
 			type      => "recv_error",
 			args      => {
 				errnum  => $!+0,
@@ -133,7 +134,7 @@ sub send {
 		$args->{remote_address},
 	) == length($args->{datagram});
 
-	$self->{req}->emit(
+	req->emit(
 		type      => "send_error",
 		args      => {
 			errnum  => $!+0,

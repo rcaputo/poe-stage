@@ -9,7 +9,7 @@ POE::Request::Recall - encapsulates responses to POE::Request::Emit
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	$self->{rsp}->recall(
+	rsp()->recall(
 		method  => "method_name",     # invoke this method on Emit's creator
 		args      => {
 			param_1 => 123,               # with this parameter
@@ -33,9 +33,9 @@ Consider this persistent dialogue between two stages:
 	Requester               Servicer
 	----------------------- -------------------------
 	POE::Request->new()     .
-	.                       $self->{req}->emit()
-	$self->{rsp}->recall()  .
-	.                       $self->{req}->return()
+	.                       req()->emit()
+	rsp()->recall()  .
+	.                       req()->return()
 
 A stage requests a service from another stage.  The servicer stage
 emits a response, which is handled by the requester.  The requester
@@ -91,7 +91,8 @@ sub new {
 	confess "should always have a current request" unless $current_request;
 
 	# Current RSP is a POE::Request::Emit.
-	my $current_rsp = $current_request->[REQ_TARGET_STAGE]{rsp};
+	my $tied_target = tied(%{$current_request->[REQ_TARGET_STAGE]});
+	my $current_rsp = $tied_target->_get_response();
 	confess "should always have a current rsp" unless $current_rsp;
 
 	# Recall's parent is RSP's delivery REQ.
