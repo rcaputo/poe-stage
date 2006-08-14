@@ -49,8 +49,7 @@ package POE::Stage::Receiver;
 use warnings;
 use strict;
 
-use POE::Stage qw(req);
-use base qw(POE::Stage);
+use POE::Stage qw(:base req);
 
 use POE::Watcher::Input;
 use IO::Socket::INET;

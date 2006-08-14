@@ -32,8 +32,7 @@ package POE::Stage::Ticker;
 use warnings;
 use strict;
 
-use POE::Stage qw(self req);
-use base qw(POE::Stage);
+use POE::Stage qw(:base self req);
 
 use POE::Watcher::Delay;
 

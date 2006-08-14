@@ -15,8 +15,7 @@ use strict;
 	use warnings;
 	use strict;
 
-	use POE::Stage qw(rsp);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base rsp);
 	use POE::Stage::Receiver;
 
 	sub run {

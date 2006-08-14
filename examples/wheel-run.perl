@@ -9,8 +9,7 @@
 	use strict;
 
 	use lib qw(./lib ../lib);
-	use POE::Stage;
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base);
 	use POE::Watcher::Wheel::Run;
 	use POE::Filter::Line;
 

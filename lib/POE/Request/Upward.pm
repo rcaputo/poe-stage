@@ -42,7 +42,7 @@ use POE::Request qw(
 use base qw(POE::Request);
 use Carp qw(croak confess);
 use Scalar::Util qw(weaken);
-use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
+use POE::Stage::TiedAttributes;
 
 use constant DEBUG => 0;
 
@@ -162,9 +162,11 @@ sub new {
 sub deliver {
 	my $self = shift;
 
-	my $target_stage_data = tied(%{$self->[REQ_TARGET_STAGE]});
-	$target_stage_data->[REQUEST]  = $self->[REQ_DELIVERY_REQ];
-	$target_stage_data->[RESPONSE] = $self->[REQ_DELIVERY_RSP];
+	my $target_stage = tied(%{$self->[REQ_TARGET_STAGE]});
+	$target_stage->_set_req_rsp(
+		$self->[REQ_DELIVERY_REQ],
+		$self->[REQ_DELIVERY_RSP],
+	);
 
 	$self->_push(
 		$self->[REQ_DELIVERY_REQ],
@@ -180,12 +182,7 @@ sub deliver {
 		$self->[REQ_TARGET_METHOD],
 	);
 
-	my $old_rsp = splice( @$target_stage_data, RESPONSE, 1, 0 );
-	my $old_req = splice( @$target_stage_data, REQUEST,  1, 0 );
-
-#	die "bad rsp" unless $old_rsp == $self->[REQ_DELIVERY_RSP];
-#	die "bad req" unless $old_req == $self->[REQ_DELIVERY_REQ];
-
+	$target_stage->_set_req_rsp(0, 0);
 
 	# Break circular references.
 	$self->[REQ_DELIVERY_RSP] = undef;

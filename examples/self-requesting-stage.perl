@@ -10,8 +10,7 @@
 	package SelfRequester;
 	use warnings;
 	use strict;
-	use POE::Stage qw(self);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base self);
 	use POE::Watcher::Delay;
 
 	# My first try was to set a delay in init(), but the delay never
@@ -74,8 +73,7 @@
 	package App;
 	use warnings;
 	use strict;
-	use POE::Stage qw(self);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base self);
 
 	sub run {
 		warn 3;

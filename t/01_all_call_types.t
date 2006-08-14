@@ -16,8 +16,7 @@ my $key_value;
 	package Something;
 	use warnings;
 	use strict;
-	use POE::Stage qw(req rsp);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base req rsp);
 	use Test::More;
 
 	sub do_emit {
@@ -99,8 +98,7 @@ my $key_value;
 	package App;
 	use warnings;
 	use strict;
-	use POE::Stage qw(req rsp);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base req rsp);
 
 	use Test::More;
 

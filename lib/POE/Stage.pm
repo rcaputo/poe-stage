@@ -67,7 +67,7 @@ use Attribute::Handlers;
 use PadWalker qw(var_name peek_my);
 use Scalar::Util qw(blessed reftype);
 use Carp qw(croak);
-use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
+use POE::Stage::TiedAttributes;
 use Devel::LexAlias qw(lexalias);
 
 use POE::Request::Emit;
@@ -75,8 +75,21 @@ use POE::Request::Return;
 use POE::Request::Recall;
 use POE::Request qw(REQ_ID);
 
-use Exporter qw(import);
-our @EXPORT = qw(&self &req &rsp);
+sub import {
+	my $class = shift;
+	my $caller = caller();
+
+	foreach my $export (@_) {
+		no strict 'refs';
+
+		if ($export eq ":base") {
+			unshift @{ $caller . "::ISA" }, $class;
+			next;
+		}
+
+		*{ $caller . "::$export" } = *{ $class . "::$export" };
+	}
+}
 
 # An internal singleton POE::Session that will drive all the stages
 # for the application.  This should be structured such that we can
@@ -223,12 +236,12 @@ sub self {
 
 sub req {
 	my $stage = tied(%{POE::Request->_get_current_stage()});
-	return $stage->[REQUEST];
+	return $stage->_get_request();
 }
 
 sub rsp {
 	my $stage = tied(%{POE::Request->_get_current_stage()});
-	return $stage->[RESPONSE];
+	return $stage->_get_response();
 }
 
 =head2 Req (attribute)

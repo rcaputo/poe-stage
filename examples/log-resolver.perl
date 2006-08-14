@@ -14,8 +14,7 @@ use strict;
 	use warnings;
 	use strict;
 
-	use POE::Stage qw(self);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base self);
 	use POE::Stage::Resolver;
 
 	sub run {

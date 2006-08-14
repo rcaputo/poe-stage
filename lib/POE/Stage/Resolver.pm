@@ -51,8 +51,7 @@ package POE::Stage::Resolver;
 use warnings;
 use strict;
 
-use POE::Stage qw(self req);
-use base qw(POE::Stage);
+use POE::Stage qw(:base self req);
 use POE::Watcher::Delay;
 use Net::DNS::Resolver;
 use POE::Watcher::Input;

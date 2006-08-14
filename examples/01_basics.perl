@@ -14,8 +14,7 @@ use POE::Stage;
 
 	use warnings;
 	use strict;
-	use POE::Stage qw(self req);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base self req);
 
 	sub do_something {
 		print "Helper (", self, ") is executing a request.\n";
@@ -31,7 +30,7 @@ use POE::Stage;
 
 	use warnings;
 	use strict;
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base);
 
 	sub call_helper {
 		my $helper :Req = Helper->new();

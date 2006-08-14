@@ -18,8 +18,7 @@ use strict;
 	use strict;
 
 	use POE::Stage::Echoer;
-	use POE::Stage qw(self);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base self);
 
 	sub run {
 		my $echoer :Req = POE::Stage::Echoer->new();

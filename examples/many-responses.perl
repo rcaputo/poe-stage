@@ -15,8 +15,7 @@ use strict;
 	use strict;
 
 	use POE::Stage::Ticker;
-	use POE::Stage qw(self);
-	use base qw(POE::Stage);
+	use POE::Stage qw(:base self);
 
 	sub init {
 		my $name :Arg;

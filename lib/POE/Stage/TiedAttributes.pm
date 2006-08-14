@@ -110,13 +110,6 @@ sub REQUEST       () { 3 }  # Currently active request.
 sub RESPONSE      () { 4 }  # Currently active response.
 sub REQ_CONTEXTS  () { 5 }  # Contexts for each request in play.
 
-use Exporter;
-use base qw(Exporter);
-@POE::Stage::TiedAttributes::EXPORT_OK = qw(
-	REQUEST
-	RESPONSE
-);
-
 sub TIEHASH {
 	my $class = shift;
 	my $self = bless [
@@ -132,6 +125,7 @@ sub TIEHASH {
 
 sub _get_request { return $_[0][REQUEST] }
 sub _get_response { return $_[0][RESPONSE] }
+sub _set_req_rsp { $_[0][REQUEST] = $_[1]; $_[0][RESPONSE] = $_[2] }
 
 # We don't support direct self access anymore.  All access goes
 # through :Self attributes instead.

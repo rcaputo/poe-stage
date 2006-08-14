@@ -127,7 +127,7 @@ BEGIN {
 	);
 }
 
-use POE::Stage::TiedAttributes qw(REQUEST RESPONSE);
+use POE::Stage::TiedAttributes;
 
 my $last_request_id = 0;
 my %active_request_ids;
@@ -401,11 +401,11 @@ sub deliver {
 	my ($self, $method, $override_args) = @_;
 
 	my $target_stage = $self->[REQ_TARGET_STAGE];
-	my $target_stage_data = tied(%$target_stage);
+	my $target_stage_tied = tied(%$target_stage);
 
 	my $delivery_req = $self->[REQ_DELIVERY_REQ] || $self;
-	$target_stage_data->[REQUEST]  = $delivery_req;
-	$target_stage_data->[RESPONSE] = 0;
+
+	$target_stage_tied->_set_req_rsp($delivery_req, 0);
 
 	my $target_method = $method || $self->[REQ_TARGET_METHOD];
 	$self->_push($self, $target_stage, $target_method);
@@ -414,11 +414,7 @@ sub deliver {
 
 	$self->_pop($self, $target_stage, $target_method);
 
-	my $old_rsp = delete $target_stage_data->[RESPONSE];
-	my $old_req = delete $target_stage_data->[REQUEST];
-
-#	die "bad rsp" unless $old_rsp == 0;
-#	die "bad req" unless $old_req == $delivery_req;
+	$target_stage_tied->_set_req_rsp(undef, undef);
 }
 
 # Return a response to the requester.  The response occurs in the
