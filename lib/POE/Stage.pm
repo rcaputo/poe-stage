@@ -424,8 +424,13 @@ depending on the type of variable declared.
 			$self = $DB::args[0];
 		}
 
-		$self->{$name} = undef unless exists $self->{$name};
-		lexalias(4, $name, \$self->{$name});
+		my $tied_self = tied(%$self);
+		unless ($tied_self->_self_exists($name)) {
+			my $new_scalar;
+			$tied_self->_self_store($name, \$new_scalar);
+		}
+
+		lexalias(4, $name, $tied_self->_self_fetch($name));
 	}
 
 	sub Self :ATTR(ARRAY,RAWDATA) {
@@ -441,8 +446,12 @@ depending on the type of variable declared.
 			$self = $DB::args[0];
 		}
 
-		$self->{$name} = [] unless exists $self->{$name};
-		lexalias(4, $name, \$self->{$name});
+		my $tied_self = tied(%$self);
+		unless ($tied_self->_self_exists($name)) {
+			$tied_self->_self_store($name, []);
+		}
+
+		lexalias(4, $name, $tied_self->_self_fetch($name));
 	}
 
 	sub Self :ATTR(HASH,RAWDATA) {
@@ -458,8 +467,12 @@ depending on the type of variable declared.
 			$self = $DB::args[0];
 		}
 
-		$self->{$name} = {} unless exists $self->{$name};
-		lexalias(4, $name, \$self->{$name});
+		my $tied_self = tied(%$self);
+		unless ($tied_self->_self_exists($name)) {
+			$tied_self->_self_store($name, {});
+		}
+
+		lexalias(4, $name, $tied_self->_self_fetch($name));
 	}
 }
 

@@ -133,46 +133,37 @@ sub TIEHASH {
 sub _get_request { return $_[0][REQUEST] }
 sub _get_response { return $_[0][RESPONSE] }
 
-sub STORE {
+# We don't support direct self access anymore.  All access goes
+# through :Self attributes instead.
+
+sub STORE     { croak "storing directly to a stage";    }
+sub FETCH     { croak "fetching directly from a stage"; }
+sub FIRSTKEY  { croak "firstkey directly from a stage"; }
+sub NEXTKEY   { croak "nextkey directly from a stage";  }
+sub EXISTS    { croak "exists directly from a stage";   }
+sub DELETE    { croak "delete directly from a stage";   }
+
+### Helper for :Self members.
+
+sub _self_store {
 	my ($self, $key, $value) = @_;
 	return $self->[STAGE_DATA]{$key} = $value;
 }
 
-sub FETCH {
+sub _self_fetch {
 	my ($self, $key) = @_;
 	return $self->[STAGE_DATA]{$key};
 }
 
-sub FIRSTKEY {
-	my $self = shift;
-
-	my @keys;
-
-	{ my $a = keys %{$self->[STAGE_DATA]};
-		push @keys, keys %{$self->[STAGE_DATA]};
-	}
-
-	$self->[COMBINED_KEYS] = [ sort @keys ];
-	return shift @{$self->[COMBINED_KEYS]};
-}
-
-sub NEXTKEY {
-	my $self = shift;
-	return shift @{$self->[COMBINED_KEYS]};
-}
-
-sub EXISTS {
+sub _self_exists {
 	my ($self, $key) = @_;
 	return exists $self->[STAGE_DATA]{$key};
 }
 
-sub DELETE {
-	my ($self, $key) = @_;
-	return delete $self->[STAGE_DATA]{$key};
-}
+### Helpers for :Req members.
 
 sub _request_context_store {
-	my ($self, $req_id,$key, $value) = @_;
+	my ($self, $req_id, $key, $value) = @_;
 	return $self->[REQ_CONTEXTS]{$req_id}{$key} = $value;
 }
 
