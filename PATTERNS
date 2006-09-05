@@ -111,10 +111,21 @@ Stage lifetimes.
 
 Requests as channels or connections.
 
+	Summary:
+
+		1. A parent stage makes many parallel requests.
+		2. A child stage calls emit() to respond to one of them.
+		3. The parent handles the emit() and wants to close the
+		connection.
+		4. How does it know which request the response is for?
+
+		Answer 1: For simple disconnecting, $rsp->cancel().
+		Answer 2: More magic is probably needed.
+
 	Requests are similar to connections between objects.  The owner and
 	receiver are in a dialog as long as the request remains active.
 
-  Third-sortie POE::Stage focused on creating requests and ferrying
+	Third-sortie POE::Stage focused on creating requests and ferrying
 	them to their receivers.  It didn't anticipate the issues and
 	semantics of receiving responses and dealing with them.
 
@@ -135,7 +146,7 @@ Requests as channels or connections.
 
 	For example:
 
-	  $self->{_some_request} = POE::Request->new(...);
+		$self->{_some_request} = POE::Request->new(...);
 
 	Receiving a response from _some_request sets _moo = $request_object.
 	There still is no conventient way to determine that $self->{_moo}
@@ -143,7 +154,7 @@ Requests as channels or connections.
 	are equal, but it's inconvenient to determine which member to delete
 	when ending a request:
 
-	  sub handle_response {
+		sub handle_response {
 			my ($self, $args) = @_;
 			my $responding_request = $self->{_moo};
 
