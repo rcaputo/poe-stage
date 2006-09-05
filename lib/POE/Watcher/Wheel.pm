@@ -30,6 +30,32 @@ use strict;
 use Scalar::Util qw(weaken);
 use Carp qw(croak);
 use POE::Kernel;
+use base qw(Class::Data::Inheritable);
+
+BEGIN {
+  __PACKAGE__->mk_classdata('wheel_param_event_number');
+  __PACKAGE__->wheel_param_event_number( {} );
+  __PACKAGE__->mk_classdata('wheel_event_param_names');
+  __PACKAGE__->wheel_event_param_names( [] );
+}
+
+sub wheel_param_to_event_number {
+	my ($self, $param) = @_;
+  my $num = $self->wheel_param_event_number->{$param};
+	die $param unless defined $num;
+	return $num;
+}
+
+sub wheel_param_names {
+	my ($class, $event_number) = @_;
+  my $names = $class->wheel_event_param_names->[$event_number];
+	die unless $names;
+	return $names;
+}
+
+sub get_wheel_class {
+  croak "virtual method get_wheel_class called";
+}
 
 =head1 PUBLIC METHODS
 
@@ -94,6 +120,15 @@ sub new {
 
 	# Owner gets a strong reference.
 	return $self;
+}
+
+# Make it easier (or possible) to correlate events from this watcher's wheel to
+# itself.
+
+sub wheel_id {
+  my $self = shift;
+  return unless $self->{wheel};
+  return $self->{wheel}->ID;
 }
 
 sub DESTROY {
