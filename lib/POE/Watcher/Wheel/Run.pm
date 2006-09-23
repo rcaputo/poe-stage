@@ -48,3 +48,12 @@ sub get_wheel_class {
 }
 
 1;
+
+__END__
+
+For the BUGS section:
+
+POE::Stage is too young for production use.  For example, its syntax
+is still changing.  You probably know what you don't like, or what you
+need that isn't included, so consider fixing or adding that.  It'll
+bring POE::Stage that much closer to a usable release.

@@ -589,6 +589,11 @@ See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 C<:Req> and C<:Rsp> must be discussed in greater detail, perhaps in
 one or more tutorials.
 
+POE::Stage is too young for production use.  For example, its syntax
+is still changing.  You probably know what you don't like, or what you
+need that isn't included, so consider fixing or adding that.  It'll
+bring POE::Stage that much closer to a usable release.
+
 =head1 SEE ALSO
 
 POE::Request has subclasses that are used internally.  While they

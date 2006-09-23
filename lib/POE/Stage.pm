@@ -616,6 +616,11 @@ automatically cleaned up when a request falls out of scope.
 See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
 See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
+POE::Stage is too young for production use.  For example, its syntax
+is still changing.  You probably know what you don't like, or what you
+need that isn't included, so consider fixing or adding that.  It'll
+bring POE::Stage that much closer to a usable release.
+
 =head1 SEE ALSO
 
 POE::Request is the class that defines inter-stage messages.
