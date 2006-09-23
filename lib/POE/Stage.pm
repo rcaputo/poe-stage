@@ -59,7 +59,7 @@ use warnings;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"0.%04d",$r};
+$VERSION = '0.01_00';
 
 use POE::Session;
 
