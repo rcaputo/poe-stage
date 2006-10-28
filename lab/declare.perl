@@ -52,6 +52,17 @@
 	# impossible at the moment.  See the bad output at the end.
 
 	declare my @g_1 = qw(g1a g1b g1c);
+
+	# Philip Gwyn suggested a declare_a(), but it has some drawbacks: It
+	# only works on a single array at a time.  Thess syntaxes aren't
+	# legal:
+	#
+	#   declare_a my @array_1, my @array_2;
+	#   declare_a my(@array_1, @array_2);
+	#   declare_a my $scalar, my @array;
+	#   declare_a my @array = qw(list1 list2 list3);
+
+	declare_a my @g_2;
 }
 
 __END__

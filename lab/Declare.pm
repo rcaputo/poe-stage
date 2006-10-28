@@ -23,9 +23,9 @@ use strict;
 use PadWalker qw(var_name);
 use Exporter;
 use base qw(Exporter);
-our @EXPORT = qw(declare);
+our @EXPORT = qw(declare declare_a);
 
-sub declare(@) {
+sub declare (@) {
 	print "declare() called with:\n";
 	for (my $i = 0; $i < @_; $i++) {
 		my $val = $_[$i];
@@ -41,7 +41,43 @@ sub declare(@) {
 		#   If it's "$" . "self", then do :Self magic.
 		#   etc.
 	}
+}
 
+# Philip Gwyn's array declaration.
+#
+# This works, with one simple but (to me) annoying caveat: Unlike
+# my() and declare(), declare_a() only works on a single variable at a
+# time.  These are illegal:
+#
+#   declare( my (@a, @b );
+#   declare my @a, my @b;
+#   declare my $scalar, my @array;
+#
+# We also can't say this because the first argument to declare_a()
+# becomes a "list assignment":
+#
+#   declare my @array = qw(list1 list2 list3);
+
+sub declare_a (\@) {
+	print "declare_a() called:\n";
+
+	# Try lexicals first.
+
+	my $var_name = var_name(1, $_[0]);
+
+	# Try globals.
+	# This is an interesting variant of declare().  Is it useful?
+
+	unless ($var_name) {
+		my $vars = peek_our( 1 );
+		while( my( $name, $reference ) = each %$vars ) {
+			next unless $reference == $_[0];
+			$var_name = $name;
+			last;
+		}
+	}
+
+	print "  var 0 $var_name = (@{$_[0]})\n";
 }
 
 1;
