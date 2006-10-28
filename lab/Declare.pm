@@ -23,7 +23,7 @@ use strict;
 use PadWalker qw(var_name);
 use Exporter;
 use base qw(Exporter);
-our @EXPORT = qw(declare declare_a);
+our @EXPORT = qw(declare declare_a declare_u);
 
 sub declare (@) {
 	print "declare() called with:\n";
@@ -32,7 +32,7 @@ sub declare (@) {
 		$val = "(undef)" unless defined $val;
 		$val = "(empty)" unless length $val;
 
-		print "  var $i (", \$_[$i], "): ", var_name(1, \$_[$i]), " = $val\n"
+		print "  var $i (", \$_[$i], "): ", var_name(1, \$_[$i]), " = $val\n";
 
 		# The intended application:
 		#   Remove the sigil, and hang onto it.
@@ -78,6 +78,35 @@ sub declare_a (\@) {
 	}
 
 	print "  var 0 $var_name = (@{$_[0]})\n";
+}
+
+# Matt Trout suggested the \[$@%] prototype syntax, which I had never
+# heard of before.  But it's documented.  Here's an attempt at it.
+# FIXME - I wish there were a "varargs" modifier to prototypes, to say
+# "and zero or more of this".  Until there is one, extend the
+# prototype as far as necessary.
+
+sub declare_u (\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]) {
+	print "declare_u() called with:\n";
+	for (my $i = 0; $i < @_; $i++) {
+		my $ref = $_[$i];
+
+		my $val;
+		if (ref($_[$i] eq "SCALAR")) {
+			$val = $$ref;
+		}
+		elsif (ref($_[$i] eq "ARRAY")) {
+			$val = "@$ref";
+		}
+		elsif (ref($_[$i] eq "HASH")) {
+			$val = join "; ", map { "$_ = $ref->{$_}" } keys %$ref;
+		}
+
+		$val = "(undef)" unless defined $val;
+		$val = "(empty)" unless length $val;
+
+		print "  var $i (", $ref, "): ", var_name(1, $ref), " = $val\n";
+	}
 }
 
 1;

@@ -63,6 +63,17 @@
 	#   declare_a my @array = qw(list1 list2 list3);
 
 	declare_a my @g_2;
+
+	# Matt Trout suggested \[$@%] prototype syntax, which declare_u()
+	# attempts to use.  The "U" is for "Ueber". :)
+	#
+	# Still can't do list assignments here.  This is illegal:
+	#
+	#   declare_u my @array = qw(list1 list2 list3);
+	#
+	# But the other syntaxes are good.
+
+	declare_u my $scalar, my @array, my %hash;
 }
 
 __END__
