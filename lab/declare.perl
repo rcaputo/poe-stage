@@ -47,7 +47,6 @@
 #   var 0 (SCALAR(0x182c360)): $scalar = (undef)
 #   var 1 (ARRAY(0x182c390)): @array = (empty)
 #   var 2 (HASH(0x182c3a8)): %hash = (empty)
-# 
 
 {
 	use Declare;
@@ -80,4 +79,16 @@
 
 	declare my @g_2;
 	declare my $scalar, my @array, my %hash;
+
+	# Experiments to try:
+	#
+	# $request->declare(
+	# 	my $foo,
+	# 	my $bar,
+	# );
+	#
+	# $request->declare_pfx(
+	#   my $pfx_foo,
+	#   my $pfx_bar,
+	# );
 }
