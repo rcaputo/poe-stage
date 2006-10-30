@@ -32,15 +32,20 @@
 # perfect, but at least we get two functions with reasonably
 # understandable names.
 
+# We can't have $object->declare( my $x ) because prototypes are
+# necessary for declare(), and Perl doesn't honor them for method
+# calls.
+
 package Declare;
 
 use warnings;
 use strict;
 
+use Carp qw(croak);
 use PadWalker qw(var_name peek_our);
 use Exporter;
 use base qw(Exporter);
-our @EXPORT = qw(init declare);
+our @EXPORT = qw(init declare members prefixed);
 
 sub init (@) {
 	print "init() called with:\n";
@@ -99,7 +104,7 @@ sub init (@) {
 # prototype as far as necessary.
 
 sub declare (\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%\[$@%\[$@%]]]\[$@%]) {
-	print "init() called with:\n";
+	print "declare() called with:\n";
 	for (my $i = 0; $i < @_; $i++) {
 		my $var_reference = $_[$i];
 
@@ -138,6 +143,120 @@ sub declare (\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]
 		}
 
 		print "  var $i ($var_reference): $var_name = $var_value\n";
+
+		# The intended application:
+		#   Remove the sigil, and hang onto it.
+		#   If the variable matches /^arg_/, then do the :Arg magic.
+		#   If it matches /^req_/, then do :Req magic.
+		#   If it's "$" . "self", then do :Self magic.
+		#   etc.
+	}
+}
+
+#####
+
+sub members ($\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%\[$@%\[$@%]]]\[$@%]) {
+	print "members() called with:\n";
+	print "  object: $_[0]\n";
+
+	for (my $i = 1; $i < @_; $i++) {
+		my $var_reference = $_[$i];
+
+		my $var_value;
+		if (ref($var_reference) eq "SCALAR") {
+			$var_value = $$var_reference;
+		}
+		elsif (ref($var_reference) eq "ARRAY") {
+			$var_value = "@$var_reference";
+		}
+		elsif (ref($var_reference) eq "HASH") {
+			$var_value = (
+				join "; ",
+				map { "$_ = $var_reference->{$_}" }
+				keys %$var_reference
+			);
+		}
+
+		$var_value = "(undef)" unless defined $var_value;
+		$var_value = "(empty)" unless length $var_value;
+
+		# Try lexicals first.
+
+		my $var_name = var_name(1, $var_reference);
+
+		# Try globals.  This is from Philip Gwyn's declare_a().
+		# This is an interesting variant of declare().  Is it useful?
+
+		unless ($var_name) {
+			my $vars = peek_our( 1 );
+			while( my( $name, $reference ) = each %$vars ) {
+				next unless $reference == $var_reference;
+				$var_name = $name;
+				last;
+			}
+		}
+
+		print "  var $i ($var_reference): $var_name = $var_value\n";
+
+		# The intended application:
+		#   Remove the sigil, and hang onto it.
+		#   If the variable matches /^arg_/, then do the :Arg magic.
+		#   If it matches /^req_/, then do :Req magic.
+		#   If it's "$" . "self", then do :Self magic.
+		#   etc.
+	}
+}
+
+###
+
+sub prefixed ($\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%\[$@%\[$@%]]]\[$@%]) {
+	print "prefixed() called with:\n";
+	print "  object: $_[0]\n";
+
+	for (my $i = 1; $i < @_; $i++) {
+		my $var_reference = $_[$i];
+
+		my $var_value;
+		if (ref($var_reference) eq "SCALAR") {
+			$var_value = $$var_reference;
+		}
+		elsif (ref($var_reference) eq "ARRAY") {
+			$var_value = "@$var_reference";
+		}
+		elsif (ref($var_reference) eq "HASH") {
+			$var_value = (
+				join "; ",
+				map { "$_ = $var_reference->{$_}" }
+				keys %$var_reference
+			);
+		}
+
+		$var_value = "(undef)" unless defined $var_value;
+		$var_value = "(empty)" unless length $var_value;
+
+		# Try lexicals first.
+
+		my $var_name = var_name(1, $var_reference);
+		my $field_name = $var_name;
+		unless ($field_name =~ s/^(.)_*[^_]+_/$1/) {
+			croak "Variable $var_name has no prefix";
+		}
+
+		# Try globals.  This is from Philip Gwyn's declare_a().
+		# This is an interesting variant of declare().  Is it useful?
+
+		unless ($var_name) {
+			my $vars = peek_our( 1 );
+			while( my( $name, $reference ) = each %$vars ) {
+				next unless $reference == $var_reference;
+				$var_name = $name;
+				last;
+			}
+		}
+
+		print(
+			"  var $i ($var_reference): $var_name (from $field_name) = $var_value\n"
+		);
 
 		# The intended application:
 		#   Remove the sigil, and hang onto it.

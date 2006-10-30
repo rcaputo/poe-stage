@@ -15,6 +15,9 @@
 # init my $x = 1; allows declaration and initialization, but due to
 # Perl's syntactic limitations they may only be scalars.
 
+# $object->declare(...) fails because function prototypes don't work
+# with methods in Perl.
+
 # Current sample output:
 #
 # 1) poerbook:~/projects/poe-stage/lab% perl declare.perl
@@ -80,15 +83,110 @@
 	declare my @g_2;
 	declare my $scalar, my @array, my %hash;
 
-	# Experiments to try:
+	# Attempts at sweet object member declarations.
+
+	{
+		package Object;
+		sub new { return bless [ ], shift }
+	}
+
+	my $obj = Object->new();
+
+	members $obj => my $x, my $y;
+	prefixed $obj => my $pfx_x, my $pfx_y;
+
+	# Often I want to copy variables from one place to another.  I try
+	# to do this all the time:  $req->{foo} = $arg->{foo}.
 	#
-	# $request->declare(
-	# 	my $foo,
-	# 	my $bar,
-	# );
+	# Prefixing lets me do it this way:
 	#
-	# $request->declare_pfx(
-	#   my $pfx_foo,
-	#   my $pfx_bar,
-	# );
+	#   declare my $arg_foo;
+	#   init my $req_foo = $arg_foo;
+	#
+	# I think it's a PITA though.
+
+#	sub handler ($&) {
+#		my ($name, $sub) = @_;
+#		print "handler $name => $sub\n";
+#	}
+#
+#	handler moo => sub {
+#		my $req_foo = my $arg_foo;
+#		print "moo\n";
+#	};
+
+	use Devel::LexAlias qw(lexalias);
+	use PadWalker qw(peek_sub);
+
+	sub foo {
+		print "foo = ", (my $ctx_foo), "\n";
+		print "blag = ", (my $arg_blag), "\n";
+
+		# my $arg_foo
+		# my $req_foo
+		# my $rsp_foo
+
+		# Still need a way to provide an arbitrary prefix.
+		#
+		# prefix $object, my $pfx_foo, my $pfx_bar;
+	}
+
+	sub get_member_ref ($$) {
+		my ($hash, $member) = @_;
+		my $value = $hash->{$member};
+		return $value if ref($value);
+		return \$value;
+	}
+
+	sub call (&$$) {
+		my ($sub, $context, $args) = @_;
+
+		my $pad = peek_sub($sub);
+		while (my ($var, $ref) = each %$pad) {
+			if ($var =~ /^(.)(ctx_)(\S+)/) {
+				my $member = "$1$3";
+				lexalias($sub, $var, get_member_ref($context, $member));
+				next;
+			}
+			if ($var =~ /^(.)(arg_)(\S+)/) {
+				my $member = $3;
+				lexalias($sub, $var, get_member_ref($args, $member));
+				next;
+			}
+		}
+
+		$sub->();
+	}
+
+	call \&foo, { '$foo' => 123 }, { blag => 456 };
+
+# Not sure if this is the right way.  Commenting it out for later.
+
+#	sub init_from ($) {
+#		print "init_from($_[0])\n";
+#		return $_[0];
+#	}
+#
+#	sub ARGS () { \"args" }
+#	sub args () { ARGS }
+#
+#	sub PFX () { \"prefixed" }
+#	sub pfx () { print "pfx\n"; return PFX }
+#
+#	sub my_declare (\[$@%&];\[$@%&]\[$@%&]\[$@%&]\[$@%&]\[$@%&]\[$@%&]\[$@%&]\[$@%&]) {
+#		print "my_declare: @_\n";
+#		foreach (@_) {
+#			print "  ref: $_\n";
+#			if (ref() eq "REF") {
+#				if ($$_ == ARGS) {
+#					print "    init_from args!\n";
+#				}
+#				if ($$_ == PFX) {
+#					print "    prefixed!\n";
+#				}
+#			}
+#		}
+#	}
+#
+#	my_declare init_from args, my $x1, pfx, my @x2, my %x3;
 }
