@@ -1,13 +1,79 @@
 #!perl
 # $Id$
 
-# Grrrr.  Declaring variables as attributes is terrible.  I hate it.
-# You can't have lexical names overlap between different contexts.
-# For example, my $something :Req = my $something :Arg.  Can't be
-# done!  Have I mentioned I hate it?
+# Goals:
+# 
+# 1. Lexical aliases for the different runtime continuation-like
+# structures:
+# 
+#   a. Members of the current request.
+#
+#     Currently:  my $member :Req;
+#
+# 	b. Members of the current response.
+#
+# 	  Currently:  my $member :Rsp;
+#
+# 	c. Parameters in the current parameter list.
+#
+# 	  Currently:  my $member :Arg;
+#
+# 	d. The current POE::Stage instance.
+#
+# 	  Currently:  self().
+#
+#   e. Members of the current POE::Stage instance.
+#
+#     Currently:  my $member :Self;
+#
+# 	f. Members of a newly created POE::Request instance.
+#
+# 	  Currently:  my $member :Req($req);
+#
+# 	g. The current request object.
+#
+# 	  Currently:  req()
+#
+# 	h. The current response object.
+#
+# 	  Currently:  rsp();
+# 
+# 2. Avoiding lexical collisions when working with the same member name
+# in two or more contexts.  The current lexical scope cannot map to
+# member field names is two or more objects.  For instance:
+# 
+# 	my $foo :Arg;
+# 	my $foo :Req; # Can't be done.
+# 	$foo = $foo;  # Still can't be done.
+#
+# 	Prefixed lexicals solve this:
+#
+# 	  a) my $req_foo;
+# 	  b) my $rsp_foo;
+# 	  c) my $arg_foo;
+# 	  d) my $self;
+# 	  e) my $self_foo;
+# 	  f) (see below)
+# 	  g) my $req;
+# 	  h) my $rsp;
+# 
+# 3. Being able to bind to request and stage data members at will.
+# 
+# 	my $req = POE::Request->new(...);
+# 	my $foo :Req($req);
+#
+# 	The current solution is a function that binds lexicals to members
+# 	of a given object, allowing an arbitrary prefix:
+#
+# 	  f) bindto $req, my $arbitraryprefix_foo;
 
-# So, this is an attempt to find something better.  Define a grammar
-# for declaring variables in odd scopes:
+###
+
+# The rest of this program contains works in progress of different
+# grammars and syntaxes.  It should run despite being a combination of
+# different ideas.
+#
+# About declare() and init():
 #
 # declare($x, @y, %z) allows variables to be declared within
 # POE::Stage's various scopes.
@@ -17,39 +83,6 @@
 
 # $object->declare(...) fails because function prototypes don't work
 # with methods in Perl.
-
-# Current sample output:
-#
-# 1) poerbook:~/projects/poe-stage/lab% perl declare.perl
-# init() called with:
-#   var 0 (SCALAR(0x180a2e4)): $a_1 = a1
-#   var 1 (SCALAR(0x180a2f0)): $a_2 = a2
-#   var 2 (SCALAR(0x180a338)): $a_3 = a3
-#   var 3 (SCALAR(0x180a320)): $a_4 = a4
-# init() called with:
-#   var 0 (SCALAR(0x180a3f8)): $b_1 = (undef)
-#   var 1 (SCALAR(0x180a464)): $b_2 = (undef)
-# init() called with:
-#   var 0 (SCALAR(0x180a488)): $c_1 = c1
-#   var 1 (SCALAR(0x180a578)): $c_2 = c2
-# init() called with:
-#   var 0 (SCALAR(0x182c1b0)): $d_1 = d1
-#   var 1 (SCALAR(0x182c1c8)): $d_2 = d2
-# init() called with:
-#   var 0 (SCALAR(0x182c204)): $e_1 = e1
-# init() called with:
-#   var 0 (SCALAR(0x182c234)): $f_1 = f1
-#   var 1 (SCALAR(0x182c24c)): $f_2 = f2
-#   var 2 (SCALAR(0x182c288)): $f_3 = f3
-#   var 3 (SCALAR(0x182c2a0)): $f_4 = f4
-# init() called with:
-#   var 0 (ARRAY(0x182c300)): @g_1 = (empty)
-# init() called with:
-#   var 0 (ARRAY(0x182c354)): @g_2 = (empty)
-# init() called with:
-#   var 0 (SCALAR(0x182c360)): $scalar = (undef)
-#   var 1 (ARRAY(0x182c390)): @array = (empty)
-#   var 2 (HASH(0x182c3a8)): %hash = (empty)
 
 {
 	use Declare;
