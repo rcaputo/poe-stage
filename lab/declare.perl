@@ -8,35 +8,43 @@
 # 
 #   a. Members of the current request.
 #
-#     Currently:  my $member :Req;
+#     Att: my $member :Req;
+#     New: my $req_member;
 #
 # 	b. Members of the current response.
 #
-# 	  Currently:  my $member :Rsp;
+# 	  Att: my $member :Rsp;
+# 	  New: my $rsp_member;
 #
 # 	c. Parameters in the current parameter list.
 #
-# 	  Currently:  my $member :Arg;
+# 	  Att: my $member :Arg;
+# 	  New: my $arg_member;
 #
 # 	d. The current POE::Stage instance.
 #
-# 	  Currently:  self().
+# 	  Att: self().
+# 	  New: my $self;
 #
 #   e. Members of the current POE::Stage instance.
 #
-#     Currently:  my $member :Self;
+#     Att: my $member :Self;
+#     New: my $self_member;
 #
 # 	f. Members of a newly created POE::Request instance.
 #
-# 	  Currently:  my $member :Req($req);
+# 	  Att: my $member :Req($req);
+# 	  New: expose $request => my $pfx_memb_1, ...;
 #
 # 	g. The current request object.
 #
-# 	  Currently:  req()
+# 	  Att: req()
+# 	  New: my $req;
 #
 # 	h. The current response object.
 #
-# 	  Currently:  rsp();
+# 	  Att: rsp();
+# 	  New: my $rsp;
 # 
 # 2. Avoiding lexical collisions when working with the same member name
 # in two or more contexts.  The current lexical scope cannot map to
@@ -46,26 +54,23 @@
 # 	my $foo :Req; # Can't be done.
 # 	$foo = $foo;  # Still can't be done.
 #
-# 	Prefixed lexicals solve this:
+# Prefixed lexicals solve this:
 #
-# 	  a) my $req_foo;
-# 	  b) my $rsp_foo;
-# 	  c) my $arg_foo;
-# 	  d) my $self;
-# 	  e) my $self_foo;
-# 	  f) (see below)
-# 	  g) my $req;
-# 	  h) my $rsp;
+#   my $req_foo = my $arg_foo;
 # 
 # 3. Being able to bind to request and stage data members at will.
+# This would solve (f) above.
+#
+# Currently:
 # 
 # 	my $req = POE::Request->new(...);
 # 	my $foo :Req($req);
 #
-# 	The current solution is a function that binds lexicals to members
-# 	of a given object, allowing an arbitrary prefix:
+# New:
 #
-# 	  f) bindto $req, my $arbitraryprefix_foo;
+#   See (f) above.
+#
+#   expose $request => my $pfx_member, ...;
 
 ###
 
