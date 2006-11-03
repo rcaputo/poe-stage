@@ -63,14 +63,28 @@
 #
 # Currently:
 # 
-# 	my $req = POE::Request->new(...);
-# 	my $foo :Req($req);
+#   my $req = POE::Request->new(...);
+#   my $foo :Req($req);
 #
 # New:
 #
 #   See (f) above.
 #
-#   expose $request => my $pfx_member, ...;
+# 4. Implicit stuff tends to scale poorly, at least on a conceptual
+# basis.  Simply declaring a continuation variable doesn't explicitly
+# indicate that there's magic going on.  C<my $req_foo> magically
+# comes into being with a saved value.  Extend the C<expose> syntax so
+# it can be used by people who prefer being explicit.
+#
+#   expose $source => my ($pfx_var, @pfx_var, %pfx_var);
+#
+# $source may be:
+#
+#   A POE::Request object.  $pfx_var exposes $req_obj->{var}.
+#   "arg", in which case $pfx_var exposes $arg->{var}.
+#   "req" --- $pfx_var exposes $req->{var}.
+#   "rsp" --- $pfx_var exposes $rsp->{var}.
+#   "self" --- $pfx_var exposes $self->{var}.
 
 ###
 
