@@ -299,627 +299,291 @@ depending on the type of variable declared.
 
 =cut
 
-{
-	sub Handler :ATTR(CODE) {
-		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
+sub Handler :ATTR(CODE) {
+	my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
 
-		# Named handler.
+	no strict 'refs';
+	no warnings 'redefine';
 
-		{
-			no strict 'refs';
-			no warnings 'redefine';
+	my $sub_name;
+	my $pkg_name = $pkg . "::";
+	foreach my $symbol (keys %{$pkg_name}) {
+		next unless defined(my $sym_coderef = *{$pkg_name . $symbol}{CODE});
+		next unless $sym_coderef == $ref;
+		$sub_name = $pkg_name . $symbol;
+		last;
+	}
 
-			foreach my $symbol (keys %{$pkg."::"}) {
-				next unless defined(my $sym_coderef = *{$pkg."::".$symbol}{CODE});
-				next unless $sym_coderef == $ref;
-				*{$pkg."::".$symbol} = sub {
-
-					my $pad = peek_sub($ref);
-					while (my ($var_name, $var_reference) = each %$pad) {
-
-						# Cache these.
-						my ($self, $tied_self, $arg, $req, $rsp);
-
-						if ($var_name eq '$self') {
-							unless (defined $self) {
-								package DB;
-								my @x = caller(0);
-								$self = $DB::args[0];
-							}
-
-							lexalias($ref, $var_name, \$self);
-							next;
-						}
-
-						if ($var_name eq '$req') {
-							unless (defined $req) {
-								unless (defined $tied_self) {
-									unless (defined $self) {
-										package DB;
-										my @x = caller(0);
-										$self = $DB::args[0];
-									}
-									$tied_self = tied(%$self);
-								}
-								$req = $tied_self->_get_request();
-							}
-
-							lexalias($ref, $var_name, \$req);
-							next;
-						}
-
-						if ($var_name eq '$rsp') {
-							unless (defined $rsp) {
-								unless (defined $tied_self) {
-									unless (defined $self) {
-										package DB;
-										my @x = caller(0);
-										$self = $DB::args[0];
-									}
-									$tied_self = tied(%$self);
-								}
-								$rsp = $tied_self->_get_response();
-							}
-
-							lexalias($ref, $var_name, \$rsp);
-							next;
-						}
-
-						unless ($var_name =~ /^([\$\@\%])(req|rsp|arg|self)_(\S+)/) {
-							next;
-						}
-
-						my ($sigil, $prefix, $base_member_name) = ($1, $2, $3);
-						my $member_name = $sigil . $base_member_name;
-
-						# Determine which object to use based on the prefix.
-
-						my $obj;
-						if ($prefix eq 'req') {
-							$req ||= POE::Request->_get_current_request();
-
-							unless (defined $tied_self) {
-								unless (defined $self) {
-									package DB;
-									my @x = caller(0);
-									$self = $DB::args[0];
-								}
-								$tied_self = tied(%$self);
-							}
-
-							if ($sigil eq '$') {
-								my $scalar_ref = $tied_self->_request_context_fetch(
-									$req->get_id(),
-									$member_name,
-								);
-
-								unless (defined $scalar_ref) {
-									my $new_scalar;
-									$tied_self->_request_context_store(
-										$req->get_id(),
-										$member_name,
-										$scalar_ref = \$new_scalar,
-									);
-								}
-
-								lexalias($ref, $var_name, $scalar_ref);
-								next;
-							}
-
-							if ($sigil eq '@') {
-								my $array_ref = $tied_self->_request_context_fetch(
-									$req->get_id(),
-									$member_name,
-								);
-
-								unless (defined $array_ref) {
-									$tied_self->_request_context_store(
-										$req->get_id(),
-										$member_name,
-										$array_ref = [],
-									);
-								}
-
-								lexalias($ref, $var_name, $array_ref);
-								next;
-							}
-
-							if ($sigil eq '%') {
-								my $hash_ref = $tied_self->_request_context_fetch(
-									$req->get_id(),
-									$member_name,
-								);
-
-								unless (defined $hash_ref) {
-									$tied_self->_request_context_store(
-										$req->get_id(),
-										$member_name,
-										$hash_ref = {},
-									);
-								}
-
-								lexalias($ref, $var_name, $hash_ref);
-								next;
-							}
-
-							die;
-						}
-
-						if ($prefix eq 'rsp') {
-							unless (defined $tied_self) {
-								unless (defined $self) {
-									package DB;
-									my @x = caller(0);
-									$self = $DB::args[0];
-								}
-								$tied_self = tied(%$self);
-							}
-
-							$rsp ||= $tied_self->_get_response();
-
-							if ($sigil eq '$') {
-								my $scalar_ref = $tied_self->_request_context_fetch(
-									$rsp->get_id(),
-									$member_name,
-								);
-
-								unless (defined $scalar_ref) {
-									my $new_scalar;
-									$scalar_ref = \$new_scalar;
-									$tied_self->_request_context_store(
-										$rsp->get_id(),
-										$member_name,
-										$scalar_ref,
-									);
-								}
-
-								lexalias($ref, $var_name, $scalar_ref);
-								next;
-							}
-
-							if ($sigil eq '@') {
-								my $array_ref = $tied_self->_request_context_fetch(
-									$rsp->get_id(),
-									$member_name,
-								);
-
-								unless (defined $array_ref) {
-									$tied_self->_request_context_store(
-										$rsp->get_id(),
-										$member_name,
-										[],
-									);
-								}
-
-								lexalias($ref, $var_name, $array_ref);
-								next;
-							}
-
-							if ($sigil eq '%') {
-								my $hash_ref = $tied_self->_request_context_fetch(
-									$rsp->get_id(),
-									$member_name,
-								);
-
-								unless (defined $hash_ref) {
-									$tied_self->_request_context_store(
-										$rsp->get_id(),
-										$member_name,
-										{},
-									);
-								}
-
-								lexalias($ref, $var_name, $hash_ref);
-								next;
-							}
-
-							die;
-						}
-
-						if ($prefix eq 'arg') {
-							unless (defined $arg) {
-								package DB;
-								my @x = caller(0);
-								$arg = $DB::args[1];
-							}
-
-							if ($sigil eq '$') {
-								$$var_reference = $arg->{$base_member_name};
-								next;
-							}
-
-							if ($sigil eq '@') {
-								@$var_reference = @{$arg->{$base_member_name}};
-								next;
-							}
-
-							if ($sigil eq '%') {
-								%$var_reference = %{$arg->{$base_member_name}};
-								next;
-							}
-						}
-
-						if ($prefix eq 'self') {
-							unless (defined $tied_self) {
-								unless (defined $self) {
-									package DB;
-									my @x = caller(0);
-									$self = $DB::args[0];
-								}
-								$tied_self = tied(%$self);
-							}
-
-							# Autovivify a member.
-
-							unless ($tied_self->_self_exists($member_name)) {
-								if ($sigil eq '$') {
-									$tied_self->_self_store($member_name, $var_reference);
-								}
-								elsif ($sigil eq '@') {
-									$tied_self->_self_store($member_name, $var_reference);
-								}
-								elsif ($sigil eq '%') {
-									$tied_self->_self_store($member_name, $var_reference);
-								}
-							}
-
-							unless ($tied_self->_self_exists($member_name)) {
-								croak "POE::Stage member $member_name doesn't exist";
-							}
-
-							lexalias($ref, $var_name, $tied_self->_self_fetch($member_name));
-
-							next;
-						}
-
-						croak "'$var_name' has an unhandled prefix";
-					}
-
-					goto $ref;
-				};
-
-				return;
-			}
-		}
-
-		# FIXME - Appropriate carplevel.
+	# FIXME - Appropriate carplevel.
+	# FIXME - Allow anonymous handlers?
+	unless (defined $sub_name) {
 		croak "Anonymous handler not yet supported";
 	}
 
-	sub expose ($\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%\[$@%\[$@%]]]\[$@%]) {
-		my $request = shift;
+	*{$sub_name} = sub {
 
-		# Validate that we're exposing a member of a POE::Request object.
+		# Cache these for speed.
+		my ($self, $tied_self, $arg, $req, $rsp);
 
-		croak "Unknown request object '$request'" unless (
-			UNIVERSAL::isa($request, "POE::Request")
-		);
+		my $pad = peek_sub($ref);
+		while (my ($var_name, $var_reference) = each %$pad) {
 
-		# Translate prefixed lexicals into POE::Request member names.  Alias
-		# the members to the lexicals, creating new members as necessary.
-
-		for (my $i = 0; $i < @_; $i++) {
-			my $var_reference = $_[$i];
-			my $var_name = var_name(1, $var_reference);
-
-			unless ($var_name =~ /^([\$\@\%])([^_]+)_(\S+)/) {
-				croak "'$var_name' is an illegal lexical name";
+			if ($var_name eq '$self') {
+				die;
+				$self = self() unless defined $self;
+				lexalias($ref, $var_name, \$self);
+				next;
 			}
+
+			if ($var_name eq '$req') {
+				die;
+				unless (defined $req) {
+					unless (defined $tied_self) {
+						$self = self() unless defined $self;
+						$tied_self = tied(%$self);
+					}
+					$req = $tied_self->_get_request();
+				}
+
+				lexalias($ref, $var_name, \$req);
+				next;
+			}
+
+			if ($var_name eq '$rsp') {
+				die;
+				unless (defined $rsp) {
+					unless (defined $tied_self) {
+						$self = self() unless defined $self;
+						$tied_self = tied(%$self);
+					}
+					$rsp = $tied_self->_get_response();
+				}
+
+				lexalias($ref, $var_name, \$rsp);
+				next;
+			}
+
+			next unless $var_name =~ /^([\$\@\%])(req|rsp|arg|self)_(\S+)/;
 
 			my ($sigil, $prefix, $base_member_name) = ($1, $2, $3);
 			my $member_name = $sigil . $base_member_name;
 
-			# Some prefixes fail.
-			croak "can't expose $var_name" if $prefix =~ /^(arg|req|rsp|self)$/;
+			# Determine which object to use based on the prefix.
 
-			my $stage = tied(%{POE::Request->_get_current_stage()});
-			my $member_ref = $stage->_request_context_fetch(
-				$request->get_id(),
-				$member_name,
-			);
+			my $obj;
+			if ($prefix eq 'req') {
+				$req = POE::Request->_get_current_request() unless defined $req;
 
-			# Autovivify a new member.
+				unless (defined $tied_self) {
+					$self = self() unless defined $self;
+					$tied_self = tied(%$self);
+				}
 
-			unless (defined $member_ref) {
+				# Get the existing member reference.
+
+				my $member_ref = $tied_self->_request_context_fetch(
+					$req->get_id(),
+					$member_name,
+				);
+
+				# Autovivify if necessary.
+
+				unless (defined $member_ref) {
+					if ($sigil eq '$') {
+						my $new_scalar;
+						$member_ref = \$new_scalar;
+					}
+					elsif ($sigil eq '@') {
+						$member_ref = [];
+					}
+					elsif ($sigil eq '%') {
+						$member_ref = {};
+					}
+
+					$tied_self->_request_context_store(
+						$req->get_id(),
+						$member_name,
+						$member_ref,
+					);
+				}
+
+				# Alias the member.
+
+				lexalias($ref, $var_name, $member_ref);
+				next;
+			}
+
+			if ($prefix eq 'rsp') {
+				unless (defined $rsp) {
+					unless (defined $tied_self) {
+						$self = self() unless defined $self;
+						$tied_self = tied(%$self);
+					}
+					$rsp = $tied_self->_get_response();
+				}
+
+				# Get the existing member reference.
+
+				my $member_ref = $tied_self->_request_context_fetch(
+					$rsp->get_id(),
+					$member_name,
+				);
+
+				# Autovivify if necessary.
+
+				unless (defined $member_ref) {
+					if ($sigil eq '$') {
+						my $new_scalar;
+						$member_ref = \$new_scalar;
+					}
+					elsif ($sigil eq '@') {
+						$member_ref = [];
+					}
+					elsif ($sigil eq '%') {
+						$member_ref = {};
+					}
+
+					$tied_self->_request_context_store(
+						$rsp->get_id(),
+						$member_name,
+						$member_ref,
+					);
+				}
+
+				lexalias($ref, $var_name, $member_ref);
+				next;
+			}
+
+			if ($prefix eq 'arg') {
+				unless (defined $arg) {
+					package DB;
+					my @x = caller(0);
+					$arg = $DB::args[1];
+				}
+
 				if ($sigil eq '$') {
-					# Because I'm afraid to say $scalar = \$scalar.
-					my $new_scalar = undef;
-					$stage->_request_context_store(
-						$request->get_id(),
-						$member_name,
-						$member_ref = \$new_scalar,
-					);
+					$$var_reference = $arg->{$base_member_name};
+					next;
 				}
-				elsif ($sigil eq '@') {
-					$stage->_request_context_store(
-						$request->get_id(),
-						$member_name,
-						$member_ref = [],
-					);
+
+				if ($sigil eq '@') {
+					@$var_reference = @{$arg->{$base_member_name}};
+					next;
 				}
-				elsif ($sigil eq '%') {
-					$stage->_request_context_store(
-						$request->get_id(),
-						$member_name,
-						$member_ref = {},
-					);
-				}
-				else {
-					croak "'$var_name' has an odd sigil";
+
+				if ($sigil eq '%') {
+					%$var_reference = %{$arg->{$base_member_name}};
+					next;
 				}
 			}
 
-			# Alias that puppy.
+			if ($prefix eq 'self') {
+				unless (defined $tied_self) {
+					$self = self() unless defined $self;
+					$tied_self = tied(%$self);
+				}
 
-			lexalias(1, $var_name, $member_ref);
+				# Get the existing member reference.
+
+				my $member_ref = $tied_self->_self_fetch($member_name);
+
+				# Autovivify if necessary.
+
+				unless (defined $member_ref) {
+					if ($sigil eq '$') {
+						my $new_scalar;
+						$member_ref = \$new_scalar;
+					}
+					elsif ($sigil eq '@') {
+						$member_ref = [];
+					}
+					elsif ($sigil eq '%') {
+						$member_ref = {};
+					}
+
+					$tied_self->_self_store($member_name, $member_ref);
+				}
+
+				# Alias the member.
+
+				lexalias($ref, $var_name, $member_ref);
+
+				next;
+			}
 		}
-	}
+
+		goto $ref;
+	};
 }
 
-#{
-#	no warnings 'redefine';
-#
-#	sub Req :ATTR(SCALAR,RAWDATA) {
-#		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-#
-#		croak "can't declare a blessed variable as :Req" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		my $request;
-#		if (defined $data) {
-#			my $my = peek_my(4);
-#			croak "Unknown request object '$data'" unless (
-#				exists $my->{$data}
-#				and reftype($my->{$data}) eq "REF"
-#				and UNIVERSAL::isa(${$my->{$data}}, "POE::Request")
-#			);
-#			$request = ${$my->{$data}};
-#		}
-#		else {
-#			$request = POE::Request->_get_current_request();
-#		}
-#
-#		# Alias the attributed lexical variable with the appropriate
-#		# request member.
-#
-#		my $stage = tied(%{POE::Request->_get_current_stage()});
-#		my $scalar = $stage->_request_context_fetch($request->get_id(), $name);
-#		unless (defined $scalar) {
-#			# Because I'm afraid to say $scalar = \$scalar.
-#			my $new_scalar = undef;
-#			$scalar = \$new_scalar;
-#			$stage->_request_context_store($request->get_id(), $name, $scalar);
-#		}
-#
-#		lexalias(4, $name, $scalar);
-#	}
-#
-#	sub Req :ATTR(HASH,RAWDATA) {
-#		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-#
-#		croak "can't declare a blessed variable as :Req" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		my $request;
-#		if (defined $data) {
-#			my $my = peek_my(4);
-#			croak "Unknown request object '$data'" unless (
-#				exists $my->{$data}
-#				and reftype($my->{$data}) eq "REF"
-#				and UNIVERSAL::isa(${$my->{$data}}, "POE::Request")
-#			);
-#			$request = ${$my->{$data}};
-#		}
-#		else {
-#			$request = POE::Request->_get_current_request();
-#		}
-#
-#		# Alias the attributed lexical variable with the appropriate
-#		# request member.
-#
-#		my $stage = tied(%{POE::Request->_get_current_stage()});
-#		my $hash = $stage->_request_context_fetch($request->get_id(), $name);
-#		unless (defined $hash) {
-#			$hash = { };
-#			$stage->_request_context_store($request->get_id(), $name, $hash);
-#		}
-#
-#		lexalias(4, $name, $hash);
-#	}
-#
-#	sub Req :ATTR(ARRAY,RAWDATA) {
-#		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-#
-#		croak "can't declare a blessed variable as :Req" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		my $request;
-#		if (defined $data) {
-#			my $my = peek_my(4);
-#			croak "Unknown request object '$data'" unless (
-#				exists $my->{$data}
-#				and reftype($my->{$data}) eq "REF"
-#				and UNIVERSAL::isa(${$my->{$data}}, "POE::Request")
-#			);
-#			$request = ${$my->{$data}};
-#		}
-#		else {
-#			$request = POE::Request->_get_current_request();
-#		}
-#
-#		# Alias the attributed lexical variable with the appropriate
-#		# request member.
-#
-#		my $stage = tied(%{POE::Request->_get_current_stage()});
-#		my $array = $stage->_request_context_fetch($request->get_id(), $name);
-#		unless (defined $array) {
-#			$array = [ ];
-#			$stage->_request_context_store($request->get_id(), $name, $array);
-#		}
-#
-#		lexalias(4, $name, $array);
-#	}
-#
-#	### XXX - Experimental :Arg handler.
-#	# TODO - Support other types?
-#
-#	sub Arg :ATTR(SCALAR,RAWDATA) {
-#		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-#		croak "can't register blessed things as Arg fields" if blessed($ref);
-#		croak "can only register scalars as Arg fields" if ref($ref) ne "SCALAR";
-#
-#		my $name = var_name(4, $ref);
-#		$name =~ s/^\$//;
-#
-#		package DB;
-#		my @x = caller(4);
-#		$$ref = $DB::args[1]{$name};
-#	}
-#
-#	### XXX - Experimental :Memb handlers.
-#
-#	sub Self :ATTR(SCALAR,RAWDATA) {
-#		my $ref = $_[2];
-#		croak "can't register blessed things as Memb fields" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		my $self;
-#		{
-#			package DB;
-#			my @x = caller(4);
-#			$self = $DB::args[0];
-#		}
-#
-#		my $tied_self = tied(%$self);
-#		unless ($tied_self->_self_exists($name)) {
-#			my $new_scalar;
-#			$tied_self->_self_store($name, \$new_scalar);
-#		}
-#
-#		lexalias(4, $name, $tied_self->_self_fetch($name));
-#	}
-#
-#	sub Self :ATTR(ARRAY,RAWDATA) {
-#		my $ref = $_[2];
-#		croak "can't register blessed things as Memb fields" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		my $self;
-#		{
-#			package DB;
-#			my @x = caller(4);
-#			$self = $DB::args[0];
-#		}
-#
-#		my $tied_self = tied(%$self);
-#		unless ($tied_self->_self_exists($name)) {
-#			$tied_self->_self_store($name, []);
-#		}
-#
-#		lexalias(4, $name, $tied_self->_self_fetch($name));
-#	}
-#
-#	sub Self :ATTR(HASH,RAWDATA) {
-#		my $ref = $_[2];
-#		croak "can't register blessed things as Memb fields" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		my $self;
-#		{
-#			package DB;
-#			my @x = caller(4);
-#			$self = $DB::args[0];
-#		}
-#
-#		my $tied_self = tied(%$self);
-#		unless ($tied_self->_self_exists($name)) {
-#			$tied_self->_self_store($name, {});
-#		}
-#
-#		lexalias(4, $name, $tied_self->_self_fetch($name));
-#	}
-#}
-#
-#{
-#	no warnings 'redefine';
-#
-#	sub Rsp :ATTR(SCALAR,RAWDATA) {
-#		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-#		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
-#
-#		croak "can't declare a blessed variable as :Rsp" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		# Alias the attributed lexical variable with the appropriate
-#		# response member.
-#
-#		my $stage = POE::Request->_get_current_stage();
-#		my $response_id = tied(%$stage)->_get_response()->get_id();
-#
-#		my $scalar = tied(%$stage)->_request_context_fetch($response_id, $name);
-#		unless (defined $scalar) {
-#			# Because I'm afraid to say $scalar = \$scalar.
-#			my $new_scalar = undef;
-#			$scalar = \$new_scalar;
-#			tied(%$stage)->_request_context_store($response_id, $name, $scalar);
-#		}
-#
-#		lexalias(4, $name, $scalar);
-#	}
-#
-#	sub Rsp :ATTR(HASH,RAWDATA) {
-#		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-#		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
-#
-#		croak "can't declare a blessed variable as :Rsp" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		# Alias the attributed lexical variable with the appropriate
-#		# response member.
-#
-#		my $stage = POE::Request->_get_current_stage();
-#		my $response_id = tied(%$stage)->_get_response()->get_id();
-#
-#		my $hash = tied(%$stage)->_request_context_fetch($response_id, $name);
-#		unless (defined $hash) {
-#			$hash = { };
-#			tied(%$stage)->_request_context_store($response_id, $name, $hash);
-#		}
-#
-#		lexalias(4, $name, $hash);
-#	}
-#
-#	sub Rsp :ATTR(ARRAY,RAWDATA) {
-#		my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-#		#warn "pkg($pkg) sym($sym) ref($ref) attr($attr) data($data) phase($phase)\n";
-#
-#		croak "can't declare a blessed variable as :Rsp" if blessed($ref);
-#
-#		my $name = var_name(4, $ref);
-#
-#		# Alias the attributed lexical variable with the appropriate
-#		# response member.
-#
-#		my $stage = POE::Request->_get_current_stage();
-#		my $response_id = tied(%$stage)->_get_response()->get_id();
-#
-#		my $array = tied(%$stage)->_request_context_fetch($response_id, $name);
-#		unless (defined $array) {
-#			$array = { };
-#			tied(%$stage)->_request_context_store($response_id, $name, $array);
-#		}
-#
-#		lexalias(4, $name, $array);
-#	}
-#}
+sub expose ($\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%\[$@%\[$@%]]]\[$@%]) {
+	my $request = shift;
+
+	# Validate that we're exposing a member of a POE::Request object.
+
+	croak "Unknown request object '$request'" unless (
+		UNIVERSAL::isa($request, "POE::Request")
+	);
+
+	# Translate prefixed lexicals into POE::Request member names.  Alias
+	# the members to the lexicals, creating new members as necessary.
+
+	for (my $i = 0; $i < @_; $i++) {
+		my $var_reference = $_[$i];
+		my $var_name = var_name(1, $var_reference);
+
+		unless ($var_name =~ /^([\$\@\%])([^_]+)_(\S+)/) {
+			croak "'$var_name' is an illegal lexical name";
+		}
+
+		my ($sigil, $prefix, $base_member_name) = ($1, $2, $3);
+		my $member_name = $sigil . $base_member_name;
+
+		# Some prefixes fail.
+		croak "can't expose $var_name" if $prefix =~ /^(arg|req|rsp|self)$/;
+
+		my $stage = tied(%{POE::Request->_get_current_stage()});
+		my $member_ref = $stage->_request_context_fetch(
+			$request->get_id(),
+			$member_name,
+		);
+
+		# Autovivify a new member.
+
+		unless (defined $member_ref) {
+			if ($sigil eq '$') {
+				# Because I'm afraid to say $scalar = \$scalar.
+				my $new_scalar = undef;
+				$stage->_request_context_store(
+					$request->get_id(),
+					$member_name,
+					$member_ref = \$new_scalar,
+				);
+			}
+			elsif ($sigil eq '@') {
+				$stage->_request_context_store(
+					$request->get_id(),
+					$member_name,
+					$member_ref = [],
+				);
+			}
+			elsif ($sigil eq '%') {
+				$stage->_request_context_store(
+					$request->get_id(),
+					$member_name,
+					$member_ref = {},
+				);
+			}
+			else {
+				croak "'$var_name' has an odd sigil";
+			}
+		}
+
+		# Alias that puppy.
+
+		lexalias(1, $var_name, $member_ref);
+	}
+}
 
 1;
 
