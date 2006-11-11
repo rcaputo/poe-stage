@@ -1,9 +1,8 @@
 #!perl
 # $Id$
 
-# Show how most of the attributes and exported functions work in the
-# syntax implemented by revision 100.  Sample run output is after
-# __END__.
+# Show how lexical aliasing works in subs with the :Handler attribute.
+# Sample run output is after __END__.
 
 use warnings;
 use strict;
@@ -37,60 +36,64 @@ exit;
 	# current POE::Stage object, the current POE::Request being handled,
 	# and the current POE::Response being received (when applicable).
 	#
-	# These exported functions are used strictly for method calls.  Look
-	# for :Self, :Req, :Rsp, and :Arg for data members.
+	# They're used for method calls on those objects, in cases where you
+	# don't want to declare $self, $req, or $rsp.
 
-	use POE::Stage qw(:base self req);
+	use POE::Stage qw(:base self req expose);
 
-	sub run {
+	sub run :Handler {
 
-		# The :Self attribute allows code to declare lexicals that
-		# represent self() data members.  The contents of :Self members
-		# are scoped to the current POE::Stage object, so they're visible
-		# from any of its methods.  The code needs to re-declare the
-		# variables in every code scope in which they'll be needed, as
-		# you'll see in later methods.
+		# Variables with the self_ prefix expose members of the current
+		# POE::Stage object.  $self_foo is the scalar member '$foo'.  The
+		# duration of these members is the lifetime of the POE::Stage they
+		# belong to.  The scope is any handler that's a method of that
+		# stage.  Simply redeclare the variables in each handler where
+		# they're needed.
 		#
 		# In this case, the equivalent of $self->{'$memb'} is declared and
 		# initialized.
 
-		my $memb :Self = "current POE::Stage member";
-		warn "run: member($memb)\n";
+		my $self_memb = "current POE::Stage member";
+		warn "run: member($self_memb)\n";
 
-		# The :Req attribute allows code to declare lexicals that
-		# represent req() data members.  The contents of :Req members are
-		# availale from any method executed within that request's context.
+		# The req_ variable prefix allows code to declare lexicals that
+		# represent data members of the currently handled POE::Request.
+		# The contents of request members are availale from any method
+		# executed within that request's context.
 		#
 		# In this case, a sub-request is created and stored in the current
-		# request.  If the current request is canceled for any reason, the
-		# chain of destruction will cascade into the sub-request.
+		# request.  If the current request is canceled for any reason, it
+		# should trigger destruction of the sub-request when the current
+		# one is destroyed.
 
-		my $req :Req = POE::Request->new(
+		my $req_subreq = POE::Request->new(
 			stage => self,
 			method => 'other',
 			on_return => 'handle_return',
 		);
 
-		# A data member ($moo) is initialized within the current request.
-		# It's done within a block so that this lexical won't interfere
-		# with the next one we create---which has the same name.
+		# The current request is given a data member ($moo), which is also
+		# initialized.
 
-		{
-			my $moo :Req = "moo in the request";
-			warn "run: req.moo($moo)\n";
-		}
+		my $req_moo = "moo in the request";
+		warn "run: req.moo($req_moo)\n";
 
-		# The :Req attribute can be used to declare lexicals within a
-		# specific requests.  In this case, $moo is a data member of the
-		# sub-request rather than of the current one.  This allows a
-		# requester to tack context onto the request in such a way that
-		# responses include it.  See the handle_return() use of :Rsp for
-		# details on getting the data back out of a response.
+		# A data member of the sub-request is exposed as $req_subreq.  The
+		# expose() function takes an object and one or more lexicals.  The
+		# lexicals must have prefixes, which are used to differentiate
+		# them from other lexicals in the same scope.  The data members
+		# exposed are the base names for the lexicals.  $foo_one,
+		# @whee_two, %bishop_three expose the object's $one, @two, and
+		# %three members;
+		#
+		# This allows a requester to tack context onto the request in such
+		# a way that it's available when responses are handled.  See the
+		# handle_return() use of :Rsp for details on getting the data back
+		# out of a response.
 
-		{
-			my $moo :Req($req) = "in the sub-request";
-			warn "run: subreq.moo($moo)\n";
-		}
+		expose $req_subreq => my $exposed_moo;
+		$exposed_moo = "in the sub-request";
+		warn "run: subreq.moo($exposed_moo)\n";
 	}
 
 	# Handle the "other" request.  Since the method is in the same
@@ -98,28 +101,26 @@ exit;
 	# This method is executed as a handler for a sub-request, however,
 	# so its "current" request is different from that of run()'s.
 
-	sub other {
+	sub other :Handler {
 
-		# $memb is declared to be a member of the current POE::Stage.  It
-		# takes on the current value of self's '$memb' member because
-		# nothing is stored into it.
+		# $self_memb exposes a member of the current POE::Stage.  It takes
+		# on the current value of self's '$memb' member because nothing is
+		# assigned to it.
 
-		my $memb :Self;
-		warn "other: member($memb)\n";
+		my $self_memb;
+		warn "other: member($self_memb)\n";
 
-		# '$moo' is declared to be a member of the current request.  Like
-		# $memb above, nothing is store into it, so it takes on the
+		# $req_moo is the '$moo' member of the current request.  Like
+		# $self_memb above, nothing is stored into it, so it takes on the
 		# member's previous value.  In this case, however, the "current"
-		# request is the sub-request from run().
+		# request is $req_subreq from run().
 
-		{
-			my $moo :Req;
-			warn "other: req.moo($moo)\n";
-		}
+		my $req_moo;
+		warn "other: req.moo($req_moo)\n";
 
 		# Return a response for the current request, along with a value
 		# that will be passed to the response handler as an argument.  The
-		# exported req() function represents the request itself, and it's
+		# imported req() function represents the request itself, and it's
 		# used to call methods on this request.
 		#
 		# The request's return() method takes at least two named
@@ -134,8 +135,8 @@ exit;
 		# handle_return() method.
 		#
 		# And if you haven't guessed already, handle_return() is called to
-		# handle type => "return" messages because the on_return parameter
-		# to the original request said so.
+		# handle type => "return" messages because the original request
+		# mapped on_return to that method.
 
 		req->return(args => { something => "returned value" });
 	}
@@ -144,38 +145,40 @@ exit;
 	# accept return values and to access data stored in the context of
 	# the original request.
 
-	sub handle_return {
-		# Once again, $memb is a member of the current POE::Stage object.
+	sub handle_return :Handler {
+		# Once again, $self_memb is a member of the current POE::Stage
+		# object.
 
-		my $memb :Self;
-		warn "handle_return: member($memb)\n";
+		my $self_memb;
+		warn "handle_return: member($self_memb)\n";
 
-		# The :Arg attribute is used to refer to arguments passed into
-		# this method.
+		# The arg_ prefix is used to refer to arguments passed into this
+		# method.  In this case, the 'something' argument.  Unlike almost
+		# everywhere else, however, the $arg member does not have a
+		# leading sigil.  Otherwise you'd need to supply it in your
+		# requests.
 
-		my $something :Arg;
-		warn "handle_return: arg.something($something)\n";
+		my $arg_something;
+		warn "handle_return: arg.something($arg_something)\n";
 
 		# The current request is the one that invoked this stage's run()
 		# method.
 
-		{
-			my $moo :Req;
-			warn "handle_return: req.moo($moo)\n";
-		}
+		my $req_moo;
+		warn "handle_return: req.moo($req_moo)\n";
 
 		# There is a response context since this method is invoked to
-		# handle a response to a previous request.  In this case, :Rsp is
-		# used to declare lexicals that ar members of the sub-request
-		# being responded to.
+		# handle a response to a previous request.  In this case, the rsp_
+		# prefix indicates that a lexical aliases members in the current
+		# response object.  That object is the response to our original
+		# $req_subreq.
 		#
 		# And so the magic cookie sent with the request is available to
-		# the response's handler.  The circle is complete.
+		# the response's handler because we're not assigning to $rsp_moo.
+		# The circle is complete.
 
-		{
-			my $moo :Rsp;
-			warn "handle_return: rsp.moo($moo)\n";
-		}
+		my $rsp_moo;
+		warn "handle_return: rsp.moo($rsp_moo)\n";
 	}
 }
 

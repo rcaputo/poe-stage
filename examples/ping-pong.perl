@@ -20,20 +20,20 @@ use strict;
 	use POE::Stage::Echoer;
 	use POE::Stage qw(:base self);
 
-	sub run {
-		my $echoer :Req = POE::Stage::Echoer->new();
-		my $i :Req = 1;
+	sub run :Handler {
+		my $req_echoer = POE::Stage::Echoer->new();
+		my $req_i = 1;
 
 		self->send_request();
 	}
 
-	sub got_echo {
-		my $echo :Arg;
+	sub got_echo :Handler {
+		my $arg_echo;
 
-		print "got echo: $echo\n";
+		print "got echo: $arg_echo\n";
 
-		my $i :Req;
-		$i++;
+		my $req_i;
+		$req_i++;
 
 		# Comment out this line to run indefinitely.  Great for checking
 		# for memory leaks.
@@ -42,14 +42,14 @@ use strict;
 		self->send_request();
 	}
 
-	sub send_request {
-		my ($i, $echoer) :Req;
-		my $echo_request :Req = POE::Request->new(
-			stage     => $echoer,
+	sub send_request :Handler {
+		my ($req_i, $req_echoer);
+		my $req_echo_request = POE::Request->new(
+			stage     => $req_echoer,
 			method    => "echo",
 			on_echo   => "got_echo",
 			args      => {
-				message => "request $i",
+				message => "request $req_i",
 			},
 		);
 	}

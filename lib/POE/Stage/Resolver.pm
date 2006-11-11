@@ -71,60 +71,60 @@ When complete, the stage will return either a "success" or an "error".
 
 =cut
 
-sub init {
+sub init :Handler {
 	# TODO - Need an idiom to avoid direct $_[1] manipulation.
 
 	# Fire off a request automatically as part of creation.
 	my $passthrough_args = delete($_[1]{args}) || {};
 
-	my $init_req :Req = POE::Request->new(
+	my $req_init_req = POE::Request->new(
 		stage   => self,
 		method  => "resolve",
 		%{$_[1]},
 		args    => { %$passthrough_args },
 	);
 
-	my $resolver :Self = Net::DNS::Resolver->new();
+	my $self_resolver = Net::DNS::Resolver->new();
 }
 
-sub resolve {
-	my $my_type :Self = my $type :Arg; $my_type ||= "A";
-	my $my_class :Self = my $class :Arg; $my_class ||= "IN";
-	my $my_input :Self = my $input :Arg;
-	$my_input || croak "Resolver requires input";
+sub resolve :Handler {
+	my $self_type = my $arg_type; $self_type ||= "A";
+	my $self_class = my $arg_class; $self_class ||= "IN";
+	my $self_input = my $arg_input;
+	$self_input || croak "Resolver requires input";
 
-	my $resolver :Self;
-	my $socket :Self = $resolver->bgsend(
-		$my_input,
-		$my_type,
-		$my_class,
+	my $self_resolver;
+	my $self_socket = $self_resolver->bgsend(
+		$self_input,
+		$self_type,
+		$self_class,
 	);
 
-	my $wait_for_it :Self = POE::Watcher::Input->new(
-		handle    => $socket,
+	my $self_wait_for_it = POE::Watcher::Input->new(
+		handle    => $self_socket,
 		on_input  => "net_dns_ready_to_read",
 	);
 }
 
-sub net_dns_ready_to_read {
+sub net_dns_ready_to_read :Handler {
 
-	my ($socket, $resolver) :Self;
-	my $packet = $resolver->bgread($socket);
+	my ($self_socket, $self_resolver);
+	my $packet = $self_resolver->bgread($self_socket);
 
-	my $my_input :Self;
+	my $self_input;
 	unless (defined $packet) {
 		req->return(
 			type    => "error",
 			args    => {
-				input => $my_input,
-				error => $resolver->errorstring(),
+				input => $self_input,
+				error => $self_resolver->errorstring(),
 			}
 		);
 		return;
 	}
 
 	unless (defined $packet->answerfrom) {
-		my $answerfrom = getpeername($socket);
+		my $answerfrom = getpeername($self_socket);
 		if (defined $answerfrom) {
 			$answerfrom = (unpack_sockaddr_in($answerfrom))[1];
 			$answerfrom = inet_ntoa($answerfrom);
@@ -135,7 +135,7 @@ sub net_dns_ready_to_read {
 	req->return(
 		type      => "success",
 		args      => {
-			input   => $my_input,
+			input   => $self_input,
 			packet  => $packet,
 		},
 	);

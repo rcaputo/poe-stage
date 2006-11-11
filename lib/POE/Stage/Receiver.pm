@@ -67,29 +67,29 @@ message types to appropriate handlers.
 
 =cut
 
-sub listen {
+sub listen :Handler {
 	my ($self, $args) = @_;
 
-	my $bind_port :Req = delete $args->{bind_port};
+	my $req_bind_port = delete $args->{bind_port};
 
-	my $socket :Req = IO::Socket::INET->new(
+	my $req_socket = IO::Socket::INET->new(
 		Proto     => 'udp',
-		LocalPort => $bind_port,
+		LocalPort => $req_bind_port,
 	);
-	die "Can't create UDP socket: $!" unless $socket;
+	die "Can't create UDP socket: $!" unless $req_socket;
 
-	my $udp_watcher :Req = POE::Watcher::Input->new(
-		handle    => $socket,
+	my $req_udp_watcher = POE::Watcher::Input->new(
+		handle    => $req_socket,
 		on_input  => "handle_input"
 	);
 }
 
-sub handle_input {
+sub handle_input :Handler {
 	my ($self, $args) = @_;
 
-	my $socket :Req;
+	my $req_socket;
 	my $remote_address = recv(
-		$socket,
+		$req_socket,
 		my $datagram = "",
 		DATAGRAM_MAXLEN,
 		0
@@ -122,12 +122,12 @@ respond to a datagram emitted by the Receiver.
 
 =cut
 
-sub send {
+sub send :Handler {
 	my ($self, $args) = @_;
 
-	my $socket :Req;
+	my $req_socket;
 	return if send(
-		$socket,
+		$req_socket,
 		$args->{datagram},
 		0,
 		$args->{remote_address},

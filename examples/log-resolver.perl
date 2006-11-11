@@ -17,7 +17,7 @@ use strict;
 	use POE::Stage qw(:base self);
 	use POE::Stage::Resolver;
 
-	sub run {
+	sub run :Handler {
 
 		# Start a handful of initial requests.
 		for (1..5) {
@@ -28,13 +28,13 @@ use strict;
 		}
 	}
 
-	sub handle_host {
-		my ($input, $packet) :Arg;
+	sub handle_host :Handler {
+		my ($arg_input, $arg_packet);
 
-		my @answers = $packet->answer();
+		my @answers = $arg_packet->answer();
 		foreach my $answer (@answers) {
 			print(
-				"Resolved: $input = type(", $answer->type(), ") data(",
+				"Resolved: $arg_input = type(", $answer->type(), ") data(",
 				$answer->rdatastr, ")\n"
 			);
 		}
@@ -49,16 +49,16 @@ use strict;
 	}
 
 	# Handle some error.
-	sub handle_error {
-		my ($input, $error) :Args;
+	sub handle_error :Handler {
+		my ($arg_input, $arg_error);
 
-		print "Error: $input = $error\n";
+		print "Error: $arg_input = $arg_error\n";
 
 		self->resolve_address(read_next_address());
 	}
 
 	# Plain old subroutine.  Doesn't handle events.
-	sub read_next_address {
+	sub read_next_address :Handler {
 		while (<main::DATA>) {
 			chomp;
 			s/\s*\#.*$//;     # Discard comments.
@@ -69,18 +69,18 @@ use strict;
 	}
 
 	# Plain old method.  Doesn't handle events.
-	sub resolve_address {
+	sub resolve_address :Handler {
 		my ($self, $next_address) = @_;
 
-		my $resolver :Req;
+		my $req_resolver;
 
 		unless (defined $next_address) {
-			$resolver = undef;
+			$req_resolver = undef;
 			return;
 		}
 
 		# Create a self-requesting stage.
-		$resolver = POE::Stage::Resolver->new(
+		$req_resolver = POE::Stage::Resolver->new(
 			on_success  => "handle_host",
 			on_error    => "handle_error",
 			args        => {

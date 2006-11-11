@@ -17,20 +17,19 @@ use strict;
 	use POE::Stage::Ticker;
 	use POE::Stage qw(:base self);
 
-	sub init {
-		my $name :Arg;
-		my $my_name :Self = $name;
+	sub init :Handler {
+		my $self_name = my $arg_name;
 	}
 
-	sub run {
-		my ($name, $interval) :Arg;
+	sub run :Handler {
+		my ($arg_name, $arg_interval);
 
-		my $ticker :Req   = POE::Stage::Ticker->new();
-		my $req_name :Req = $name || "unnamed";
-		my $req_interval :Req = $interval || 0.001;
+		my $req_ticker = POE::Stage::Ticker->new();
+		my $req_name = $arg_name || "unnamed";
+		my $req_interval = $arg_interval || 0.001;
 
-		my $ticker_request :Req = POE::Request->new(
-			stage       => $ticker,
+		my $req_ticker_request = POE::Request->new(
+			stage       => $req_ticker,
 			method      => "start_ticking",
 			on_tick     => "handle_tick",
 			args        => {
@@ -39,15 +38,15 @@ use strict;
 		);
 	}
 
-	sub handle_tick {
-		my $id :Arg;
-		my $req_name :Req;
-		my $my_name :Self;
+	sub handle_tick :Handler {
+		my $arg_id;
+		my $req_name;
+		my $self_name;
 
 		print(
-			"app($my_name) ",
+			"app($self_name) ",
 			"request($req_name) ",
-			"handled tick $id\n"
+			"handled tick $arg_id\n"
 		);
 	}
 }

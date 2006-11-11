@@ -22,8 +22,8 @@ POE::Stage::Echoer - a stage that echoes back whatever it's given
 	);
 
 	sub handle_echo {
-		my $echo :Arg;
-		print "Received an echo: $echo\n";
+		my $arg_echo;
+		print "Received an echo: $arg_echo\n";
 	}
 
 =head1 DESCRIPTION
@@ -59,12 +59,12 @@ message.
 
 =cut
 
-sub echo {
-	my $message :Arg;
+sub echo :Handler {
+	my $arg_message;
 	req->return(
 		type    => "echo",
 		args    => {
-			echo  => $message,
+			echo  => $arg_message,
 		},
 	);
 }
