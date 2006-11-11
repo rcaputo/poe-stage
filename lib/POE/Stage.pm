@@ -329,14 +329,12 @@ sub Handler :ATTR(CODE) {
 		while (my ($var_name, $var_reference) = each %$pad) {
 
 			if ($var_name eq '$self') {
-				die;
 				$self = self() unless defined $self;
 				lexalias($ref, $var_name, \$self);
 				next;
 			}
 
 			if ($var_name eq '$req') {
-				die;
 				unless (defined $req) {
 					unless (defined $tied_self) {
 						$self = self() unless defined $self;
@@ -350,7 +348,6 @@ sub Handler :ATTR(CODE) {
 			}
 
 			if ($var_name eq '$rsp') {
-				die;
 				unless (defined $rsp) {
 					unless (defined $tied_self) {
 						$self = self() unless defined $self;
