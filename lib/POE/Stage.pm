@@ -305,14 +305,7 @@ sub Handler :ATTR(CODE) {
 	no strict 'refs';
 	no warnings 'redefine';
 
-	my $sub_name;
-	my $pkg_name = $pkg . "::";
-	foreach my $symbol (keys %{$pkg_name}) {
-		next unless defined(my $sym_coderef = *{$pkg_name . $symbol}{CODE});
-		next unless $sym_coderef == $ref;
-		$sub_name = $pkg_name . $symbol;
-		last;
-	}
+	my $sub_name = *{$sym}{NAME};
 
 	# FIXME - Appropriate carplevel.
 	# FIXME - Allow anonymous handlers?
@@ -320,7 +313,7 @@ sub Handler :ATTR(CODE) {
 		croak "Anonymous handler not yet supported";
 	}
 
-	*{$sub_name} = sub {
+	*{$pkg . "::" . $sub_name} = sub {
 
 		# Cache these for speed.
 		my ($self, $tied_self, $arg, $req, $rsp);
