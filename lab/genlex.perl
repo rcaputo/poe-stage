@@ -103,7 +103,7 @@ sub spawn {
   }
 
   # Convenient abstraction to wrap().
-  
+
   sub poe_wrap {
     my ($handler, $context) = @_;
     wrap($handler, $context, undef, undef, \&poe_getter);
