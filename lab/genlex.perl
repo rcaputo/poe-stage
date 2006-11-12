@@ -57,7 +57,7 @@ $persistent_contexts{arg} = $arg_accessor;
 # This is required.  The underscore is used because the default
 # variable parser doesn't allow them in context names.
 
-$persistent_contexts{_} = generate_plain_context();
+$persistent_contexts{_} = (generate_plain_context())[1];
 
 # Call the function a few times, varying the arguments but otherwise
 # leaving the context set intact between calls.
@@ -85,15 +85,11 @@ foreach my $number (qw(one two three four five)) {
 use POE;
 
 sub spawn {
-  my %heap;
+  # Generate an accessor for the heap.
 
-  # Generate an accessor for the heap.  TODO - Test.
-
+  my ($new_heap, $heap_accessor) = generate_plain_context();
   my %ctx = (
-    heap => sub {
-      my ($sigil, $member) = @_;
-      get_member_ref(\%heap, $sigil, $member);
-    },
+    heap => $heap_accessor,
   );
 
   # Get event handler parameters.  Turn them into hashes.
@@ -109,7 +105,7 @@ sub spawn {
   # Create a session.  Its moo handler will be lexically wrapped.
 
   POE::Session->create(
-    heap => \%heap,
+    heap => $new_heap,
     inline_states => {
       _start => sub { $_[KERNEL]->yield(moo => 0 ) },
       moo    => wrap(\&handle_moo, \%ctx, undef, undef, \&poe_getter),
@@ -118,7 +114,8 @@ sub spawn {
 
   sub handle_moo {
     my $arg_0; # magic
-    print "count = $arg_0\n";
+    my $heap_foo++;
+    print "count = $arg_0 ... heap = $heap_foo\n";
     $_[KERNEL]->yield(moo => $arg_0 + 1 );
   }
 }
@@ -139,7 +136,7 @@ sub wrap ($;$$$$) {
 
   $contexts      ||= { };
   $var_parser    ||= \&default_var_parser;
-  $contexts->{_} ||= generate_plain_context();
+  $contexts->{_} ||= (generate_plain_context())[1];
   $arg_generator ||= \&generate_arg_context;
   $param_getter  ||= \&default_param_getter;
 
@@ -213,11 +210,12 @@ sub default_var_parser {
 }
 
 # Helper.  Generate a plain context and its accessor.  Plain context
-# member names include their sigils.  This returns an accessor only.
+# member names include their sigils.  Returns the new context variable
+# and its accessor.
 
 sub generate_plain_context {
   my %new_context;
-  return sub {
+  return \%new_context, sub {
     my ($sigil, $member) = @_;
     get_member_ref(\%new_context, $sigil, "$sigil$member");
   };
