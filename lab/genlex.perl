@@ -102,13 +102,20 @@ sub spawn {
     return %param;
   }
 
+  # Convenient abstraction to wrap().
+  
+  sub poe_wrap {
+    my ($handler, $context) = @_;
+    wrap($handler, $context, undef, undef, \&poe_getter);
+  }
+
   # Create a session.  Its moo handler will be lexically wrapped.
 
   POE::Session->create(
     heap => $new_heap,
     inline_states => {
       _start => sub { $_[KERNEL]->yield(moo => 0 ) },
-      moo    => wrap(\&handle_moo, \%ctx, undef, undef, \&poe_getter),
+      moo    => poe_wrap(\&handle_moo, \%ctx),
     }
   );
 
