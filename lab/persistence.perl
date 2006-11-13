@@ -53,10 +53,8 @@ sub target {
 
 	sub generate_arg_hash {
 		my $self = shift;
-		package DB;
-		my @x = caller(2);
 		use POE::Session;
-		my %param = map { $_ - ARG0, $DB::args[$_] } (ARG0..$#DB::args);
+		my %param = map { $_ - ARG0, $_[$_] } (ARG0..$#_);
 		return arg => \%param;
 	}
 }
