@@ -90,8 +90,12 @@ sub target {
 		POE::Session->create(
 			heap => \%heap,
 			inline_states => {
-				_start => sub { $_[KERNEL]->yield(moo => 0) },
-				moo    => $persistence->wrap(\&handle_moo),
+				_start => sub {
+					$_[KERNEL]->yield(moo => 0);
+					$_[KERNEL]->yield(bar => 0);
+				},
+				moo => $persistence->wrap(\&handle_moo),
+				bar => $persistence->wrap(__PACKAGE__, "handle_bar"),
 			},
 		);
 	}
@@ -104,8 +108,17 @@ sub target {
 		my $heap_foo++;       # more magic
 		my ($kernel, $heap);  # also magic
 
-		print "  count = $arg_0 ... heap = $heap_foo ... heap b = $heap->{foo}\n";
+		print "  moo: $arg_0 ... heap = $heap_foo ... heap b = $heap->{foo}\n";
 		$kernel->yield(moo => $arg_0) if $arg_0 < 10;
+	}
+
+	sub handle_bar {
+		my $arg_0++;          # magic
+		my $heap_foo++;       # more magic
+		my ($kernel, $heap);  # also magic
+
+		print "  bar: $arg_0 ... heap = $heap_foo ... heap b = $heap->{foo}\n";
+		$kernel->yield(bar => $arg_0) if $arg_0 < 10;
 	}
 }
 

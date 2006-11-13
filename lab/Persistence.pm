@@ -184,15 +184,31 @@ sub call {
 
 =head2 wrap CODEREF
 
+=head2 wrap OBJECT, METHOD
+
+=head2 wrap PACKAGE, METHOD
+
 Wrap a function or anonymous CODEREF such that it's transparently
 called via call().
+
+Alternatively, wrap a method invocation for an OBJECT or a PACKAGE.
 
 =cut
 
 sub wrap {
-	my ($self, $sub) = @_;
+	my ($self, $invocant, $method) = @_;
+
+	if (ref($invocant) eq 'CODE') {
+		return sub {
+			$self->call($invocant, @_);
+		};
+	}
+
+	# FIXME - Don't use can(), if we can avoid it.
+
+	my $code = $invocant->can($method);
 	return sub {
-		$self->call($sub, @_);
+		$self->call($code, @_);
 	};
 }
 
