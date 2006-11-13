@@ -52,9 +52,12 @@ The get_member_ref() returns a reference to the persistent value for a
 given lexical variable.  The lexical will be aliased to the referenced
 value returned by this method.
 
-By default, set_arg_context() translates named function parameters
+By default, push_arg_context() translates named function parameters
 into values within the "arg" context.  The parameters are then
 available as $arg_name lexicals within call()'s target function.
+
+pop_arg_context() is used to restore a previous argument context after
+a target function returns.
 
 A helper method, wrap(), returns a coderef that, when called normally,
 does call() magic internally.
@@ -141,7 +144,7 @@ Call CODEREF with lexical persistence.
 
 The PARAMETER_LIST is passed to the callee in the usual Perl way.  It
 may also be stored in an "argument context", as determined by
-set_arg_context().
+push_arg_context().
 
 Lexical variables within the callee will be restored from the current
 context.  parse_variable() determines which variables are aliased and
@@ -152,7 +155,7 @@ which contexts they belong to.
 sub call {
 	my ($self, $sub, @args) = @_;
 
-	$self->set_arg_context(@args);
+	my $old_arg_context = $self->push_arg_context(@args);
 
 	my $pad = peek_sub($sub);
 	while (my ($var, $ref) = each %$pad) {
@@ -162,7 +165,21 @@ sub call {
 		);
 	}
 
-	$sub->(@args);
+	unless (defined wantarray) {
+		$sub->(@args);
+		$self->pop_arg_context($old_arg_context);
+		return;
+	}
+
+	if (wantarray) {
+		my @return = $sub->(@args);
+		$self->pop_arg_context($old_arg_context);
+		return @return;
+	}
+
+	my $return = $sub->(@args);
+	$self->pop_arg_context($old_arg_context);
+	return $return;
 }
 
 =head2 wrap CODEREF
@@ -244,7 +261,7 @@ sub get_member_ref {
 	return $hash->{$member};
 }
 
-=head2 set_arg_context PARAMETER_LIST
+=head2 push_arg_context PARAMETER_LIST
 
 Convert a PARAMETER_LIST into members of an argument context.  By
 default, the context is named "arg", so $arg_foo will contain the
@@ -252,9 +269,23 @@ value of the "foo" parameter.
 
 =cut
 
-sub set_arg_context {
+sub push_arg_context {
 	my $self = shift;
+	my $old_arg_context = $self->get_context("arg");
 	$self->set_context( arg => { @_ } );
+	return $old_arg_context;
+}
+
+=head2 pop_arg_context OLD_ARG_CONTEXT
+
+Restore the OLD_ARG_CONTEXT after a target function is called.  The
+OLD_ARG_CONTEXT was returned by push_arg_context().
+
+=cut
+
+sub pop_arg_context {
+	my ($self, $old_context) = @_;
+	$self->set_context( arg => $old_context );
 }
 
 =head1 BUGS
