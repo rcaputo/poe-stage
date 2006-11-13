@@ -50,12 +50,22 @@ sub target {
 {
 	package PoeLex;
 	our @ISA = qw(Persistence);
+	use Scalar::Util qw(weaken);
 
-	sub generate_arg_hash {
+	# TODO - Make these lazy so the work isn't done every call?
+
+	sub set_arg_context {
 		my $self = shift;
 		use POE::Session;
 		my %param = map { $_ - ARG0, $_[$_] } (ARG0..$#_);
-		return arg => \%param;
+		$self->set_context(arg => \%param);
+
+		# Modify the catch-all context so it contains other arguments.
+
+		my $catch_all = $self->get_context("_");
+		weaken($catch_all->{kernel} = $_[KERNEL]);
+		weaken($catch_all->{session} = $_[SESSION]);
+		weaken($catch_all->{sender} = $_[SENDER]);
 	}
 }
 
@@ -89,9 +99,10 @@ sub target {
 	sub handle_moo {
 		my $arg_0++;     # magic
 		my $heap_foo++;  # more magic
+		my $kernel;      # also magic
 
 		print "  count = $arg_0 ... heap = $heap_foo ... heap b = $_[HEAP]{foo}\n";
-		$_[KERNEL]->yield(moo => $arg_0) if $arg_0 < 10;
+		$kernel->yield(moo => $arg_0) if $arg_0 < 10;
 	}
 }
 

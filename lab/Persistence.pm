@@ -52,10 +52,9 @@ The get_member_ref() returns a reference to the persistent value for a
 given lexical variable.  The lexical will be aliased to the referenced
 value returned by this method.
 
-By default, generate_arg_hash() conspires with call() to translate
-named function parameters into values within the "arg" context.  The
-parameters are then available as $arg_name lexicals within the target
-function.
+By default, set_arg_context() translates named function parameters
+into values within the "arg" context.  The parameters are then
+available as $arg_name lexicals within call()'s target function.
 
 A helper method, wrap(), returns a coderef that, when called normally,
 does call() magic internally.
@@ -64,6 +63,9 @@ By default, lexicals without prefixes persist in a catch-all context
 named "_".  The underscore is used because it's parse_variable()'s
 context/member separator.  The initialize_contexts() member is called
 during new() to create initial contexts such as "_".
+
+The get_context() accessor can be used to fetch a named context hash
+for more detailed manipulation of its values.
 
 =cut
 
@@ -121,13 +123,25 @@ sub set_context {
 	$self->{context}{$context_name} = $context_hash;
 }
 
+=head2 get_context NAME
+
+Returns a context hash associated with a particular context name.
+Autovivifies the context if it doesn't already exist.
+
+=cut
+
+sub get_context {
+	my ($self, $context_name) = @_;
+	$self->{context}{$context_name} ||= { };
+}
+
 =head2 call CODEREF, PARAMETER_LIST
 
 Call CODEREF with lexical persistence.
 
 The PARAMETER_LIST is passed to the callee in the usual Perl way.  It
 may also be stored in an "argument context", as determined by
-generate_arg_hash().
+set_arg_context().
 
 Lexical variables within the callee will be restored from the current
 context.  parse_variable() determines which variables are aliased and
@@ -138,9 +152,7 @@ which contexts they belong to.
 sub call {
 	my ($self, $sub, @args) = @_;
 
-	if (my ($arg_prefix, $arg_hash) = $self->generate_arg_hash(@args)) {
-		$self->set_context($arg_prefix, $arg_hash)
-	}
+	$self->set_arg_context(@args);
 
 	my $pad = peek_sub($sub);
 	while (my ($var, $ref) = each %$pad) {
@@ -232,18 +244,17 @@ sub get_member_ref {
 	return $hash->{$member};
 }
 
-=head2 generate_arg_hash PARAMETER_LIST
+=head2 set_arg_context PARAMETER_LIST
 
-Convert a PARAMETER_LIST into an argument context name and a hash
-reference suitable for storing within the argument context.  The
-default implementation supports $arg_foo variables by returning "arg"
-and the contents of @_ untouched.
+Convert a PARAMETER_LIST into members of an argument context.  By
+default, the context is named "arg", so $arg_foo will contain the
+value of the "foo" parameter.
 
 =cut
 
-sub generate_arg_hash {
+sub set_arg_context {
 	my $self = shift;
-	return arg => { @_ };
+	$self->set_context( arg => { @_ } );
 }
 
 =head1 BUGS
