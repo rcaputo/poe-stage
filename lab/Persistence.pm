@@ -1,6 +1,73 @@
 # $Id$
 
-package Persistence;  # planned name: Lexical::Persistence
+=head1 NAME
+
+Lexical::Persistence - Persistent lexical variable values for arbitrary calls.
+
+=head1 SYNOPSIS
+
+	#!/usr/bin/perl
+
+	use Lexical::Persistence;
+
+	my $persistence = Lexical::Persistence->new();
+	foreach my $number (qw(one two three four five)) {
+		$persistence->call(\&target, number => $number);
+	}
+
+	exit;
+
+	sub target {
+		my $arg_number;   # Parameter.
+		my $narf_x++;     # Persistent.
+		my $_i++;         # Dynamic.
+		my $j++;          # Persistent.
+
+		print "arg_number($arg_number) narf_x($narf_x) _i($_i) j($j)\n";
+	}
+
+=head1 DESCRIPTION
+
+Lexical::Persistence objects encapsulate persistent data.  Lexical
+variables in the functions they call are used to access this
+persistent data.  The usual constructor, new(), creates new
+persistence objects.
+
+The persistence object's call() method is used to call functions
+within their persistent contexts.
+
+By default, lexicals without a leading underscore are persistent while
+ones with the underscore are not.  parse_variable() may be overridden
+to change this behavior.
+
+A single Lexical::Persistence object can encapsulate multiple
+persistent contexts.  Each context is configured with a set_context()
+call.
+
+By default, parse_variable() determines the context to use by
+examining the characters leading up to the first underscore in a
+variable's name.
+
+The get_member_ref() returns a reference to the persistent value for a
+given lexical variable.  The lexical will be aliased to the referenced
+value returned by this method.
+
+By default, generate_arg_hash() conspires with call() to translate
+named function parameters into values within the "arg" context.  The
+parameters are then available as $arg_name lexicals within the target
+function.
+
+A helper method, wrap(), returns a coderef that, when called normally,
+does call() magic internally.
+
+By default, lexicals without prefixes persist in a catch-all context
+named "_".  The underscore is used because it's parse_variable()'s
+context/member separator.  The initialize_contexts() member is called
+during new() to create initial contexts such as "_".
+
+=cut
+
+package Persistence;
 
 use warnings;
 use strict;
@@ -178,5 +245,36 @@ sub generate_arg_hash {
 	my $self = shift;
 	return arg => { @_ };
 }
+
+=head1 BUGS
+
+Read them at
+http://rt.cpan.org/Public/Dist/Display.html?Name=lexical-persistence
+
+Report them at
+http://rt.cpan.org/Public/Bug/Report.html?Queue=lexical-persistence
+
+=head1 SEE ALSO
+
+L<POE::Stage>, L<Devel::LexAlias>, L<PadWalker>,
+L<Catalyst::Controller::BindLex>.
+
+=head1 LICENSE
+
+Lexical::Persistence in copyright 2006 by Rocco Caputo.  All rights
+reserved.  Lexical::Persistence is free software.  It is released
+under the same terms as Perl itself.
+
+=head1 ACKNOWLEDGEMENTS
+
+Thanks to Matt Trout and Yuval Kogman for lots of inspiration.  They
+were the devil and the other devil sitting on my shoulders.
+
+Nick Perez convinced me to make this a class rather than persist with
+the original, functional design.
+
+irc://irc.perl.org/poe for support and feedback.
+
+=cut
 
 1;
