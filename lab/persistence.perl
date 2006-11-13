@@ -1,14 +1,15 @@
 #!/usr/bin/env perl
 # $Id$
 
-# An OO form of genlex.perl.  See Persistence.pm for the magic.
+# An OO form of genlex.perl.  See Persistence.pm for the magic, or
+# __END__ for sample output.
 
 use warnings;
 use strict;
 
 use Persistence;
 
-### A handy target to show off persistence and not.
+# A handy target to show off persistence and not.
 
 sub target {
 	my $arg_number;   # Parameter.
@@ -25,27 +26,26 @@ sub target {
 	print "The call() way:\n";
 
 	my $persistence = Persistence->new();
-	$persistence->set_context( _ => { } );
 
 	foreach my $number (qw(one two three four five)) {
 		$persistence->call(\&target, number => $number);
 	}
 }
 
-### Wrap a function and call it as usual.
+### Create a context, and wrap a function call in it.  
 
 {
 	print "The wrap() way:\n";
 
 	my $persistence = Persistence->new();
-
 	my $thunk = $persistence->wrap(\&target);
+
 	foreach my $number (qw(one two three four five)) {
 		$thunk->(number => $number);
 	}
 }
 
-### Now with POE, just to see if we can.
+### Subclass to handle some of POE's function call argument rules.
 
 {
 	package PoeLex;
@@ -60,6 +60,8 @@ sub target {
 		return arg => \%param;
 	}
 }
+
+### Wrap a POE handler in PoeLex.
 
 {
 	print "Using POE:\n";
@@ -83,6 +85,9 @@ sub target {
 		);
 	}
 
+	# Here's a sample handler with persistence.  $arg_0 has been aliased
+	# to $_[ARG0].  $heap_foo has been aliased to $_[HEAP]{foo}.
+
 	sub handle_moo {
 		my $arg_0++;     # magic
 		my $heap_foo++;  # more magic
@@ -93,3 +98,29 @@ sub target {
 }
 
 exit;
+
+__END__
+
+The call() way:
+	target arg_number(one) narf_x(1) _i(1) j(1)
+	target arg_number(two) narf_x(2) _i(1) j(2)
+	target arg_number(three) narf_x(3) _i(1) j(3)
+	target arg_number(four) narf_x(4) _i(1) j(4)
+	target arg_number(five) narf_x(5) _i(1) j(5)
+The wrap() way:
+	target arg_number(one) narf_x(1) _i(1) j(1)
+	target arg_number(two) narf_x(2) _i(1) j(2)
+	target arg_number(three) narf_x(3) _i(1) j(3)
+	target arg_number(four) narf_x(4) _i(1) j(4)
+	target arg_number(five) narf_x(5) _i(1) j(5)
+Using POE:
+	count = 1 ... heap = 1 ... heap b = 1
+	count = 2 ... heap = 2 ... heap b = 2
+	count = 3 ... heap = 3 ... heap b = 3
+	count = 4 ... heap = 4 ... heap b = 4
+	count = 5 ... heap = 5 ... heap b = 5
+	count = 6 ... heap = 6 ... heap b = 6
+	count = 7 ... heap = 7 ... heap b = 7
+	count = 8 ... heap = 8 ... heap b = 8
+	count = 9 ... heap = 9 ... heap b = 9
+	count = 10 ... heap = 10 ... heap b = 10
