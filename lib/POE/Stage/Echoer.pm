@@ -12,7 +12,7 @@ POE::Stage::Echoer - a stage that echoes back whatever it's given
 	use POE::Stage::Echoer;
 	my $stage = POE::Stage::Echoer->new();
 
-	my $req = POE::Request->new(
+	my $echo_request = POE::Request->new(
 		stage     => $stage,
 		method    => "echo",
 		on_echo   => "handle_echo",
@@ -21,7 +21,7 @@ POE::Stage::Echoer - a stage that echoes back whatever it's given
 		},
 	);
 
-	sub handle_echo {
+	sub handle_echo :Handler {
 		my $arg_echo;
 		print "Received an echo: $arg_echo\n";
 	}
@@ -35,7 +35,9 @@ echo() sends back the contents of its "message" parameter as the
 Ok, that's confusing.  Perhaps the SYNOPSIS is clearer?
 
 TODO - It would be nice to have a documentation convention for this
-sort of things.
+sort of thing.
+
+Echoer is the first of hopefully many message-routing stages.
 
 =cut
 
@@ -50,7 +52,7 @@ use POE::Stage qw(:base req);
 
 Commands are invoked with POE::Request objects.
 
-=head2 echo (message => SCALAR)
+=head2 echo message => SCALAR
 
 Receives a scalar "message" parameter whose contents will be echoed
 back to the sender.  The message is echoed with a return of type
@@ -87,8 +89,10 @@ See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

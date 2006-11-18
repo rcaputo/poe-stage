@@ -23,13 +23,13 @@ POE::Stage::Receiver - a simple UDP recv/send component
 	);
 
 	# Echo the datagram back to its sender.
-	sub handle_datagram {
-		my ($self, $args) = @_;
-		rsp()->recall(
+	sub handle_datagram :Handler {
+		my ($rsp, $arg_remote_address, $arg_datagram);
+		$rsp->recall(
 			method            => "send",
 			args              => {
-				remote_address  => $args->{remote_address},
-				datagram        => $args->{datagram},
+				remote_address  => $arg_remote_address,
+				datagram        => $arg_datagram,
 			},
 		);
 	}
@@ -59,7 +59,7 @@ use constant DATAGRAM_MAXLEN => 1024;
 
 Commands are invoked with POE::Request objects.
 
-=head2 listen (bind_port => INTEGER)
+=head2 listen bind_port => INTEGER
 
 Bind to a port on all local interfaces and begin listening for
 datagrams.  The listen request should also map POE::Stage::Receiver's
@@ -115,7 +115,7 @@ sub handle_input :Handler {
 	}
 }
 
-=head2 send (datagram => SCALAR, remote_address => ADDRESS)
+=head2 send datagram => SCALAR, remote_address => ADDRESS
 
 Send a datagram to a remote address.  Usually called via recall() to
 respond to a datagram emitted by the Receiver.
@@ -156,8 +156,8 @@ message includes two parameters: "datagram" contains the received
 data, and "remote_address" contains the address that sent the
 datagram.
 
-Both parameters can be pased back to the POE::Stage::Receiver's send()
-method, as is done in the SYNOPSIS.
+Both parameters can be passed back to the POE::Stage::Receiver's
+send() method, as is done in the SYNOPSIS.
 
 =head2 "recv_error" (errnum, errstr)
 
@@ -179,8 +179,10 @@ report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

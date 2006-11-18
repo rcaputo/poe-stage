@@ -9,7 +9,8 @@ POE::Request::Recall - encapsulates responses to POE::Request::Emit
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	rsp()->recall(
+	my $rsp;
+	$rsp->recall(
 		method  => "method_name",     # invoke this method on Emit's creator
 		args      => {
 			param_1 => 123,               # with this parameter
@@ -20,8 +21,8 @@ POE::Request::Recall - encapsulates responses to POE::Request::Emit
 =head1 DESCRIPTION
 
 POE::Request::Recall objects encapsulate responses to
-POE::Request::Emit objects.  They are not created explicitly; rather,
-they are created by POE::Request::Emit's recall() method.
+POE::Request::Emit objects.  They are created internally by
+POE::Request::Emit's recall() method.
 
 They are quite like POE::Request objects, except that they are not
 created with a "stage" parameter.  Rather, the destination stage is
@@ -32,19 +33,25 @@ Consider this persistent dialogue between two stages:
 
 	Requester               Servicer
 	----------------------- -------------------------
-	POE::Request->new()     .
-	.                       req()->emit()
-	rsp()->recall()  .
-	.                       req()->return()
+	POE::Request->new(...)
+	:                       (receives the request)
+	:                       $req->emit(...)
+	(receives the emit)
+	$rsp->recall(...)
+	:                       (receives the recall)
+	:                       $req->return(...)
+	(receives the return)
 
 A stage requests a service from another stage.  The servicer stage
-emits a response, which is handled by the requester.  The requester
-responds with recall().  The servicer stage handles the new message by
-calling return(), ending the dialogue.
+emits an intermediate response, which is handled by the requester.
+The requester uses recall() to send more information.  The servicer
+stage handles the new message by calling return(), ending the
+dialogue.
 
 POE::Request::Emit and POE::Request::Recall reuse the original
-POE::Request continuation rather than create new ones.  :Req and :Rsp
-data persist for the lifetime of the dialog.
+POE::Request closure rather than create new ones.  This allows each
+side of the dialog to store state that persists for the life of the
+dialog.
 
 =cut
 
@@ -73,7 +80,7 @@ use constant DEBUG => 0;
 Create a new POE::Request::Recall object, specifying the "method" to
 call in the POE::Stage object on the other end of the dialog.  An
 optional "args" parameter should contain a hashref of key/value pairs
-that are passed to the destination method as its $args parameter.
+that are passed to the destination method as its $arg_ parameters.
 
 =cut
 
@@ -149,8 +156,10 @@ report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

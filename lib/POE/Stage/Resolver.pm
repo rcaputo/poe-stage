@@ -2,39 +2,39 @@
 
 =head1 NAME
 
-POE::Stage::Resolver - a fake non-blocking DNS resolver
+POE::Stage::Resolver - a simple non-blocking DNS resolver
 
 =head1 SYNOPSIS
 
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	my $resolver :Req = POE::Stage::Resolver->new(
-		method      => "resolve",
-		on_success  => "handle_host",
-		on_error    => "handle_error",
-		args        => {
-			input     => "thirdlobe.com",
-			type      => "A",   # A is default
-			class     => "IN",  # IN is default
-		},
-	);
+	sub some_handler :Handler {
+		my $req_resolver = POE::Stage::Resolver->new(
+			method      => "resolve",
+			on_success  => "handle_host",
+			on_error    => "handle_error",
+			args        => {
+				input     => "thirdlobe.com",
+				type      => "A",   # A is default
+				class     => "IN",  # IN is default
+			},
+		);
+	}
 
-	sub handle_host {
-		my ($self, $args) = @_;
+	sub handle_host :Handler {
+		my ($arg_input, $arg_packet);
 
-		my $input  = $args->{input};
-		my $packet = $args->{packet};
-
-		my @answers = $packet->answer();
+		my @answers = $arg_packet->answer();
 		foreach my $answer (@answers) {
 			print(
-				"Resolved: $input = type(", $answer->type(), ") data(",
+				"Resolved: $arg_input = type(", $answer->type(), ") data(",
 				$answer->rdatastr, ")\n"
 			);
 		}
 
-		my $resolver :Req = undef;
+		# Cancel the resolver by destroying it.
+		my $req_resolver = undef;
 	}
 
 =head1 DESCRIPTION
@@ -67,7 +67,8 @@ Creates a POE::Stage::Resolver instance and asks it to resolve some
 INPUT into records of a given CLASS and TYPE.  CLASS and TYPE default
 to "IN" and "A", respectively.
 
-When complete, the stage will return either a "success" or an "error".
+When complete, the stage will return either a "success" or an "error"
+message.
 
 =cut
 
@@ -176,10 +177,13 @@ See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
 issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
 report one.
 
+
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

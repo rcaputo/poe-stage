@@ -11,8 +11,8 @@ POE::Request::Upward - internal base class for POE::Stage response messages
 =head1 DESCRIPTION
 
 POE::Request::Upward is a base class for POE::Request messages that
-flow up from sub-stages to their parents.  These messages are
-instances of POE::Request::Emit and POE::Request::Return.
+flow up from sub-stages to their parents.  Both POE::Request::Emit and
+POE::Request::Returns are subclasses of POE::Request::Upward.
 
 The Emit and Return message classes share a lot of common code.  That
 code has been hoisted into this base class.
@@ -58,10 +58,10 @@ parameters to emit() and return() are passed directly to this
 constructor.
 
 POE::Request::Upward has one mandatory parameter: "type".  This
-defines the type of response being created.  The optional "args"
-parameter should contain a hashref with response payloads.  The
-contents of "args" are passed unchanged to the response's handler as
-its $args parameter.
+defines the type of response being created.  If specified, the
+optional "args" parameter must contain a hashref with response
+payloads.  The contents of "args" are passed unchanged to the
+response's handler as $arg_ lexicals.
 
 Response types are mapped to methods in the original requester's stage
 through POE::Request's "on_$type" parameters.  In this example,
@@ -77,16 +77,17 @@ requester's log_and_stop() method.
 	);
 
 How an asynchronous TCP connector might return success and error
-messages:
+messages (although we're not sure yet):
 
-	$self->{req}->return(
+	my $req;
+	$req->return(
 		type      => "success",
 		args      => {
 			socket  => $socket,
 		},
 	);
 
-	$self->{req}->return(
+	$req->return(
 		type        => "error",
 		args        => {
 			function  => "connect",
@@ -223,8 +224,10 @@ report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

@@ -9,19 +9,20 @@ POE::Watcher::Input - watch a socket or other handle for input readiness
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	# Request a delay notification.
-	my $socket :Req = $socket_handle;
-	my $input :Req = POE::Watcher::Input->new(
-		handle    => $socket,
-		on_input  => "read_from_socket",
-		args      => \%passed_to_callbacks,
-	);
+	sub some_other :Handler {
+		# Request a delay notification.
+		my $req_socket = $socket_handle;
+		my $req_input  = POE::Watcher::Input->new(
+			handle    => $req_socket,
+			on_input  => "read_from_socket",
+			args      => \%passed_to_callbacks,
+		);
+	}
 
 	# Handle the delay notification.
 	sub read_from_socket {
-		my ($self, $args) = @_;
-		my $socket :Req;
-		my $octets = sysread($socket, my $buf = "", 65536);
+		my $req_socket;
+		my $octets = sysread($req_socket, my $buf = "", 65536);
 		...;
 	}
 
@@ -124,8 +125,10 @@ report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

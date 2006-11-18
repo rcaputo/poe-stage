@@ -9,37 +9,39 @@ POE::Request - a common message class for POE::Stage
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	my $request :Req = POE::Request->new(
-		method    => "method_name",           # invoke this method
-		stage     => $self->{stage_object},   # of this stage
-		on_one    => "do_one",    # map a "one" response to method
+	my $req_subrequest = POE::Request->new(
+		method    => "method_name",   # invoke this method
+		stage     => $self,           # of this stage
+		on_one    => "do_one",        # map a "one" response to method
 		args      => {
-			param_1 => 123,         # with this parameter
-			param_2 => "abc",       # and this one
+			one => 123,         # with this parameter
+			two => "abc",       # and this one
 		}
 	);
 
 	# Handle a "one" response.
-	sub do_one {
-		my ($self, $args) = @_;
-		print "$args->{param_1}\n";  # 123
-		print "$args->{param_2}\n";  # abc
+	sub do_one :Handler {
+		my ($arg_one, $arg_two);
+		print "$arg_one\n";  # 123
+		print "$arg_two\n";  # abc
 		...;
-		req()->return( type => "one", moo => "retval" );
+		my $req;
+		$req->return( type => "one", moo => "retval" );
 	}
 
 	# Handle one's return value.
-	sub do_one {
-		my ($self, $args) = @_;
-		print "$args->{moo}\n";  # retval
+	sub do_one :Handler {
+		my $arg_moo;
+		print "$arg_moo\n";  # "retval"
 	}
 
 =head1 DESCRIPTION
 
 POE::Request objects are the messages passed between POE::Stage
-objects.  They include a destination (stage and method), values to
-pass to the destination method, mappings between return message types
-and the source methods to handle them, and possibly other parameters.
+objects.  They include parameters for a destination (stage and
+method), values to pass to the destination method (args), mappings
+between return message types and the source methods to handle them
+(those with th on_ prefix), and possibly other parameters.
 
 POE::Request includes methods that can be used to send responses to an
 initiating request.  It internally uses POE::Request subclasses to
@@ -47,40 +49,44 @@ encapsulate the resulting messages.
 
 Requests may also be considered the start of two-way dialogues.  The
 emit() method may be used by an invoked stage to send back an interim
-response, and then the caller may use recall() on the interim response
-to send an associated request back to the invoked stage.
+response.  The receiver of an emitted interim response can then use
+recall() to send an associated requets back to the invoked stage.
 
-Each POE::Request object can be considered as a continuation.
+Each POE::Request object can also be thought of as a closure.
 Variables may be associated with either the caller's or invocant
 stage's side of a request.  Values associated with one side are not
-visible to the other side, even if they share the same variable name.
-The associated variables and their values are always in scope when
-that side of the request is active.  Variables associated with a
-request are destroyed when the request is canceled or completed.
+visible to the other side, even if they share the same names.  The
+associated variables and their values are always in scope when that
+side of the request is active.  Variables associated with a request
+are destroyed when the request is canceled or completed.
 
 For example, a sub-request is created within the context of the
 current request.
 
-	sub some_request_sender {
-		my $foo :Req = POE::Request->new(...);
+	sub some_request_sender :Handler {
+		my $req_foo = POE::Request->new(...);
 	}
 
-Whenever the same request is active, C<my $foo :Req;> imports the
-field (with its current value) in the current scope.
+Whenever the same request is active, C<my $req_foo;> imports the field
+(with its current value) into the current scope.
 
 Furthermore, fields may be associated with a particular request.
-These will be available again in response handlers using the special
-":Rsp" attribute:
+These will be available again in response handlers by using the
+special rsp_ variable prefix:
 
-	sub some_request_sender {
-		my $foo :Req = POE::Request->new(...);
-		my $foo_field :Req($foo) = "a sample value";
+	sub some_request_sender :Handler {
+		my $req_foo = POE::Request->new(...);
+		expose $req_foo, my $foo_field;
+		$foo_field = "a sample value";
 	}
 
-	sub some_response_handler {
-		my $foo_field :Rsp;
-		print "$foo_field\n";   # "a sample value"
+	sub some_response_handler :Handler {
+		my $rsp_field;
+		print "$rsp_field\n";   # "a sample value"
 	}
+
+As you may have noticed, this magic only works on methods declared
+with the :Handler attribute.
 
 =cut
 
@@ -284,25 +290,26 @@ Request methods are called directly on the objects themselves.
 =head2 new PARAM => VALUE, PARAM => VALUE, ...
 
 Create a new POE::Request object.  The request will automatically be
-sent to its destination.  Factors on the local or remote process, or
-pertaining to the network between them, may prevent the request from
-being delivered immediately.
+sent to its destination.  In the future, we hope that factors on the
+local or remote process, or pertaining to the network between them,
+may prevent the request from being delivered immediately.
 
 POE::Request->new() requires at least two parameters.  "stage"
-contains the POE::Stage object that will receive the request.
+contains the POE::Stage object that will receive the request, and
 "method" is the method to call when the remote stage handles the
-request.  The stage may merely be a local proxy for a remote object,
-but this feature has yet to be defined.
+request.  For remote calls, the stage may merely be a local proxy for
+a remote object, but this feature has yet to be defined.
 
 Parameters for the message's destination can be supplied in the
 optional "args" parameter.  These parameters will be passed untouched
-to the message's destination's $args parameter.
+to the message's destination via variables with the $arg_ prefix.
 
 POE::Request->new() returns an object which must be saved.  Destroying
 a request object will cancel the request and automatically free all
-data and resources associated with it, including sub-stages and
-sub-requests.  This is ensured by storing sub-stages and sub-requests
-within the context of higher-level requests.
+data and resources associated with it, including those allocated by
+sub-stages and sub-requests on behalf of the original request.  This
+can be ensured by storing sub-stages and sub-requests within the
+context of higher-level requests.
 
 Instances of POE::Request subclasses, such as those created by
 $request->return(), do not need to be saved.  They are ephemeral
@@ -377,9 +384,20 @@ sub _assimilate_args {
 
 =head2 init HASHREF
 
-The init() method receives the request's constructor $args before they
-are processed and stored in the request.  Its timing gives it the
-ability to modify members of $args, add new ones, or remove old ones.
+The init() method receives the request's constructor 'args' before
+they are processed and stored in the request.  Its timing gives it the
+ability to modify members of 'args', add new ones, or remove old ones.
+To do this, however, one must manipulate the entire hash directly.
+Fortunately POE::Stage provides that through @_ and the $args
+variable:
+
+	sub init :Handler {
+		my ($self, $my_args) = @_;
+		my $args;  # Alias for @_[1].
+
+		# Changing $my_args or $args will alter the same, original
+		# argument hash.
+	}
 
 Custom POE::Request subclasses may use init() to verify that
 parameters are correct.  Currently init() must throw an exeception
@@ -425,13 +443,13 @@ sub deliver {
 Cancels the current POE::Request object, invalidating it for future
 operations, and internally creates a return message via
 POE::Request::Return.  This return message is initialized with pairs
-of RETURN_MEMBER => RETURN_VALUE parameters.  It is automatically (if
+of RETURN_MEMBER => RETURN_VALUE arguments.  It is automatically (if
 not immediately) sent back to the POE::Stage that created the original
 request.
 
 Please see POE::Request::Return for details about return messages.
 
-If the type of message is not selected, it defaults to "return".
+The type of message defaults to "return" if not specified.
 
 =cut
 
@@ -452,10 +470,10 @@ EMIT_MEMBER => EMIT_VALUE parameters.  The emitted response will be
 automatically sent back to the creator of the request being invoked.
 
 Unlike return(), emit() does not cancel the current request, and
-emitted messages can be replied.  It is designed to send back an
+emitted messages can be replied to.  It is designed to send back an
 interim response but not end the request.
 
-If the type of message is not selected, it defaults to "emit".
+The type of message defaults to "emit" if not specified.
 
 =cut
 
@@ -469,10 +487,9 @@ sub emit {
 
 =head2 cancel
 
-Explicitly cancel a request.  Mainly used by the invoked stage, not
-the caller.  Normally destroying the request object is sufficient, but
-this may only be done by the caller.  The request's receiver can call
-cancel() however.
+Explicitly cancel a request.  Mainly used by the invoked stage, since
+the caller is free to destroy its request at any time but the callee
+does not have that capability.
 
 As mentioned earlier, canceling a request frees up the data associated
 with that request.  Cancellation and destruction cascade through the
@@ -570,29 +587,36 @@ sub _emit {
 =head1 DESIGN GOALS
 
 Requests are designed to encapsulate messages passed between stages,
-so you don't have to.  It's our hope that providing a standard,
-effective message passing system will maximize interoperability
-between POE stages.
+so you don't have to roll your own message-passing schemes.  It's our
+hope that providing a standard, effective message passing system will
+maximize interoperability between POE stages.
 
-Requests may be subclassed.
+Requests may be subclassed, incorporating specific features and
+defaults to make their use easier.
+
+Future plans:
 
 At some point in the future, request classes may be used as message
 types rather than C<<type => $type>> parameters.  More formal
 POE::Stage interfaces may take advantage of explicit message typing in
 the future.
 
+We'd also like to incorporate a standard form of interprocess
+communication within POE::Request, possibly with the use of proxy
+stages that represent remote code.  In theory, a stage doesn't need to
+know its peers are off-world.
+
 =head1 BUGS
 
 See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
 See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
-C<:Req> and C<:Rsp> must be discussed in greater detail, perhaps in
-one or more tutorials.
-
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

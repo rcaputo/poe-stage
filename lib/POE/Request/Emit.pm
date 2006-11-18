@@ -53,11 +53,11 @@ sub _init_subclass {
 
 =head2 recall PAIRS
 
-The stage receiving an emit()ted message may call recall() on it to
-continue the dialogue after emit().  recall() sends a new
+The stage receiving an emit()ted message may invoke its recall()
+method to continue the dialogue after emit().  recall() sends a new
 POE::Request::Recall message back to the stage that called emit().  In
 this way, emit() and recall() can be used to continue a persistent
-dialogue between two stages.
+two-way dialogue.
 
 Once constructed, the recall message is automatically sent to the
 source of the POE::Request::Emit object.
@@ -109,8 +109,10 @@ report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

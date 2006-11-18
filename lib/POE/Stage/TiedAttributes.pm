@@ -11,7 +11,9 @@ POE::Stage::TiedAttributes - implements magic "req" and "rsp" members
 =head1 DESCRIPTION
 
 POE::Stage::TiedAttributes implements a large chunk of POE::Stage's
-magical data scopes.
+magical data scopes.  It's implemented as a tied hash to sequester
+its own data and implementation from the end user, leaving $self and
+its namespace free for developers.
 
 It holds request-scoped data, which is really stage-scoped data
 associated with the request.
@@ -21,16 +23,16 @@ are canceled.
 
 It does these things as automatically as possible.
 
-=head2 POE::Stage's "req" Data Member
+=head2 $req and $rsp
 
-TODO - Does not exist.  Was replaced by POE::Stage's req() export.
-Move this wonderful description there.
+The $req and $rsp lexical variable is special within message handlers.
+The first evaluates to the current POE::Request being handled.  The
+second evaluates to the currently emitted or returned response being
+handled.
 
-Every POE::Stage object has two read-only data members: req and rsp.
-The req data member refers to the POE::Request object that the stage
-is currently handling.  Consider this request:
+Consider this request:
 
-	my $req = POE::Request->new(
+	my $request = POE::Request->new(
 		stage  => $stage_1,
 		method => "handle_it",
 	);
@@ -38,61 +40,74 @@ is currently handling.  Consider this request:
 It will be handled $stage_1's handle_it() method.  For the sake of
 example, handle_it() only prints the request object:
 
-	sub handle_it {
-		my ($self, $args) = @_;
-		print "$self->{req}\n";
+	sub handle_it :Handler {
+		my $req
+		print "$req\n";
 	}
 
-Actually, it may not be exactly the same as $req, but it will be its
-moral equivalent.  This caveat leaves a loophole through which we can
-later pass requests across process boundaries.
+To be honest, $req and $request are not required to be identical.  For
+example, handle_it() may be executed in a different process, so the
+message will be equivalent but not identical.
 
-$self->{req} is also great for responding to requests:
+$req is also great for responding to requests.
 
-	$self->{req}->emit( ... );
-	$self->{req}->return( ... );
+	$req->emit( ... );
+	$req->return( ... );
 
-You should see POE::Request for more information about emit() and
-return().
+See POE::Request for more information about emit() and return().
 
-It should be noted that $self->{req} is valid when responses to our
-own requests are being handled.  This hander cascades a return() from
-a sub-request to a parent request.  It is called in response to some
-request we have made, and in turn it passes a response parameter back
-up the request chain.
+$req is valid when responses to our own requests are being handled.
+This handler cascades a return() from a sub-request to a parent
+request.  It's called in response to some request we've previously
+made, and in turn it passes a response back up the request tree.
 
-	sub handle_a_response {
-		my ($self, $args) = @_;
-		my $cookie :Req;  # initialized elsewhere
-		$self->{req}->return(
+	sub handle_a_response :Handler {
+		my $req;
+		$req->return(
 			type      => "done",
 			args      => {
-				result  => $args->{sub_result},
-				cookie  => $cookie,
+				result  => my $arg_sub_result,  # parameter to this handler
+				cookie  => my $req_cookie,      # initialized elsewhere
 			},
 		);
 	}
 
-=head2 POE::Stage's "rsp" Data Member
+=head2 $rsp and the $rsp_ closure variables
 
-TODO - Does not exist.  Was replaced by POE::Stage's rsp() export.
-Move this wonderful description there.
-
-The special $self->{rsp} data member refers to responses to requests
-made by a stage.  It's only valid when a response handler is currently
+The special $rsp variable refers to responses to requests made by a
+stage.  It's only valid when a response handler is currently
 executing.  Here a response object is used to re-call a sub-stage in
 response to an emitted interim response.
 
-	sub handle_sub_response {
-		my ($self, $args) = @_;
-		$self->{rsp}->recall( ... );
+	sub handle_sub_response :Handler {
+		my $rsp;
+		$rsp->recall( ... );
 	}
 
-Responses share a continuation with the requests that triggered them.
-Variables declared with the C<:Rsp> attribute in a response handler
-refer to ones associated to the request via C<:Req($request)>.  In
-other words, you can store data in the original request and have
-access to it again from each corresponding response handler.
+Response variables, $rsp_something, are only visible in response
+handlers.  They share the same closure as the request that triggered
+the response.  Consider the following:
+
+	sub make_a_request :Handler {
+		my $req_stage; # a sub-stage
+		my $req_stage_request = POE::Request->new(
+			stage => $req_stage,
+			...,
+			on_return => "handle_return",
+		);
+
+		expose $req_stage_request, my $anyprefix_cookie;
+		my $anyprefix_cookie = "saved in the sub-request closure";
+	}
+
+The last two lines expose a member of the newly created request and
+store a value into it.  That walue will be available as $rsp_cookie
+when a response to $req_stage_request is handled:
+
+	sub handle_return :Handler {
+		my $rsp_cookie;  # contains "saved in the sub-request closure"
+		...
+	}
 
 =cut
 
@@ -207,8 +222,10 @@ report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

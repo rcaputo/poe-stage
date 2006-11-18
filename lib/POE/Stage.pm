@@ -19,37 +19,34 @@ POE::Stage - a proposed base class for formalized POE components
 
 =head1 DESCRIPTION
 
-TODO - This documentation is out of date.
-
-POE::Stage is a proposed base class for POE components.  Its purpose
-is to standardize the most common design patterns that have arisen
-through years of POE::Component development.
+POE::Stage is a proposed base class for POE components.  It implements
+some of the most common design patterns that have arisen during
+several years of POE::Component development.
 
 Complex programs generally perform their tasks in multiple stages.
-For example, a web request is performed in four major stages: 1. Look
-up the host's address.  2. Connect to the remote host.  3.  Transmit
-the request.  4. Receive the response.
+For example, a web request is performed in four distinct stages: 1.
+Look up the host's address.  2. Connect to the remote host.  3.
+Transmit the request.  4. Receive the response.
 
-POE::Stage promotes the decomposition of multi-step processes into
-discrete, reusable stages.  In this case: POE::Stage::Resolver will
-resolve host names into addresses, POE::Stage::Connector will
-establish a socket connection to the remote host, and
-POE::Stage::StreamIO will transmit the request and receive the
-response.
+By design, POE::Stage promotes the decomposition of multi-step
+processes into discrete, reusable stages.  We might break our HTTP
+client into three POE::Stage objects: POE::Stage::Resolver, to resolve
+host names into addresses; POE::Stage::Connector to establish a socket
+connection to the remote host; and POE::Stage::StreamIO to transmit
+the request and receive the response.
 
 POE::Stage promotes composition of high-level stages from lower-level
-ones.  POE::Stage::HTTPClient might present a simplified
-request/response interface while internally creating and coordinating
-more complex interaction between POE::Stage::Resolver, Connector, and
-StreamIO.  This remains to be seen, however, as POE::Stage is still
-very new software.
+ones.  In our hypothetical situation, POE::Stage::HTTPClient might
+present a simplified request/response interface while internally
+creating the previous stages and coordinating their interaction.  This
+remains to be seen, however, as POE::Stage is still very new software.
 
 POE stages are message based.  The message classes, POE::Request and
-its subclasses, implement a standard request/response interface for
-POE stages.  Where possible, POE message passing attempts to mimic
-simpler, more direct calling and returning, albeit asynchronously.
-POE::Stage and POE::Request also implement closures which greatly
-simplify asynchronous state management.
+its subclasses, implement a standard request/response interface.
+Where possible, POE message passing attempts to mimic simpler, more
+direct calling and returning, albeit asynchronously.  POE::Stage and
+POE::Request also implement a form of closures that simplifies state
+management between requests and responses.
 
 =cut
 
@@ -164,18 +161,18 @@ sub _get_session_id {
 As a base class, POE::Stage must reserve a small number of methods for
 its own.
 
-=head2 new PARAMETER_PAIRS
+=head2 new ARGEMENT_PAIRS
 
 Create and return a new POE::Stage object, optionally passing
-key/value PAIRS in its init() callback's $args parameter.  Unlike in
-POE, you must save the object POE::Stage->new() returns if you intend
-to use it.
+name/value ARGUMENT_PAIRS to the new stage's init() callback.  See the
+description of init() for more details.
+
+Unlike in POE, you must save the object POE::Stage->new() returns if
+you intend for it to live.
 
 It is not recommended that subclasses override new.  Rather, they
-should implement init() to initialize themselves after instantiation.
-
-This may change as POE::Stage implements L<Class::MOP>, L<Moose>, or
-other Perl 6 ways.
+should implement init() callbacks to initialize themselves after
+creation.
 
 =cut
 
@@ -215,18 +212,25 @@ sub new {
 	return $self;
 }
 
-=head2 init PARAMETER_PAIRS
+=head2 init ARGUMENT_PAIRS
 
 init() is a virtual base method used to initialize POE::Stage objects
 after construction.  Subclasses override this to perform their own
 initialization.  The new() constructor will pass its public parameters
-through to $self->init($key_value_pairs).
+through to $self->init($name_value_pairs).  They will also be available
+as $arg_name lexicals:
+
+	sub init {
+		my $arg_foo;  # contains the "foo" argument
+	}
 
 =cut
 
 sub init {
 	# Do nothing.  Don't even throw an error.
 }
+
+# TODO - Make these internal?  Possibly part of the tied() interface?
 
 sub self {
 	package DB;
@@ -244,58 +248,18 @@ sub rsp {
 	return $stage->_get_response();
 }
 
-=head2 Req (attribute)
+=head2 Handler
 
-Defines the Req lexical variable attribute for request closures.
-Variables declared this way become members of the request the current
-stage is currently handling.
+Handler implements an attribute that defines which subs are message
+handlers.  Only message handlers have lexical magic.
 
-	sub some_handler {
-		my ($self, $args) = @_;
-		my $request_field :Req = "some value";
-		my $sub_request :Req = POE::Request->new(
-			...,
-			on_xyz => "xyz_handler"
-		);
+	sub some_method :Handler {
+		# Lexical magic occurs here.
 	}
 
-Request members are intended to be used as continuations between
-handlers that are invoked within the same request.  The previous
-handler may eventually pass execution to xyz_handler(), which can
-access $request_field and $sub_request if the current stage is still
-handling the current request.
-
-	sub xyz_handler {
-		my ($self, $args) = @_;
-		my $request_field :Req;
-		print "$request_field\n";  # "some value"
+	sub not_a_handler {
+		# No lexical magic.
 	}
-
-Fields may also be associated with sub-requests being made by the
-current stage.  In this case, variables declared :Rsp within handlers
-for responses to the associated request will also be visible.
-
-	sub some_other_handler {
-		my ($self, $args) = @_;
-		my $request_field :Req = "some value";
-		my $sub_request :Req = POE::Request->new(
-			...,
-			on_xyz => "response_handler"
-		);
-		my $response_field :Req($sub_request) = "visible in the response";
-	}
-
-	sub response_handler {
-		my ($self, $args) = @_;
-		my $request_field :Req;
-		my $response_field :Rsp;
-		print "$request_field\n";   # "some value"
-		print "$response_field\n";  # "visible in the response";
-	}
-
-Three versions of Req() are defined: One each for scalars, arrays, and
-hashes.  You need not know this since the appropriate one will be used
-depending on the type of variable declared.
 
 =cut
 
@@ -506,6 +470,24 @@ sub Handler :ATTR(CODE) {
 	};
 }
 
+=head2 expose OBJECT, LEXICAL [, LEXICAL[, LEXICAL ...]]
+
+The expose function, which must be imported explicitly, allows your
+handlers to expose members of a specific request or response OBJECT.
+Each member will be exposed as a particular LEXICAL variable.
+
+To set a magic cookie on a sub-request:
+
+	sub do_request :Handler {
+		my $req_subrequest = POE::Request->new( ... );
+		expose $req_subrequest, my $sub_cookie;
+		$sub_cookie = "stored in the subrequest";
+	}
+
+OBJECT must be a subclass of POE::Request.
+
+=cut
+
 sub expose ($\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%\[$@%\[$@%]]]\[$@%]) {
 	my $request = shift;
 
@@ -584,43 +566,100 @@ for designing and subclassing.
 
 =head1 DESIGN GOALS
 
-As mentioned before, POE::Stage strives to implement a standard for
-POE best practices.  It embodies some of POE's best and most common
-design patterns so you no longer have to.
+As mentioned before, POE::Stage is a stab at defining some best
+practices for POE as a base class for POE components.  It implements
+some of POE's best and most common design patterns so you no longer
+have to.  As a side effect, it implements them in a single, standard
+way.
 
-Things POE::Stage does for you:
+POE::Stage hides POE::Session and the need to explicitly define
+subroutines and events in separate places.  The Handler subroutine
+attribute defines which methods handle messages:
 
-It manages POE::Session objects so you can deal with truly
-object-oriented POE::Stages.  The event-based gyrations are subsumed
-and automated by POE::Stage.
+	sub handle_foo :Handler {
+		...
+	}
 
-It provides a form of message-based continuation so that specially
-declared variables (using the :Req and :Rsp attributes) are
-automatically tracked between the time a message is sent and its
-response arrives.  No more HEAPs and tracking request state manually.
+POE::Stage simplifies message passing and response handling in at
+least three ways.  Consider:
 
-It simplifies the call signature of message handlers, eliminating @_
-list slices, positional parameters, and mysteriously imported
-constants (HEAP, ARG0, etc.).
+	my $request = POE::Request->new(
+		stage => $target_stage,
+		method => $target_method,
+		args => \%arguments,
+		on_response_x => "handler_x",
+		on_response_y => "handler_y",
+		on_response_z => "handler_z",
+	);
 
-It defines a standardized message class (POE::Request and its
-subclasses) and a mechanism for passing messages between POE stages.
-POE::Stage authors won't need to roll their own interface mechanisms,
-so programmers will not need to learn one for each module in use.
+First, it provides standard message clasess.  Developers don't need to
+roll their own, probably non-interoperable messaging scheme.  The
+named \%arguments are supplied and are available to each handler in a
+standard way, which is described in the MAGICAL LEXICAL TOUR.
 
-POE::Stage implements object-oriented classes for low-level event
-watchers.  This simplifies POE::Kernel's interface and allows it to be
-extended celanly.  Event watcher ownerships and lifetimes are clearly
+Second, POE::Stage provides request-scoped closures via $req_foo,
+$rsp_foo, and expose().  Stages use these mechanisms to save and
+access data in specific request and response contexts, eliminating the
+need to do it explicitly within HEAPs.
+
+Third, response destinations are tied to the requests themselves.  In
+the above example, responses of type "response_x" will be handled by
+"handler_x".  The logic flow of a complex program is more readily
+apparent.
+
+The mechanisms of message passing and context management become
+implicit, allowing them to be extended transparently.  It's hoped that
+interprocess communication can be added without exposing too much work
+to developers.
+
+POE::Stage includes object-oriented classes for low-level event
+watchers.  They simplify and standardize POE::Kernel's interface, and
+they allow it to be extended cleanly through normal OO techniques.
+The lifespans of each resource are tightly coupled to the lifespans of
+their watcher objects, so ownership and relevance are clearly
 indicated.
 
-Standardize the means to shut down stages.  POE components implement a
-variety of shutdown methods.  POE::Stage objects are shut down by
-destroying their objects.
+POE::Stage standardizes shutdown semantics for requests and stages.
+Requests are canceled by destroying their objects, and stages are shut
+down the same way.
 
-It simplifies cleanup when requests are finished.  The convention of
-storing request-scoped data in request continuations means that
-sub-stages, sub-requests, event watchers, and everything else is
-automatically cleaned up when a request falls out of scope.
+POE::Stage simplifies cascaded cleanup for requests and stages.
+Resources for a particular request are stored within that request's
+scope.  Canceling the request destroys that scope, and all the
+resources contained within it.  If those resources include other
+stages, they too are canceled, and so on.
+
+=head1 MAGICAL LEXICAL TOUR
+
+POE::Stage uses lexical aliasing to expose state data including
+handler parameters, message-scoped values, and the current POE::Stage
+object and other values.  The technique has been abstracted into
+another module, Lexical::Persistence.
+
+Certain lexical variables have special meanings within methods with
+the :Handler attribute:
+
+	sub foo :Handler {
+		my ($arg_one, $arg_two, $arg_three);
+		my $self;
+		my $req;
+		my $rsp;
+		my $req_member;
+		my $rsp_member;
+		my $self_member;
+	}
+
+Variable prefixes figure heavily in POE::Stage handlers.  In the above
+example, the prefixes are "arg_", "req_", "rsp_" and "self_".  Each
+corresponds to a different data scope: named arguments, the request
+currently being handled, a response currently being accepted, or the
+POE::Stage object itself.
+
+The unprefixed $self, $req, and $rsp lexicals refer to objects: The
+current POE::Stage, the current request, or the current response.
+
+See Lexical::Persistence for details about the techniques being used
+here.
 
 =head1 BUGS
 
@@ -629,8 +668,10 @@ See http://thirdlobe.com/projects/poe-stage/newticket to report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 

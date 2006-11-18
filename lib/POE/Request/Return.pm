@@ -9,7 +9,8 @@ POE::Request::Return - encapsulates final replies to POE::Request messages
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	$poe_request_object->return(
+	my $req;
+	$req->return(
 		type        => "failure",
 		args        => {
 			function  => "connect",
@@ -22,9 +23,9 @@ POE::Request::Return - encapsulates final replies to POE::Request messages
 
 A POE::Request::Return message is used to send a final response to a
 request.  It is internally created and sent when a stage calls
-$self->{req}->return(...).  Part of return()'s purpose is to cancel
-the request it replies to, invalidating any further dialog associated
-with the request.
+$req->return(...).  Part of return()'s purpose is to end the request
+it replies to, invalidating any further dialog associated with the
+request.
 
 =cut
 
@@ -60,8 +61,10 @@ report one.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that.  It'll
-bring POE::Stage that much closer to a usable release.
+need that isn't included, so consider fixing or adding that, or at
+least discussing it with the people on POE's mailing list or IRC
+channel.  Your feedback and contributions will bring POE::Stage closer
+to usability.  We appreciate it.
 
 =head1 SEE ALSO
 
