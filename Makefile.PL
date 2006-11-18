@@ -13,13 +13,14 @@ WriteMakefile(
   LICENSE      => 'perl',
   VERSION_FROM => 'lib/POE/Stage.pm',
   PREREQ_PM    => {
-    Attribute::Handlers => 0.78,
-    Net::DNS            => 0.53,
-    PadWalker           => 1.0,
-    Scalar::Util        => 1.18,
-    POE                 => 0.3502,
-    Test::More          => 0,
-    Devel::LexAlias     => 0.04,
+    'Attribute::Handlers'   => 0.78,
+    'Net::DNS'              => 0.53,
+    'PadWalker'             => 1.0,
+    'Scalar::Util'          => 1.18,
+    'POE'                   => 0.3502,
+    'Test::More'            => 0,
+    'Devel::LexAlias'       => 0.04,
+		'Lexical::Persistence'  => 0.95, # Currently unused.
   },
   dist         => {
     COMPRESS   => 'gzip -9f',
