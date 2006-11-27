@@ -290,6 +290,13 @@ handlers.  Only message handlers have lexical magic.
 		# No lexical magic.
 	}
 
+Methods with names beginning with "on_" acquire Handler magic
+implicitly.
+
+	sub on_event {
+		# Lexical magic occurs here.
+	}
+
 =cut
 
 sub Handler :ATTR(CODE) {
