@@ -6,6 +6,42 @@
 # Currently a non-functional use case based on examples/ping-pong and
 # POE::Stage::Echoer.
 
+# Extensions:
+#
+#   Given "on_${role}_${result_type}" and default result types for
+#   each request call, we have: on_foo_return, on_foo_emit,
+#   on_foo_request, on_foo_recall
+#
+# Practical implementation:
+#
+#   POE::Stage::import() records the names of classes that use it.
+#
+#   At CHECK-time, POE::Stage checks the collected packages for
+#   isa("POE::Stage").  For each of those, it walks the symbol table
+#   looking for methods named /^on_(\w+)_([^\W_]+)$/.
+#
+#   Each specially named method is wrapped in :Handler magic.  The $1
+#   and $2 (role and type, respectively) are recorded in POE::Stage
+#   for runtime lookup.
+#
+#   At runtime, the code that finds a method to handle a message falls
+#   back on a lookup into the class/role/type hash.  Perhaps:
+#
+#     elsif (exists $singleton{$class}{$role}{$type}) {
+#       # find the method here
+#     }
+#
+#   The resolved method---either the explicit one searched for first,
+#   or the one implied by the method name---is used to handle the
+#   message.
+#
+# Precedents:
+#
+#   on_my_${type}.  If a subclass implements a method with this form
+#   of name, then the subclass method catches any upward message
+#   (return or emit).  This allows subclasses to catch "return"
+#   events.
+
 ### Application stage.
 
 {
