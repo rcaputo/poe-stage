@@ -110,12 +110,13 @@ use constant REQ_CREATE_FILE    =>  5;  # ... more debugging.
 use constant REQ_CREATE_LINE    =>  6;  # ... more debugging.
 use constant REQ_CREATE_STAGE   =>  7;  # ... more debugging.
 use constant REQ_ARGS           =>  8;  # Parameters of this request.
-use constant REQ_RETURNS        =>  9;  # Return type/method map.
-use constant REQ_PARENT_REQUEST => 10;  # The request that begat this one.
-use constant REQ_DELIVERY_REQ   => 11;  # "req" to deliver to the method.
-use constant REQ_DELIVERY_RSP   => 12;  # "rsp" to deliver to the method.
-use constant REQ_TYPE           => 13;  # Request type?
-use constant REQ_ID             => 14;  # Request ID.
+use constant REQ_ROLE           =>  9;  # Request role.
+use constant REQ_RETURNS        => 10;  # Return type/method map.
+use constant REQ_PARENT_REQUEST => 11;  # The request that begat this one.
+use constant REQ_DELIVERY_REQ   => 12;  # "req" to deliver to the method.
+use constant REQ_DELIVERY_RSP   => 13;  # "rsp" to deliver to the method.
+use constant REQ_TYPE           => 14;  # Request type?
+use constant REQ_ID             => 15;  # Request ID.
 
 use Exporter;
 use base qw(Exporter);
@@ -269,12 +270,16 @@ sub _request_constructor {
 		$line,                        # REQ_CREATE_LINE
 		0,                            # REQ_CREATE_STAGE
 		{ },                          # REQ_ARGS
+		delete $args->{role},         # REQ_ROLE
 	], $class;
 
 	return $self;
 }
 
 # Send the request to its destination.
+# TODO - Can we decide whether the target has a method?  Currently
+# doing that in deliver().
+
 sub _send_to_target {
 	my $self = shift;
 	Carp::confess "whoops" unless $self->[REQ_TARGET_STAGE];
@@ -413,6 +418,9 @@ sub init {
 # stage, so req is the request that invoked the method, and rsp is
 # zero because there's no downward path from here.
 #
+# The $method parameter seems to be used mainly by watchers and stuff
+# with particular methods in mind.
+#
 # TODO - Rename _deliver since this is a friend method.
 
 sub deliver {
@@ -425,7 +433,22 @@ sub deliver {
 
 	$target_stage_tied->_set_req_rsp($delivery_req, 0);
 
-	my $target_method = $method || $self->[REQ_TARGET_METHOD];
+	# At this point we decide the final method.
+	my $target_method;
+	if ($method) {
+		$target_method = $method;
+	}
+	else {
+		$target_method = $self->[REQ_TARGET_METHOD];
+		$target_method =~ s/^(on_)?/on_/;
+		unless ($target_stage->can($target_method)) {
+			$target_method =~ s/^on_//;
+			unless ($target_stage->can($target_method)) {
+				warn "can't figure out where to deliver $target_method";
+			}
+		}
+	}
+
 	$self->_push($self, $target_stage, $target_method);
 
 	$self->_invoke($target_method, $override_args);
@@ -546,7 +569,8 @@ sub _emit {
 	croak "Message must have a type parameter" unless defined $message_type;
 
 	# If the caller has an on_my_$mesage_type method, deliver there
-	# immediately.
+	# immediately.  NB - Roles are not known by the callee, so they
+	# really cannot be included here.
 	my $emitter = $self->[REQ_TARGET_STAGE];
 	my $emitter_method = "on_my_$message_type";
 	if ($emitter->can($emitter_method)) {
@@ -561,11 +585,29 @@ sub _emit {
 		$parent_stage
 	);
 
-	my $message_method = (
-		(exists $self->[REQ_RETURNS]{$message_type})
-		? $self->[REQ_RETURNS]{$message_type}
-		: "unknown_type($message_type)"
-	);
+	# At this point we know the class and message type.  If a specific
+	# "on_$message_type" mapping has been declared, then use it.
+	# Otherwise look for an "on_${message_type}_lc($class)" method.  Use
+	# that if it's available.
+
+	my $message_method;
+	if (exists $self->[REQ_RETURNS]{$message_type}) {
+		$message_method = $self->[REQ_RETURNS]{$message_type};
+	}
+	else {
+		if (defined $self->[REQ_ROLE]) {
+			$message_method = "on_$self->[REQ_ROLE]_$message_type";
+			unless ($parent_stage->can($message_method)) {
+				$message_method = "unknown type=$message_type";
+			}
+		}
+		else {
+			$message_method = "no role for message type=$message_type";
+			# "POE::Request::" = 14
+			my $message_class = lc(substr($class, 14));
+
+		}
+	}
 
 	# Reconstitute the parent's context.
 	my $parent_context;
