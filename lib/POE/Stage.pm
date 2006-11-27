@@ -72,9 +72,16 @@ use POE::Request::Return;
 use POE::Request::Recall;
 use POE::Request qw(REQ_ID);
 
+# Track classes that use() POE::Stage, and methods with explicit
+# :Handler magic (so we don't wrap them twice).
+
+my %subclass;
+
 sub import {
 	my $class = shift;
 	my $caller = caller();
+
+	$subclass{$caller} = { } unless exists $subclass{$caller};
 
 	foreach my $export (@_) {
 		no strict 'refs';
@@ -85,6 +92,28 @@ sub import {
 		}
 
 		*{ $caller . "::$export" } = *{ $class . "::$export" };
+	}
+}
+
+# At CHECK time, find (and wrap) the methods that begin with "on_"
+# with :Handler magic.  If they haven't already been wrapped.
+#
+# But only if they don't already have it.  Must go before
+# Attribute::Handlers is loaded, otherwise A::H's check comes later.
+
+CHECK {
+	foreach my $subclass (sort keys %subclass) {
+		# Never subclassed...
+		# TODO - Would it be good to throw a warning?
+		next unless $subclass->isa(__PACKAGE__);
+
+		no strict 'refs';
+		foreach my $symbol (values %{$subclass . "::"}) {
+			my $name = *{$symbol}{NAME};
+			next unless $name =~ /^on_/;
+			my $sub = *{$symbol}{CODE};
+			_add_handler_magic($subclass, $symbol, $sub);
+		}
 	}
 }
 
@@ -265,11 +294,19 @@ handlers.  Only message handlers have lexical magic.
 
 sub Handler :ATTR(CODE) {
 	my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
+	_add_handler_magic($pkg, $sym, $ref);
+}
+
+sub _add_handler_magic {
+	my ($pkg, $sym, $ref) = @_;
 
 	no strict 'refs';
 	no warnings 'redefine';
 
 	my $sub_name = *{$sym}{NAME};
+
+	return if exists $subclass{$pkg}{$sub_name};
+	$subclass{$pkg}{$sub_name} = 1;
 
 	# FIXME - Appropriate carplevel.
 	# FIXME - Allow anonymous handlers?

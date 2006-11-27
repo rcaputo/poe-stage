@@ -590,6 +590,9 @@ sub _emit {
 	# Otherwise look for an "on_${message_type}_lc($class)" method.  Use
 	# that if it's available.
 
+	# TODO - Method names are looked up and/or created in multiple
+	# places.  This should be unified and standardized.
+
 	my $message_method;
 	if (exists $self->[REQ_RETURNS]{$message_type}) {
 		$message_method = $self->[REQ_RETURNS]{$message_type};

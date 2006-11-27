@@ -38,13 +38,6 @@
 #   of name, then the subclass method catches any upward message
 #   (return or emit).  This allows subclasses to catch "return"
 #   events.
-#
-# TODO - Method names are looked up and/or created in multiple places.
-# This should be cleaned up.
-#
-# TODO - The CHECK-time logic to handle on_ subroutines needs to be
-# put into place.  Currently we must declare :Handler for those
-# routines.
 
 ### Application stage.
 
@@ -60,7 +53,7 @@
 	# The on_ prefix makes it a message handler.  This handler has no
 	# role, which implies that it handles a request from a superstage.
 
-	sub on_run :Handler {
+	sub on_run {
 		my $req_substage = POE::Stage::Something->new();
 		my $self->send_request();
 	}
@@ -82,12 +75,12 @@
 	# next two handlers deal with results from that role.  Their names
 	# fit the pattern "on_${role}_${result_type}".
 
-	sub on_make_me_a_sandwich_success :Handler {
+	sub on_make_me_a_sandwich_success {
 		print "Got a sandwich!  Asking for another...\n";
 		my $self->send_request();
 	}
 
-	sub on_make_me_a_sandwich_failure :Handler {
+	sub on_make_me_a_sandwich_failure {
 		print "No sandwich?  Ask for it again...\n";
 		my $self->send_request();
 	}
@@ -105,7 +98,7 @@
 	# handling.  Therefore on_make_me_a_sandwich_blort() will never be
 	# called.
 
-	sub on_make_me_a_sandwich_blort :Handler {
+	sub on_make_me_a_sandwich_blort {
 		die "This is not happening";
 	}
 }
@@ -120,7 +113,7 @@
 
 	use POE::Stage qw(:base);
 
-	sub on_something :Handler {
+	sub on_something {
 		my $req->return(
 			type => ((rand() < 0.1) ? "failure" : "success"),
 		);
