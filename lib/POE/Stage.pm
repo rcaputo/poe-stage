@@ -2,26 +2,26 @@
 
 =head1 NAME
 
-POE::Stage - a proposed base class for formalized POE components
+POE::Stage - a base class for message-driven objects
 
 =head1 SYNOPSIS
 
-	# Note, this is not a complete program.
-	# See the distribution's examples directory.
-
-	my $stage = POE::Stage::Subclass->new();
-
-	my $request = POE::Request->new(
-		stage   => $stage,            # Invoke this stage
-		method  => "method_name",     # calling this method
-		args    => \%parameter_pairs, # with these parameters.
-	);
+	#!/usr/bin/env perl
+	{
+		package App;
+		use POE::Stage::App qw(:base);
+		sub on_run {
+			print "hello, ", my $arg_whom, "!\n";
+		}
+	}
+	App->run( whom => "world" );
+	exit;
 
 =head1 DESCRIPTION
 
-POE::Stage is a proposed base class for POE components.  It implements
-some of the most common design patterns that have arisen during
-several years of POE::Component development.
+POE::Stage is a base class for message-driven objects.  It implements
+some of the most common design patterns that have arisen during years
+of POE::Component development.
 
 Complex programs generally perform their tasks in multiple stages.
 For example, a web request is performed in four distinct stages: 1.
@@ -78,8 +78,11 @@ use POE::Request qw(REQ_ID);
 my %subclass;
 
 sub import {
-	my $class = shift;
+	my $class = shift();
 	my $caller = caller();
+
+	strict->import();
+	warnings->import();
 
 	$subclass{$caller} = { } unless exists $subclass{$caller};
 
@@ -190,7 +193,7 @@ sub _get_session_id {
 As a base class, POE::Stage must reserve a small number of methods for
 its own.
 
-=head2 new ARGEMENT_PAIRS
+=head2 new ARGUMENT_PAIRS
 
 Create and return a new POE::Stage object, optionally passing
 name/value ARGUMENT_PAIRS to the new stage's init() callback.  See the
@@ -707,8 +710,9 @@ here.
 
 =head1 BUGS
 
-See http://thirdlobe.com/projects/poe-stage/report/1 for known issues.
-See http://thirdlobe.com/projects/poe-stage/newticket to report one.
+See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
+issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
+report a problem.
 
 POE::Stage is too young for production use.  For example, its syntax
 is still changing.  You probably know what you don't like, or what you
@@ -719,9 +723,9 @@ to usability.  We appreciate it.
 
 =head1 SEE ALSO
 
-POE::Request is the class that defines inter-stage messages.
-POE::Watcher is the base class for event watchers, without which
-POE::Stage won't run very well.
+POE::Stage is the base class for message-driven objects.
+POE::Request is the base class for POE::Stage messages.
+POE::Watcher is the base class for event watchers.
 
 L<http://thirdlobe.com/projects/poe-stage/> - POE::Stage is hosted
 here.
