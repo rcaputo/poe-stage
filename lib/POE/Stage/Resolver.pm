@@ -48,9 +48,6 @@ tails of them will require perusal of Net::DNS's documentation.
 
 package POE::Stage::Resolver;
 
-use warnings;
-use strict;
-
 use POE::Stage qw(:base self req);
 use POE::Watcher::Delay;
 use Net::DNS::Resolver;

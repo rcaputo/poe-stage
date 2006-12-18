@@ -5,19 +5,13 @@
 # of parallel requests.  This example exercises the system's ability
 # to manage and track multiple consumer requests to a single producer.
 
-use warnings;
-use strict;
-
 {
 	package App;
 
-	use warnings;
-	use strict;
-
-	use POE::Stage qw(:base self);
+	use POE::Stage::App qw(:base self);
 	use POE::Stage::Resolver;
 
-	sub run :Handler {
+	sub on_run {
 
 		# Start a handful of initial requests.
 		for (1..5) {
@@ -92,13 +86,7 @@ use strict;
 
 # Main program.
 
-my $app = App->new();
-my $req = POE::Request->new(
-	stage    => $app,
-	method   => "run",
-);
-
-POE::Kernel->run();
+App->run();
 exit;
 
 __DATA__

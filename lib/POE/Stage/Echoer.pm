@@ -43,9 +43,6 @@ Echoer is the first of hopefully many message-routing stages.
 
 package POE::Stage::Echoer;
 
-use warnings;
-use strict;
-
 use POE::Stage qw(:base req);
 
 =head1 PUBLIC COMMANDS

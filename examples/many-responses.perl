@@ -3,25 +3,24 @@
 
 # Illustrate the pattern of many responses for one request.
 
-use warnings;
-use strict;
+# We cannot use App->run() here because the main App receives many
+# requests before the main loop starts.  In light of the new syntax,
+# we probably should have a single App->run() entry point that fires
+# all the requests rather than doing it from package main.
 
 {
 	# The application is itself a POE::Stage;
 
 	package App;
 
-	use warnings;
-	use strict;
-
 	use POE::Stage::Ticker;
-	use POE::Stage qw(:base self);
+	use POE::Stage::App qw(:base self);
 
 	sub init :Handler {
 		my $self_name = my $arg_name;
 	}
 
-	sub run :Handler {
+	sub on_run {
 		my ($arg_name, $arg_interval);
 
 		my $req_ticker = POE::Stage::Ticker->new();
@@ -63,7 +62,7 @@ my $app_1 = App->new( name => "app_one" );
 
 my $req_1_1 = POE::Request->new(
 	stage   => $app_1,
-	method  => "run",
+	method  => "on_run",
 	args    => {
 		name  => "req_one",
 	},
@@ -71,7 +70,7 @@ my $req_1_1 = POE::Request->new(
 
 my $req_1_2 = POE::Request->new(
 	stage   => $app_1,
-	method  => "run",
+	method  => "on_run",
 	args    => {
 		name  => "req_two",
 	},
@@ -81,7 +80,7 @@ my $app_2 = App->new( name => "app_two" );
 
 my $req_2 = POE::Request->new(
 	stage   => $app_2,
-	method  => "run",
+	method  => "on_run",
 	args    => {
 		name  => "req_one",
 	},
@@ -89,7 +88,7 @@ my $req_2 = POE::Request->new(
 
 my $req_2_2 = POE::Request->new(
 	stage   => $app_2,
-	method  => "run",
+	method  => "on_run",
 	args    => {
 		name  => "req_two",
 	},

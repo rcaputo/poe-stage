@@ -4,21 +4,15 @@
 # This is a second version of the UDP peer code.  I've abstracted the
 # original example into POE::Stage::Receiver.
 
-use warnings;
-use strict;
-
 {
 	# The application is itself a POE::Stage;
 
 	package App;
 
-	use warnings;
-	use strict;
-
-	use POE::Stage qw(:base rsp expose);
+	use POE::Stage::App qw(:base rsp expose);
 	use POE::Stage::Receiver;
 
-	sub run :Handler {
+	sub on_run {
 		my $arg_bind_port;
 
 		# TODO - The next two statements seem unnecessarily cumbersome.
@@ -57,22 +51,10 @@ use strict;
 	}
 }
 
-# TODO - Perhaps a magical App->run() could encapsulate the standard
-# instantiation, initial requesting, and loop execution that goes on
-# here.
+# Main code.
 
 my $bind_port = 8675;
 
-my $app = App->new();
-my $req = POE::Request->new(
-	stage       => $app,
-	method      => "run",
-	args        => {
-		bind_port => $bind_port,
-	},
-);
-
 print "You need a udp client like netcat: nc -u localhost $bind_port\n";
-
-POE::Kernel->run();
+App->run( bind_port => $bind_port );
 exit;

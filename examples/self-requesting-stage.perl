@@ -8,8 +8,6 @@
 
 {
 	package SelfRequester;
-	use warnings;
-	use strict;
 	use POE::Stage qw(:base self);
 	use POE::Watcher::Delay;
 
@@ -71,11 +69,9 @@
 
 {
 	package App;
-	use warnings;
-	use strict;
-	use POE::Stage qw(:base self);
+	use POE::Stage::App qw(:base self);
 
-	sub run {
+	sub on_run {
 		warn 3;
 		self->spawn_requester();
 	}
@@ -98,20 +94,6 @@
 }
 
 package main;
-use warnings;
-use strict;
 
-my $app = App->new();
-my $req = POE::Request->new(
-	stage   => $app,
-	method  => "run",
-);
-
-# Trap SIGINT and make it exit gracefully.  Problems in destructor
-# timing will become apparent when warnings in them say "during global
-# destruction."
-
-$SIG{INT} = sub { warn "sigint"; exit };
-
-POE::Kernel->run();
+App->run();
 exit;

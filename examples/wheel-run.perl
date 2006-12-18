@@ -5,15 +5,12 @@
 
 {
 	package App;
-	use warnings;
-	use strict;
-
 	use lib qw(./lib ../lib);
-	use POE::Stage qw(:base);
+	use POE::Stage::App qw(:base);
 	use POE::Watcher::Wheel::Run;
 	use POE::Filter::Line;
 
-	sub run :Handler {
+	sub on_run :Handler {
 		my $req_process = POE::Watcher::Wheel::Run->new(
 			Program      => "$^X -wle 'print qq[pid(\$\$) moo(\$_)] for 1..10; exit'",
 			StdoutMethod => "handle_stdout",
@@ -34,21 +31,10 @@
 }
 
 package main;
-use warnings;
-use strict;
 
-my $app = App->new();
-my $req = POE::Request->new(
-	stage   => $app,
-	method  => "run",
-);
-
-# Trap SIGINT and make it exit gracefully.  Problems in destructor
-# timing will become apparent when warnings in them say "during global
-# destruction."
-
+# Avoid POE messages:
+# !!! Child process PID:20840 reaped:
 $SIG{CHLD} = "IGNORE";
-$SIG{INT} = sub { warn "sigint"; exit };
 
-POE::Kernel->run();
+App->run();
 exit;

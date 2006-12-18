@@ -3,15 +3,10 @@
 
 # Test out the syntax for a TCP listener stage.
 
-use warnings;
-use strict;
 use lib qw(./lib ../lib);
 
 {
 	package POE::Stage::Listener;
-
-	use warnings;
-	use strict;
 
 	use POE::Stage qw(:base self req);
 
@@ -91,9 +86,6 @@ use lib qw(./lib ../lib);
 {
 	package POE::Stage::EchoSession;
 
-	use warnings;
-	use strict;
-
 	use POE::Stage qw(:base self req);
 
 	sub init :Handler {
@@ -135,7 +127,12 @@ use lib qw(./lib ../lib);
 		my $req_input_watcher;
 		unless ($ret) {
 			return if $! == EAGAIN or $! == EWOULDBLOCK;
-			warn "read error: $!";
+			if ($!) {
+				warn "read error: $!";
+			}
+			else {
+				warn "remote closed connection";
+			}
 			$req_input_watcher = undef;
 			return;
 		}
@@ -163,9 +160,6 @@ use lib qw(./lib ../lib);
 {
 	package POE::Stage::EchoServer;
 
-	use warnings;
-	use strict;
-
 	use Scalar::Util qw(weaken);
 	use base qw(POE::Stage::Listener);
 
@@ -182,18 +176,29 @@ use lib qw(./lib ../lib);
 	}
 }
 
-my $app = POE::Stage::EchoServer->new(
-	socket => IO::Socket::INET->new(
-		LocalAddr => "127.0.0.1",
-		LocalPort => 31415,
-		ReuseAddr => "yes",
-	),
-);
+# The application starts an echo server based on parameters given to
+# it.
 
-sub moo {
+{
+	package App;
+	use POE::Stage::App qw(:base);
+	sub on_run {
+		my $req_server = POE::Stage::EchoServer->new(
+			socket => IO::Socket::INET->new(
+				LocalAddr => my $arg_bind_addr,
+				LocalPort => my $arg_bind_port,
+				ReuseAddr => "yes",
+			),
+		);
+
+		print "To connect to this echo server: telnet localhost 31415\n";
+	}
 }
 
-POE::Kernel->run();
+App->run(
+	bind_addr => "127.0.0.1",
+	bind_port => 31415,
+);
 exit;
 
 __END__

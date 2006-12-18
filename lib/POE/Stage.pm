@@ -94,7 +94,17 @@ sub import {
 			next;
 		}
 
-		*{ $caller . "::$export" } = *{ $class . "::$export" };
+		# If $class can't supply $export, check for it from __PACKAGE__.
+
+		my $which = $class;
+		unless (defined *{$which . "::$export"}) {
+			$which = __PACKAGE__;
+		}
+		unless (defined *{$which . "::$export"}) {
+			croak "Neither $class nor ", __PACKAGE__, " export $export";
+		}
+
+		*{ $caller . "::$export" } = *{ $which . "::$export" };
 	}
 }
 

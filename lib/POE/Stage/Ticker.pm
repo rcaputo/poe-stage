@@ -31,11 +31,7 @@ POE::Stage::Ticker emits recurring messages at a fixed interval.
 
 package POE::Stage::Ticker;
 
-use warnings;
-use strict;
-
 use POE::Stage qw(:base self req);
-
 use POE::Watcher::Delay;
 
 =head1 PUBLIC COMMANDS

@@ -46,9 +46,6 @@ small number of message types: datagram, recv_error, and send_error.
 
 package POE::Stage::Receiver;
 
-use warnings;
-use strict;
-
 use POE::Stage qw(:base req);
 
 use POE::Watcher::Input;

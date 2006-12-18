@@ -3,17 +3,10 @@
 
 # Simple call and return in POE::Stage.
 
-use warnings;
-use strict;
-use POE::Stage;
-
 # Define a simple class that does something and returns a value.
 
 {
 	package Helper;
-
-	use warnings;
-	use strict;
 	use POE::Stage qw(:base self req);
 
 	sub do_something :Handler {
@@ -27,12 +20,9 @@ use POE::Stage;
 
 {
 	package App;
+	use POE::Stage::App qw(:base expose);
 
-	use warnings;
-	use strict;
-	use POE::Stage qw(:base expose);
-
-	sub call_helper :Handler {
+	sub on_run {
 		my $req_helper = Helper->new();
 		my $req_helper_request = POE::Request->new(
 			stage     => $req_helper,
@@ -91,15 +81,7 @@ use POE::Stage;
 
 # Create and start the application.
 
-my $app = App->new();
-my $req = POE::Request->new(
-	stage => $app,
-	method  => "call_helper",
-);
-
-# TODO - Abstract this.
-
-POE::Kernel->run();
+App->run();
 exit;
 
 __END__

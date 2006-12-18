@@ -4,24 +4,10 @@
 # Show how lexical aliasing works in subs with the :Handler attribute.
 # Sample run output is after __END__.
 
-use warnings;
-use strict;
-
 # Every application needs at least one POE::Stage object, and an
 # initial request must be fired at it to get things rolling.
 
-my $app = ExampleApp->new();
-my $req = POE::Request->new(
-	stage => $app,
-	method => "run",
-);
-
-# The abstraction is not complete, however.  The base POE framework
-# still peeks through cracks in the facade.  Here POE's main loop is
-# started so that the program can run.  run() will return when all
-# requests have ended.
-
-POE::Kernel->run();
+ExampleApp->run();
 exit;
 
 # The example application.  It highlights POE::Stage's syntactical
@@ -39,9 +25,9 @@ exit;
 	# They're used for method calls on those objects, in cases where you
 	# don't want to declare $self, $req, or $rsp.
 
-	use POE::Stage qw(:base self req expose);
+	use POE::Stage::App qw(:base self req expose);
 
-	sub run :Handler {
+	sub on_run {
 
 		# Variables with the self_ prefix expose members of the current
 		# POE::Stage object.  $self_foo is the scalar member '$foo'.  The
