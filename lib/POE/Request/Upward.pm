@@ -10,15 +10,20 @@ POE::Request::Upward - internal base class for POE::Stage response messages
 
 =head1 DESCRIPTION
 
+POE::Stage messages are generally asynchronous, which means that
+multiple "calls" can be in play at once.  To track them, POE::Stage
+uses a call tree rather than a call stack.
+
 POE::Request::Upward is a base class for POE::Request messages that
-flow up from sub-stages to their parents.  Both POE::Request::Emit and
+flow up from sub-stages (closer to leaf nodes) to their parents
+(closer to the root node).  Both POE::Request::Emit and
 POE::Request::Returns are subclasses of POE::Request::Upward.
 
 The Emit and Return message classes share a lot of common code.  That
 code has been hoisted into this base class.
 
-Upward messages are automatically created as a side effect of calling
-POE::Request's emit() and return() methods.
+Upward messages are automatically created and dispatched as a side
+effect of calling POE::Request's emit() and return() methods.
 
 =cut
 
@@ -50,7 +55,7 @@ use constant DEBUG => 0;
 
 These methods are called directly on the class or object.
 
-=head2 new PAIRS
+=head2 new ARGUMENT_PAIRS
 
 POE::Request::Upward's new() constructor is almost always called
 internally by POE::Request->emit() or POE::Request->return().  Most
@@ -61,7 +66,7 @@ POE::Request::Upward has one mandatory parameter: "type".  This
 defines the type of response being created.  If specified, the
 optional "args" parameter must contain a hashref with response
 payloads.  The contents of "args" are passed unchanged to the
-response's handler as $arg_ lexicals.
+response's handler as lexicals with names prefixed by "arg_".
 
 Response types are mapped to methods in the original requester's stage
 through POE::Request's "on_$type" parameters.  In this example,
@@ -69,9 +74,9 @@ responses of type "success" are mapped to the requester's
 continue_on() method.  Likewise "error" responses are mapped to the
 requester's log_and_stop() method.
 
-	my $foo :Req = POE::Request->new(
-		stage       => $some_stage_object,
-		method      => "some_method_name",
+	my $req_connect = POE::Request->new(
+		stage       => $tcp_client,
+		method      => "connect",
 		on_success  => "continue_on",
 		on_error    => "log_and_stop",
 	);
@@ -95,6 +100,33 @@ messages (although we're not sure yet):
 			errstr    => "$!",
 		},
 	);
+
+Optionally, POE::Request objects may contain roles.  Responses come
+back as "on_${role}_${type}" messages.  For example, one stage might
+call another (a socket "factory") to create a TCP client socket.  In
+this example, the call's role is "connect", and the two previous
+return() calls are used to return a socket on success or error info on
+failure:
+
+	my $req_connect = POE::Request->new(
+		stage       => $tcp_client,
+		method      => "connect",
+		role        => "connect",
+	);
+
+If the factor returns "success", the on_connect_success() method will
+be called upon to handle it:
+
+	sub on_connect_success {
+		my $arg_socket;  # contains the "socket" argument
+	}
+
+Likewise, on_connect_failure() will be called if the connection
+failed:
+
+	sub on_connect_failure {
+		my ($arg_function, $arg_errno, $arg_errstr);
+	}
 
 =cut
 
@@ -234,6 +266,8 @@ to usability.  We appreciate it.
 POE::Request::Upward has two subclasses: L<POE::Request::Emit> for
 emitting multiple responses to a single request, and
 L<POE::Request::Return> for sending a final response to end a request.
+
+POE::Request::Upward inherits from L<POE::Request>.
 
 =head1 AUTHORS
 

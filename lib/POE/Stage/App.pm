@@ -36,11 +36,13 @@ POE::Stage::App exists to provide a single method: run().
 
 =head2 run ARGUMENT_PAIRS
 
-run() instantiates the application, sends the application an "on_run"
-message, and starts the main dispatch loop.  The ARGUMENT_PAIRS given
-to run() are passed as parameters to the "on_run" message.  run() will
-not return until the application is finished.  Most examples follow
-run() with C<exit> as a reminder of this fact.
+run() instantiates the application, sends a message to its "on_run"
+method, and starts the framework's main dispatch loop.  The
+ARGUMENT_PAIRS given to App->run(...) are passed as parameters to the
+application's on_run() method.
+
+run() will not return until the application is finished.  Most
+examples follow run() with C<exit> as a reminder of this fact.
 
 =cut
 

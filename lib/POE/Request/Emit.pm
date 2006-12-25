@@ -9,24 +9,25 @@ POE::Request::Emit - encapsulates non-terminal replies to POE::Request
 	# Note, this is not a complete program.
 	# See the distribution's examples directory.
 
-	$poe_request_object->emit(
-		type        => "failure",
-		args        => {
-			function  => "connect",
-			errnum    => $!+0,
-			errstr    => "$!",
-		},
-	);
+	sub do_something :Handler {
+		my $req; # current request
+		$req->emit(
+			type    => "pending",
+			args    => {
+				retry => $retry_number,
+			}
+		);
+	}
 
 =head1 DESCRIPTION
 
-A POE::Request::Emit object is used to send an intermediate response
-to a request.  It is internally created and sent when a stage calls
-$self->{req}->emit(...).
+POE::Request::Emit objects are used to send intermediate responses to
+stages that have requested something.  It's used internally by
+POE::Request's emit() method.
 
-An emitted reply does not cancel the request it is in response to.  A
-stage may therefore emit multiple messages for a single request,
-finally calling return() or cancel() to end the request.
+Emitted replies do not cancel the requests they respond to.  A stage
+may therefore emit() multiple messages for a single request, finally
+calling return() or cancel() to end the request.
 
 =cut
 
@@ -53,18 +54,21 @@ sub _init_subclass {
 
 =head2 recall PAIRS
 
-The stage receiving an emit()ted message may invoke its recall()
-method to continue the dialogue after emit().  recall() sends a new
-POE::Request::Recall message back to the stage that called emit().  In
-this way, emit() and recall() can be used to continue a persistent
-two-way dialogue.
+The stage receiving an emit()ted message may invoke recall() on that
+message.  The recall() method sends another message back to the
+session that called emit().  Both emit() and recall() may be used
+multiple times to implement an ongoing, two-way dialogue between a
+requesting stage and the stage it's called.
 
 Once constructed, the recall message is automatically sent to the
 source of the POE::Request::Emit object.
 
-The PAIRS of parameters to recall() are for the most part passed
-through to POE::Request::Recall's constructor.  You'll need to see
-POE::Request::Recall for details about recall messages.
+recall() creates and automatically sends a POE::Request::Recall object
+to the session that sent the POE::Request::Emit object.  The PAIRS are
+named parameters, which will be received as arguments to the
+receiving stage's handler method.
+
+See POE::Request::Recall for more discussion about recall messages.
 
 =cut
 
@@ -116,7 +120,8 @@ to usability.  We appreciate it.
 
 =head1 SEE ALSO
 
-L<POE::Request>, L<POE::Request::Recall>, and probably L<POE::Stage>.
+L<POE::Request>, L<POE::Request::Upward>, L<POE::Request::Recall>, and
+probably L<POE::Stage>.
 
 =head1 AUTHORS
 

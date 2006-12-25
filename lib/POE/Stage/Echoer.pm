@@ -28,14 +28,7 @@ POE::Stage::Echoer - a stage that echoes back whatever it's given
 
 =head1 DESCRIPTION
 
-POE::Stage::Echoer receives messages through its echo() method.
-echo() sends back the contents of its "message" parameter as the
-"echo" parameter of an "echo" response message.
-
-Ok, that's confusing.  Perhaps the SYNOPSIS is clearer?
-
-TODO - It would be nice to have a documentation convention for this
-sort of thing.
+POE::Stage::Echoer echoes back the messages it receives.
 
 Echoer is the first of hopefully many message-routing stages.
 
@@ -49,12 +42,17 @@ use POE::Stage qw(:base req);
 
 Commands are invoked with POE::Request objects.
 
+TODO - Public methods?  Careful here: "method" implies a direct call.
+
 =head2 echo message => SCALAR
 
 Receives a scalar "message" parameter whose contents will be echoed
-back to the sender.  The message is echoed with a return of type
-"echo".  The return message's "echo" parameter contains the original
-message.
+back to the sender in an "echo"-typed return.
+
+Ok, that's confusing.  Perhaps the SYNOPSIS is clearer?
+
+TODO - It would be nice to have a documentation convention for this
+sort of thing.
 
 =cut
 
@@ -72,7 +70,7 @@ sub echo :Handler {
 
 =head1 PUBLIC RESPONSES
 
-Responses are returned by POE::Request->return() or emit().
+Responses are returned by POE::Request->return() and/or emit().
 
 =head2 "echo" (echo => SCALAR)
 

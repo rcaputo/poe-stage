@@ -21,11 +21,9 @@ POE::Request::Return - encapsulates final replies to POE::Request messages
 
 =head1 DESCRIPTION
 
-A POE::Request::Return message is used to send a final response to a
-request.  It is internally created and sent when a stage calls
-$req->return(...).  Part of return()'s purpose is to end the request
-it replies to, invalidating any further dialog associated with the
-request.
+POE::Request::Return objects are used internally to encapsulate
+messages sent by $some_request->return(...).  Returned messages end
+their transactions.
 
 =cut
 
@@ -71,7 +69,8 @@ to usability.  We appreciate it.
 POE::Request::Return is comprised almost entirely of
 POE::Request::Upward's features.  You should see
 L<POE::Request::Upward> for a deeper understanding of
-POE::Request::Return.
+POE::Request::Return, and L<POE::Request> for a more in-depth
+discussion of POE requests in general.
 
 =head1 AUTHORS
 

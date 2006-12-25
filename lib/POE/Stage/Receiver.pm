@@ -36,11 +36,12 @@ POE::Stage::Receiver - a simple UDP recv/send component
 
 =head1 DESCRIPTION
 
-POE::Stage::Receiver is a simple UDP receiver/sender stage.  Not only
-is it easy to use, but it also rides the short bus for now.
+POE::Stage::Receiver is a simple UDP receiver/sender stage.  It's
+simple, partly because it's incomplete.
 
-Receiver has two public methods: listen() and send().  It emits a
-small number of message types: datagram, recv_error, and send_error.
+POE::Stage::Receiver has two public methods: listen() and send().  It
+emits a small number of message types: datagram, recv_error, and
+send_error.
 
 =cut
 
@@ -59,8 +60,8 @@ Commands are invoked with POE::Request objects.
 =head2 listen bind_port => INTEGER
 
 Bind to a port on all local interfaces and begin listening for
-datagrams.  The listen request should also map POE::Stage::Receiver's
-message types to appropriate handlers.
+datagrams.  Per the SYNOPSIS, the listen request should also map
+POE::Stage::Receiver's message types to appropriate handlers.
 
 =cut
 
@@ -77,11 +78,11 @@ sub listen :Handler {
 
 	my $req_udp_watcher = POE::Watcher::Input->new(
 		handle    => $req_socket,
-		on_input  => "handle_input"
+		on_input  => "_handle_input"
 	);
 }
 
-sub handle_input :Handler {
+sub _handle_input :Handler {
 	my ($self, $args) = @_;
 
 	my $req_socket;
@@ -143,11 +144,11 @@ sub send :Handler {
 
 =head1 PUBLIC RESPONSES
 
-Responses are returned by POE::Request->return() or emit().
+Here's what POE::Stage::Resolver will send back.
 
 =head2 "datagram" (datagram, remote_address)
 
-POE::Stage::Receiver emits a message of "datagram" type whenever it
+POE::Stage::Receiver emits a "datagram" message whenever it
 successfully recv()s a datagram from some remote peer.  The datagram
 message includes two parameters: "datagram" contains the received
 data, and "remote_address" contains the address that sent the
@@ -156,17 +157,39 @@ datagram.
 Both parameters can be passed back to the POE::Stage::Receiver's
 send() method, as is done in the SYNOPSIS.
 
+	sub on_datagram {
+		my ($arg_datagram, $arg_remote_address);
+		my $output = function_of($arg_datagram);
+		my $req->recall(
+			method => "send",
+			args => {
+				remote_address => $arg_remote_address,
+				datagram => $output,
+			}
+		);
+	}
+
 =head2 "recv_error" (errnum, errstr)
 
 The stage encountered an error receiving from a peer.  "errnum" is the
 numeric form of $! after recv() failed.  "errstr" is the error's
 string form.
 
+	sub on_recv_error {
+		goto &on_send_error;
+	}
+
 =head2 "send_error" (errnum, errstr)
 
 The stage encountered an error receiving from a peer.  "errnum" is the
 numeric form of $! after send() failed.  "errstr" is the error's
 string form.
+
+	sub on_send_error {
+		my ($arg_errnum, $arg_errstr);
+		warn "Error $arg_errnum : $arg_errstr.  Shutting down.\n";
+		my $req_receiver = undef;
+	}
 
 =head1 BUGS
 

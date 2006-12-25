@@ -873,12 +873,11 @@ See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
 issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
 report a problem.
 
-POE::Stage is too young for production use.  For example, its syntax
-is still changing.  You probably know what you don't like, or what you
-need that isn't included, so consider fixing or adding that, or at
-least discussing it with the people on POE's mailing list or IRC
-channel.  Your feedback and contributions will bring POE::Stage closer
-to usability.  We appreciate it.
+POE::Stage is not ready for production.  You can safely assume that it
+won't be as long as the BUGS section says so.  For example,
+POE::Stage's syntax is changing rapidly and in ways that aren't
+necessarily backwards compatible.  Please let the author know how he's
+doing.  Your feedback is really helpful.
 
 =head1 SEE ALSO
 

@@ -41,8 +41,8 @@ POE::Stage::Resolver - a simple non-blocking DNS resolver
 
 POE::Stage::Resolver is a simple non-blocking DNS resolver.  For now
 it uses Net::DNS::Resolver for the bulk of its work.  It returns
-Net::DNS::Packet objects in its "success" responses.  Making heads or
-tails of them will require perusal of Net::DNS's documentation.
+Net::DNS::Packet objects in its "success" responses.  Please see the
+documentation for Net::DNS.
 
 =cut
 
@@ -64,8 +64,8 @@ Creates a POE::Stage::Resolver instance and asks it to resolve some
 INPUT into records of a given CLASS and TYPE.  CLASS and TYPE default
 to "IN" and "A", respectively.
 
-When complete, the stage will return either a "success" or an "error"
-message.
+When complete, the stage will respond with either a "success" or an
+"error" message.
 
 =cut
 
