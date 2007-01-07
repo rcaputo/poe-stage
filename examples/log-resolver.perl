@@ -86,7 +86,7 @@
 
 # Main program.
 
-App->run();
+App->new()->run();
 exit;
 
 __DATA__

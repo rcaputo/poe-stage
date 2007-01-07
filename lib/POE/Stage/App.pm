@@ -14,7 +14,7 @@ POE::Stage::App - a base class for POE::Stage applications
 			print "hello, ", my $arg_whom, "!\n";
 		}
 	}
-	App->run( whom => "world" );
+	App->new->run( whom => "world" );
 	exit;
 
 =head1 DESCRIPTION
@@ -47,10 +47,9 @@ examples follow run() with C<exit> as a reminder of this fact.
 =cut
 
 sub run {
-	my ($class, @args) = @_;
-	my $app_stage = $class->new();
+	my ($self, @args) = @_;
 	my $main_request = POE::Request->new(
-		stage => $app_stage,
+		stage => $self,
 		method => "on_run",
 		args => { @args },
 	);

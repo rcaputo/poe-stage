@@ -51,5 +51,5 @@
 
 # Main code!
 
-App->run();
+App->new()->run();
 exit;

@@ -6,5 +6,5 @@
 		print "hello, ", my $arg_whom, "!\n";
 	}
 }
-App->run( whom => "world" );
+App->new()->run( whom => "world" );
 exit;

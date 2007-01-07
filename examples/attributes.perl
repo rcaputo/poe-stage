@@ -7,7 +7,7 @@
 # Every application needs at least one POE::Stage object, and an
 # initial request must be fired at it to get things rolling.
 
-ExampleApp->run();
+ExampleApp->new()->run();
 exit;
 
 # The example application.  It highlights POE::Stage's syntactical

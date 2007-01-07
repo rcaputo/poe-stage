@@ -195,7 +195,7 @@ use lib qw(./lib ../lib);
 	}
 }
 
-App->run(
+App->new()->run(
 	bind_addr => "127.0.0.1",
 	bind_port => 31415,
 );

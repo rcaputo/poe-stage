@@ -81,7 +81,7 @@
 
 # Create and start the application.
 
-App->run();
+App->new()->run();
 exit;
 
 __END__

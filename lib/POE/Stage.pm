@@ -14,7 +14,7 @@ POE::Stage - a base class for message-driven objects
 			print "hello, ", my $arg_whom, "!\n";
 		}
 	}
-	App->run( whom => "world" );
+	App->new()->run( whom => "world" );
 	exit;
 
 =head1 DESCRIPTION

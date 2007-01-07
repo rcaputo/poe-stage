@@ -95,5 +95,5 @@
 
 package main;
 
-App->run();
+App->new()->run();
 exit;

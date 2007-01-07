@@ -36,5 +36,5 @@ package main;
 # !!! Child process PID:20840 reaped:
 $SIG{CHLD} = "IGNORE";
 
-App->run();
+App->new()->run();
 exit;

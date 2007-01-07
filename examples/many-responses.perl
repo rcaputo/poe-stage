@@ -3,10 +3,10 @@
 
 # Illustrate the pattern of many responses for one request.
 
-# We cannot use App->run() here because the main App receives many
-# requests before the main loop starts.  In light of the new syntax,
-# we probably should have a single App->run() entry point that fires
-# all the requests rather than doing it from package main.
+# We cannot use App->new()->run() here because the main App receives
+# many requests before the main loop starts.  In light of the new
+# syntax, we probably should have a single App->run() entry point that
+# fires all the requests rather than doing it from package main.
 
 {
 	# The application is itself a POE::Stage;
@@ -49,14 +49,6 @@
 		);
 	}
 }
-
-# TODO - Perhaps a magical App->run() could encapsulate the standard
-# instantiation, initial requesting, and loop execution that goes on
-# here.
-#
-# Although then it doesn't let us do sick things like
-# multi-instantiate the application and fire off multiple startup
-# events... :]
 
 my $app_1 = App->new( name => "app_one" );
 

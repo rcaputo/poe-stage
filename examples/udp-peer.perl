@@ -56,5 +56,5 @@
 my $bind_port = 8675;
 
 print "You need a udp client like netcat: nc -u localhost $bind_port\n";
-App->run( bind_port => $bind_port );
+App->new()->run( bind_port => $bind_port );
 exit;
