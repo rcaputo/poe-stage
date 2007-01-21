@@ -69,60 +69,77 @@ When complete, the stage will respond with either a "success" or an
 
 =cut
 
-sub init :Handler {
-	# TODO - Need an idiom to avoid direct $_[1] manipulation.
-
-	# Fire off a request automatically as part of creation.
-	my $passthrough_args = delete($_[1]{args}) || {};
-
-	my $req_init_req = POE::Request->new(
-		stage   => self,
-		method  => "resolve",
-		%{$_[1]},
-		args    => { %$passthrough_args },
-	);
-
-	my $self_resolver = Net::DNS::Resolver->new();
-}
-
 sub resolve :Handler {
-	my $self_type = my $arg_type; $self_type ||= "A";
-	my $self_class = my $arg_class; $self_class ||= "IN";
-	my $self_input = my $arg_input;
-	$self_input || croak "Resolver requires input";
+	# Set up aspects of this request.
+	my $req_type  = my $arg_type; $req_type ||= "A";
+	my $req_class = my $arg_class; $req_class ||= "IN";
+	my $req_input = my $arg_input;
+	$req_input || croak "Resolver requires input";
 
-	my $self_resolver;
-	my $self_socket = $self_resolver->bgsend(
-		$self_input,
-		$self_type,
-		$self_class,
+	# Track pending requests in the object.
+	my $memo_key = join("\t", $req_type, $req_class, $req_input);
+
+	my %self_pending;
+	if (exists $self_pending{$memo_key}) {
+		push @{$self_pending{$memo_key}}, my $req;
+		return;
+	}
+
+	$self_pending{$memo_key} = [ my $req ];
+
+	# There's only one resolver.
+	my $self_resolver ||= Net::DNS::Resolver->new();
+
+	# But it can generate many sockets.
+	my $req_socket = $self_resolver->bgsend(
+		$req_input,
+		$req_type,
+		$req_class,
 	);
 
-	my $self_wait_for_it = POE::Watcher::Input->new(
-		handle    => $self_socket,
+	# Wait for input.
+	my $req_wait_for_it = POE::Watcher::Input->new(
+		handle    => $req_socket,
 		on_input  => "net_dns_ready_to_read",
 	);
 }
 
 sub net_dns_ready_to_read :Handler {
+	my ($req_socket, $self_resolver);
+	my $packet = $self_resolver->bgread($req_socket);
 
-	my ($self_socket, $self_resolver);
-	my $packet = $self_resolver->bgread($self_socket);
+	my ($req_type, $req_class, $req_input);
+	my $memo_key = join("\t", $req_type, $req_class, $req_input);
 
-	my $self_input;
+	my %self_pending;
+	my $requests = delete $self_pending{$memo_key};
+
+	unless (defined $requests) {
+		$self_resolver = undef unless keys %self_pending;
+		$req_socket = undef;
+		my $req_wait_for_it = undef;
+		return;
+	}
+
 	unless (defined $packet) {
-		req->return(
-			type    => "error",
-			args    => {
-				input => $self_input,
-				error => $self_resolver->errorstring(),
-			}
-		);
+		foreach my $pending (@$requests) {
+			$pending->return(
+				type    => "error",
+				args    => {
+					input => $req_input,
+					error => $self_resolver->errorstring(),
+				}
+			);
+		}
+
+		$self_resolver = undef unless keys %self_pending;
+		$req_socket = undef;
+		my $req_wait_for_it = undef;
 		return;
 	}
 
 	unless (defined $packet->answerfrom) {
-		my $answerfrom = getpeername($self_socket);
+		my $answerfrom = getpeername($req_socket);
 		if (defined $answerfrom) {
 			$answerfrom = (unpack_sockaddr_in($answerfrom))[1];
 			$answerfrom = inet_ntoa($answerfrom);
@@ -130,24 +147,20 @@ sub net_dns_ready_to_read :Handler {
 		}
 	}
 
-	req->return(
-		type      => "success",
-		args      => {
-			input   => $self_input,
-			packet  => $packet,
-		},
-	);
+	foreach my $pending (@$requests) {
+		$pending->return(
+			type      => "success",
+			args      => {
+				input   => $req_input,
+				packet  => $packet,
+			},
+		);
+	}
 
-#	# Dump things when we should be done with them.  Originally used to
-#	# find a memory leak in self-requesting stages.
-#	use Data::Dumper;
-#
-#	warn "*********** self :\n";
-#	warn Dumper($self), "\n";
-#	warn Dumper(tied(%{$self->{init_req}}));
-#
-#	delete $self->{init_req};
-#	delete $self->{wait_for_it};
+	$self_resolver = undef unless keys %self_pending;
+	$req_socket = undef;
+		my $req_wait_for_it = undef;
+	return;
 }
 
 1;

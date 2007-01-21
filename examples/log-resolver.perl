@@ -8,22 +8,28 @@
 {
 	package App;
 
-	use POE::Stage::App qw(:base self);
+	use POE::Stage::App qw(:base self expose);
 	use POE::Stage::Resolver;
 
 	sub on_run {
+
+		# Create a single resolver to be used multiple times.
+
+		my $req_resolver = POE::Stage::Resolver->new();
 
 		# Start a handful of initial requests.
 		for (1..5) {
 			my $next_address = read_next_address();
 			last unless defined $next_address;
 
-			self->resolve_address($next_address);
+			self->resolve_address({ addr => $next_address });
 		}
 	}
 
 	sub handle_host :Handler {
 		my ($arg_input, $arg_packet);
+
+		my ($req, $rsp, $rsp_itself);
 
 		my @answers = $arg_packet->answer();
 		foreach my $answer (@answers) {
@@ -33,13 +39,9 @@
 			);
 		}
 
-		# Clean up the one-time Stage.
-		#
-		# TODO - What if this were optional?  If new() were to be called
-		# in void context, the framework could hold onto the stage until
-		# it it called return() or cancel().  Then the framework frees it.
-
-		self->resolve_address(read_next_address());
+		my $next_address = read_next_address();
+		return unless defined $next_address;
+		self->resolve_address({ addr => $next_address });
 	}
 
 	# Handle some error.
@@ -48,7 +50,10 @@
 
 		print "Error: $arg_input = $arg_error\n";
 
-		self->resolve_address(read_next_address());
+		my $next_address = read_next_address();
+		last unless defined $next_address;
+
+		self->resolve_address({ addr => $next_address });
 	}
 
 	# Plain old subroutine.  Doesn't handle events.
@@ -64,23 +69,25 @@
 
 	# Plain old method.  Doesn't handle events.
 	sub resolve_address :Handler {
-		my ($self, $next_address) = @_;
+		my $arg_addr;
+		return unless defined $arg_addr;
 
-		my $req_resolver;
+		my %req_subs;
 
-		unless (defined $next_address) {
-			$req_resolver = undef;
-			return;
-		}
-
-		# Create a self-requesting stage.
-		$req_resolver = POE::Stage::Resolver->new(
+		my $resolve_request = POE::Request->new(
+			stage => my $req_resolver,
+			method => "resolve",
 			on_success  => "handle_host",
 			on_error    => "handle_error",
 			args        => {
-				input     => $next_address,
+				input     => $arg_addr,
 			},
 		);
+
+		expose $resolve_request => my $moo_itself;
+		$moo_itself = $resolve_request;
+
+		$req_subs{$resolve_request} = $resolve_request;
 	}
 }
 
@@ -88,6 +95,9 @@
 
 App->new()->run();
 exit;
+
+# 198.252.144.2
+# 198.175.186.5
 
 __DATA__
 141.213.238.252
@@ -99,8 +109,6 @@ __DATA__
 195.111.64.195
 195.82.114.48
 198.163.214.60
-198.175.186.5
-198.252.144.2
 198.3.160.3
 204.92.73.10
 205.210.145.2

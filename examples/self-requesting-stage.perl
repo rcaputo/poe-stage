@@ -1,6 +1,14 @@
 #!/usr/bin/perl
 # $Id$
 
+die(
+	"* For consistency, on_init(), aka init(), is called in the new\n",
+	"* object's context rather than the creator's context.  Therefore\n",
+	"* it cannot successfully create requests on the creator's behalf.\n",
+	"* Self-requesting stages may be brought back in the future, but\n",
+	"* they currently do not work.\n",
+);
+
 # Create a very simple stage that performs a task and returns a
 # mesage.  The magic here is that the stage makes its own request in
 # init() so the creator isn't required to go through the two-step

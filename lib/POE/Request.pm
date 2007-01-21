@@ -188,10 +188,13 @@ sub DESTROY {
 	my $id = $self->[REQ_ID];
 
 	if (_free_request_id($id)) {
-		tied(%{$self->[REQ_CREATE_STAGE]})->_request_context_destroy($id)
-			if $self->[REQ_CREATE_STAGE];
-		tied(%{$self->[REQ_TARGET_STAGE]})->_request_context_destroy($id)
-			if $self->[REQ_TARGET_STAGE];
+		if ($self->[REQ_CREATE_STAGE]) {
+			tied(%{$self->[REQ_CREATE_STAGE]})->_request_context_destroy($id);
+		}
+
+		if ($self->[REQ_TARGET_STAGE]) {
+			tied(%{$self->[REQ_TARGET_STAGE]})->_request_context_destroy($id);
+		}
 	}
 }
 
@@ -240,7 +243,7 @@ sub _invoke {
 		warn(
 			"\t$self invoking $self->[REQ_TARGET_STAGE] method $method:\n",
 			"\t\tMy req  = ", $tied_target->_get_request(), "\n",
-			"\t\tMy rsp  = ", $tied_target->_get_respones(), "\n",
+			"\t\tMy rsp  = ", $tied_target->_get_response(), "\n",
 			"\t\tPar req = $self->[REQ_PARENT_REQUEST]\n",
 		);
 	};
@@ -343,6 +346,22 @@ TODO - role
 sub new {
 	my ($class, %args) = @_;
 
+	my $self = $class->new_without_send(%args);
+	$self->_send_to_target();
+
+	return $self;
+}
+
+=head2 new_without_send SAME_AS_NEW
+
+A "friend" method used internally to create POE::Request objects
+without automatically sending them to their targets.
+
+=cut
+
+sub new_without_send {
+	my ($class, %args) = @_;
+
 	my $self = $class->_request_constructor(\%args);
 
 	# Gather up the type/method mapping for any responses to this
@@ -385,7 +404,6 @@ sub new {
 	);
 
 	$self->_assimilate_args($args{args} || {});
-	$self->_send_to_target();
 
 	return $self;
 }
@@ -665,7 +683,6 @@ sub _emit {
 	}
 
 	# Reconstitute the parent's context.
-	my $parent_context;
 	my $parent_request = $self->[REQ_PARENT_REQUEST];
 	croak "Cannot emit message: The requester has no context" unless (
 		$parent_request
