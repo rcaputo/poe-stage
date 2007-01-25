@@ -17,6 +17,8 @@
 use warnings;
 use strict;
 
+use lib qw(./lib ../lib);
+
 use Devel::LexAlias qw(lexalias);
 use PadWalker qw(peek_sub);
 

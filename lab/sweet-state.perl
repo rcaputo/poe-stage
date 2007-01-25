@@ -7,6 +7,7 @@
 
 use warnings;
 use strict;
+use lib qw(./lib ../lib);
 use base qw(SweetState);
 use Time::HiRes qw(time);
 

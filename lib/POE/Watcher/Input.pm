@@ -98,7 +98,6 @@ sub new {
 
 sub DESTROY {
 	my $self = shift;
-
 	if (exists $self->{handle}) {
 		$poe_kernel->select_read(delete($self->{handle}), undef);
 	}
@@ -109,10 +108,9 @@ sub DESTROY {
 
 sub deliver {
 	my ($self, %args) = @_;
-
 	# Open the envelope.
 	my $request = $self->{request}[0];
-	$request->deliver($self->{on_input});
+	$request->deliver($self->{on_input}, { handle => $self->{handle} });
 }
 
 1;

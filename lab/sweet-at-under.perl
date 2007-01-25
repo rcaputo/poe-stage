@@ -4,6 +4,8 @@
 # Experiment to replace @_ use with attributes denoting "self",
 # subroutine arguments, and data members.
 
+use lib qw(./lib ../lib);
+
 {
 	package Moo;
 

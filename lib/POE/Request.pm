@@ -290,6 +290,10 @@ sub _request_constructor {
 	return $self;
 }
 
+sub _weaken_target_stage {
+	weaken $_[0]->[REQ_TARGET_STAGE];
+}
+
 # Send the request to its destination.
 # TODO - Can we decide whether the target has a method?  Currently
 # doing that in deliver().

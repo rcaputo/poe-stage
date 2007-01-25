@@ -124,6 +124,7 @@ sub COMBINED_KEYS () { 2 }  # Temporary space for iteration.
 sub REQUEST       () { 3 }  # Currently active request.
 sub RESPONSE      () { 4 }  # Currently active response.
 sub REQ_CONTEXTS  () { 5 }  # Contexts for each request in play.
+sub REQ_INIT      () { 6 }  # The init request shares the stage's lifetime.
 
 sub TIEHASH {
 	my $class = shift;
@@ -134,6 +135,7 @@ sub TIEHASH {
 		undef,  # REQUEST
 		undef,  # RESPONSE
 		{ },    # REQ_CONTEXTS
+		undef,  # REQ_INIT
 	], $class;
 	return $self;
 }
@@ -141,6 +143,7 @@ sub TIEHASH {
 sub _get_request { return $_[0][REQUEST] }
 sub _get_response { return $_[0][RESPONSE] }
 sub _set_req_rsp { $_[0][REQUEST] = $_[1]; $_[0][RESPONSE] = $_[2] }
+sub _set_req_init { $_[0][REQ_INIT] = $_[1] }
 
 # We don't support direct self access anymore.  All access goes
 # through :Self attributes instead.

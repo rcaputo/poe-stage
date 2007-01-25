@@ -39,6 +39,8 @@
 #   (return or emit).  This allows subclasses to catch "return"
 #   events.
 
+use lib qw(./lib ../lib);
+
 ### Application stage.
 
 {

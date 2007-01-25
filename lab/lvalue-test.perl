@@ -6,6 +6,8 @@
 use warnings;
 use strict;
 
+use lib qw(./lib ../lib);
+
 {
 	package Thingy;
 

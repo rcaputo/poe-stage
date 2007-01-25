@@ -103,6 +103,8 @@
 # $object->declare(...) fails because function prototypes don't work
 # with methods in Perl.
 
+use lib qw(./lib ../lib);
+
 {
 	use Declare;
 

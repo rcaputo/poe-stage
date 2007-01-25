@@ -8,6 +8,8 @@
 # It appears that local() values only affect the package where they're
 # localized.  Exported versions of the variable don't see the change.
 
+use lib qw(./lib ../lib);
+
 {
 	package Library;
 	use warnings;

@@ -237,8 +237,14 @@ sub new {
 
 	# Set the context of init() to that of a new request to the new
 	# object.  Any resources created in on_init() will need to be stored
-	# within $self rather than $req, because the request to call
-	# on_init() is immediately discarded after that method returns.
+	# within $self rather than $req, otherwise they won't be visible to
+	# other requests.
+	#
+	# The target stage is weakened immediately after the request is
+	# delivered.  The request's target stage refers to the stage, and
+	# the stage holds a copy of the target request.  This would be a
+	# circular reference.  TODO - Investigte saving the request in the
+	# creator stage.
 	#
 	# TODO - In theory, new() could also be given parameters that are
 	# passed to the hidden request.
@@ -250,6 +256,8 @@ sub new {
 	);
 
 	$req->deliver();
+	tied(%$self)->_set_req_init($req);
+	$req->_weaken_target_stage();
 
 	return $self;
 }
