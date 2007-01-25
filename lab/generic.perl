@@ -2,6 +2,8 @@
 # $Id$
 
 # TODO - Need a signal watcher.
+# TODO - Need idioms for scatter/gather.
+die "need idioms for scatter/gather ... send off N requests; wait for them to come back";
 
 use warnings;
 use strict;
