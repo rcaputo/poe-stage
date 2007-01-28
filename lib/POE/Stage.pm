@@ -252,6 +252,9 @@ sub new {
 	my $req = POE::Request->new_without_send(
 		stage => $self,
 		method => "on_init",
+		(
+			exists($args{role}) ? (role => delete($args{role})) : ()
+		),
 		args => \%args,
 	);
 
