@@ -439,16 +439,12 @@ before the request is sent.  To do this properly, however, one must
 manipulate the entire hash directly.  Fortunately POE::Stage provides
 that through @_ and the $args variable:
 
-	sub init :Handler {
+	sub init {
 		my ($self, $my_args) = @_;
-		my $args;  # Alias for @_[1].
 
 		# Changing $my_args or $args will alter the same, original
 		# argument hash.
 	}
-
-TODO - Verify the extent of $arg_foo manipulation here.  It may be
-that only delete() doesn't function through the lexical persistence.
 
 Custom POE::Request subclasses may use init() to verify that
 parameters are correct.  Currently init() must throw an exeception
@@ -486,12 +482,13 @@ sub deliver {
 	}
 	else {
 		$target_method = $self->[REQ_TARGET_METHOD];
-		$target_method =~ s/^(on_)?/on_/;
+	}
+
+	$target_method =~ s/^(on_)?/on_/;
+	unless ($target_stage->can($target_method)) {
+		$target_method =~ s/^on_//;
 		unless ($target_stage->can($target_method)) {
-			$target_method =~ s/^on_//;
-			unless ($target_stage->can($target_method)) {
-				warn "can't figure out where to deliver $target_method";
-			}
+			warn "can't figure out where to deliver $target_method";
 		}
 	}
 
@@ -627,6 +624,7 @@ sub cancel {
 	}
 
 	# Weaken the target stage?
+	# TODO - Why is this already weak sometimes?
 	weaken $self->[REQ_TARGET_STAGE];
 }
 
