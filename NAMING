@@ -1,0 +1,104 @@
+Unifying callback names.
+
+Problems.
+
+The :Handler attribute limits the kinds of callbacks used in
+POE::Stage.  Specifically, POE::Stage cannot support anonymous
+callbacks, which means that useful closure-based tricks are
+prohibited.
+
+In the current implementation, attributes must be applied to named
+subroutines.  At CHECK time, these subroutines are replaced in the
+symbol table with wrapped versions that apply Lexical::Persistence
+magic.
+
+Goals.
+
+POE::Stage should support callbacks of every possible type.
+
+	my $request = POE::Request->new(
+		stage => $some_stage,
+		method => $some_method,
+
+		# $coderef->($stage, $args_hash);
+		on_type1 => \&coderef,
+
+		# $stage->handle_type2($args_hash);
+		on_type2 => "handle_type2",
+
+		# $anonsub->($stage, $args_hash);
+		on_type3 => sub { closure },
+
+		# See below.
+		role => "purpose",
+	);
+
+Role-based requests already work, but they are only supported for
+POE::Request classes.  I'd like to extend this support to POE::Watcher
+classes and anything else that supports a callback.  Callbacks support
+must be uniform and consistent across all classes.
+
+Solutions.
+
+Remove callback attributes.  The lexical magic will be part of the
+dispatcher rather than inherent in the methods.
+
+Callbacks specified with on_type2 parameters must have names beginning
+with "handle_".  The POE::Request->new() parameters read well:
+on_type2 => "handle_type2".  The "handle_" prefix helps to visually
+identify handlers, which will have implicit lexical magic.  This
+replaces the :Handler visual indicator.
+
+Callbacks specified by role must have names in the form
+"on_${role_name}_${return_type}".  This is the current scheme.
+
+	my $request = POE::Request->new(
+		stage => $some_stage,
+		method => $some_method,
+		role => "purpose",
+	);
+
+Assuming that the "purpose" request could generate success- and
+failure-typed responses, you might have these handlers:
+
+	sub on_purpose_success { ... }
+	sub on_purpose_failure { ... }
+
+Formalizing this lets us define some standard roles:
+
+1. all.  All roles, known or not.
+
+	sub on_all_success { ... catches all success types ... }
+
+2. unknown.  Catch responses for a given type where there is no
+specific role/type handler.
+
+	sub on_unknown_success { ... where did this success originate ... }
+
+We'll also formalize some standard response types:
+
+
+1. unhandled.  Catch-all for this role.
+
+	sub on_resolver_unhandled { ... strange response from a known role ... }
+
+2. pre.  Pre-dispatch this role's events.  It might become a suffix
+for on_${role}_${type} as well.
+
+	sub on_resolver_pre { ... }  # pre-handle all resolver events
+	sub on_resolver_success_pre { ... }  # pre-handle resolver success
+
+3. post.  Post-dispatch this role's events.  This may also become a
+suffix for on_${role}_${type}.
+
+	sub on_resolver_post { ... }  # post-handle all resolver events
+	sub on_resolver_success_post { ... }  # post-handle resolver success
+
+Summary:
+
+Dropping :Handler lets users call back to anything.  It allows
+handlers to be redefined dynamically and without any additional steps.
+
+The biggest drawback of dropping :Handler is the loss of an explicit
+visual indicator for lexical magic.  The formal subroutine names bring
+that back, although to a lesser degree.
