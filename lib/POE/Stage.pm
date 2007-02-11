@@ -71,11 +71,12 @@ $VERSION = '0.01_00';
 use POE::Session;
 
 use Attribute::Handlers;
-use PadWalker qw(var_name peek_my peek_sub);
-use Scalar::Util qw(blessed reftype);
 use Carp qw(croak);
-use POE::Stage::TiedAttributes;
 use Devel::LexAlias qw(lexalias);
+use PadWalker qw(var_name);
+
+use POE::Stage::TiedAttributes;
+use POE::Callback;
 
 use POE::Request::Emit;
 use POE::Request::Return;
@@ -124,19 +125,42 @@ sub import {
 # But only if they don't already have it.  Must go before
 # Attribute::Handlers is loaded, otherwise A::H's check comes later.
 
+# The missing pieces:
+#
+# 1 - POE::Callback (was: _add_handler_magic)
+# 2 - :Handler that uses POE::Callback.
+# 3 - Package wrapper magic.
+# 4 - track wrappers so they aren't rewrapped
+# TODO 5 - Anon coderefs are wrapped when passed to POE::Stage users.
+# TODO 6 - Built-in class reloader.  Wrapps reloaded classes.
+# 7 - Magic at CHECK time to ensure initial wrap.
+
+sub _wrap_package {
+	my $package = shift;
+
+	no strict 'refs';
+	foreach my $symbol (values %{$package . "::"}) {
+		my $sub_name = *{$symbol}{NAME};
+		next unless defined($sub_name) and $sub_name =~ /^on_/;
+
+		no warnings 'redefine';
+		my $full_name = $package . '::' . $sub_name;
+		*{$full_name} = POE::Callback->new(
+			{
+				name => $full_name,
+				code => *{$symbol}{CODE},
+			}
+		);
+	}
+}
+
 CHECK {
 	foreach my $subclass (sort keys %subclass) {
 		# Never subclassed...
 		# TODO - Would it be good to throw a warning?
 		next unless $subclass->isa(__PACKAGE__);
 
-		no strict 'refs';
-		foreach my $symbol (values %{$subclass . "::"}) {
-			my $name = *{$symbol}{NAME};
-			next unless $name =~ /^on_/;
-			my $sub = *{$symbol}{CODE};
-			_add_handler_magic($subclass, $symbol, $sub);
-		}
+		_wrap_package($subclass);
 	}
 }
 
@@ -333,217 +357,28 @@ automatically.
 
 sub Handler :ATTR(CODE) {
 	my ($pkg, $sym, $ref, $attr, $data, $phase) = @_;
-	_add_handler_magic($pkg, $sym, $ref);
-}
-
-sub _add_handler_magic {
-	my ($pkg, $sym, $ref) = @_;
 
 	no strict 'refs';
-	no warnings 'redefine';
-
 	my $sub_name = *{$sym}{NAME};
 
 	return if exists $subclass{$pkg}{$sub_name};
 	$subclass{$pkg}{$sub_name} = 1;
 
 	# FIXME - Appropriate carplevel.
-	# FIXME - Allow anonymous handlers?
+	# FIXME - Is there a way to wrap anonymous coderefs?  I don't think
+	# so...
 	unless (defined $sub_name) {
-		croak "Anonymous handler not yet supported";
+		croak ":Handler on anonymous coderefs not supported (nor needed)";
 	}
 
-	*{$pkg . "::" . $sub_name} = sub {
-
-		# Cache these for speed.
-		my ($self, $tied_self, $arg, $req, $rsp);
-
-		my $pad = peek_sub($ref);
-		while (my ($var_name, $var_reference) = each %$pad) {
-
-			if ($var_name eq '$self') {
-				$self = self() unless defined $self;
-				lexalias($ref, $var_name, \$self);
-				next;
-			}
-
-			if ($var_name eq '$req') {
-				unless (defined $req) {
-					unless (defined $tied_self) {
-						$self = self() unless defined $self;
-						$tied_self = tied(%$self);
-					}
-					$req = $tied_self->_get_request();
-				}
-
-				lexalias($ref, $var_name, \$req);
-				next;
-			}
-
-			if ($var_name eq '$rsp') {
-				unless (defined $rsp) {
-					unless (defined $tied_self) {
-						$self = self() unless defined $self;
-						$tied_self = tied(%$self);
-					}
-					$rsp = $tied_self->_get_response();
-				}
-
-				lexalias($ref, $var_name, \$rsp);
-				next;
-			}
-
-			next unless $var_name =~ /^([\$\@\%])(req|rsp|arg|self)_(\S+)/;
-
-			my ($sigil, $prefix, $base_member_name) = ($1, $2, $3);
-			my $member_name = $sigil . $base_member_name;
-
-			# Determine which object to use based on the prefix.
-
-			my $obj;
-			if ($prefix eq 'req') {
-				$req = POE::Request->_get_current_request() unless defined $req;
-
-				unless (defined $tied_self) {
-					$self = self() unless defined $self;
-					$tied_self = tied(%$self);
-				}
-
-				# Get the existing member reference.
-
-				my $member_ref = $tied_self->_request_context_fetch(
-					$req->get_id(),
-					$member_name,
-				);
-
-				# Autovivify if necessary.
-
-				unless (defined $member_ref) {
-					if ($sigil eq '$') {
-						my $new_scalar;
-						$member_ref = \$new_scalar;
-					}
-					elsif ($sigil eq '@') {
-						$member_ref = [];
-					}
-					elsif ($sigil eq '%') {
-						$member_ref = {};
-					}
-
-					$tied_self->_request_context_store(
-						$req->get_id(),
-						$member_name,
-						$member_ref,
-					);
-				}
-
-				# Alias the member.
-
-				lexalias($ref, $var_name, $member_ref);
-				next;
-			}
-
-			if ($prefix eq 'rsp') {
-				unless (defined $rsp) {
-					unless (defined $tied_self) {
-						$self = self() unless defined $self;
-						$tied_self = tied(%$self);
-					}
-					$rsp = $tied_self->_get_response();
-				}
-
-				# Get the existing member reference.
-
-				my $member_ref = $tied_self->_request_context_fetch(
-					$rsp->get_id(),
-					$member_name,
-				);
-
-				# Autovivify if necessary.
-
-				unless (defined $member_ref) {
-					if ($sigil eq '$') {
-						my $new_scalar;
-						$member_ref = \$new_scalar;
-					}
-					elsif ($sigil eq '@') {
-						$member_ref = [];
-					}
-					elsif ($sigil eq '%') {
-						$member_ref = {};
-					}
-
-					$tied_self->_request_context_store(
-						$rsp->get_id(),
-						$member_name,
-						$member_ref,
-					);
-				}
-
-				lexalias($ref, $var_name, $member_ref);
-				next;
-			}
-
-			if ($prefix eq 'arg') {
-				unless (defined $arg) {
-					package DB;
-					my @x = caller(0);
-					$arg = $DB::args[1];
-				}
-
-				if ($sigil eq '$') {
-					$$var_reference = $arg->{$base_member_name};
-					next;
-				}
-
-				if ($sigil eq '@') {
-					@$var_reference = @{$arg->{$base_member_name}};
-					next;
-				}
-
-				if ($sigil eq '%') {
-					%$var_reference = %{$arg->{$base_member_name}};
-					next;
-				}
-			}
-
-			if ($prefix eq 'self') {
-				unless (defined $tied_self) {
-					$self = self() unless defined $self;
-					$tied_self = tied(%$self);
-				}
-
-				# Get the existing member reference.
-
-				my $member_ref = $tied_self->_self_fetch($member_name);
-
-				# Autovivify if necessary.
-
-				unless (defined $member_ref) {
-					if ($sigil eq '$') {
-						my $new_scalar;
-						$member_ref = \$new_scalar;
-					}
-					elsif ($sigil eq '@') {
-						$member_ref = [];
-					}
-					elsif ($sigil eq '%') {
-						$member_ref = {};
-					}
-
-					$tied_self->_self_store($member_name, $member_ref);
-				}
-
-				# Alias the member.
-
-				lexalias($ref, $var_name, $member_ref);
-
-				next;
-			}
+	no warnings 'redefine';
+	my $full_name = $pkg . '::' . $sub_name;
+	*{$full_name} = POE::Callback->new(
+		{
+			name => $full_name,
+			code => $ref,
 		}
-
-		goto $ref;
-	};
+	);
 }
 
 =head2 expose OBJECT, LEXICAL [, LEXICAL[, LEXICAL ...]]
