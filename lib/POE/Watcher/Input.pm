@@ -40,6 +40,9 @@ package POE::Watcher::Input;
 use warnings;
 use strict;
 
+use POE::Watcher;
+use base qw(POE::Watcher);
+
 use Scalar::Util qw(weaken);
 use Carp qw(croak);
 use POE::Kernel;
@@ -57,7 +60,7 @@ Destroy this object to cancel it.
 
 =cut
 
-sub new {
+sub init {
 	my ($class, %args) = @_;
 
 	my $handle = delete $args{handle};

@@ -42,6 +42,9 @@ package POE::Watcher::Delay;
 use warnings;
 use strict;
 
+use POE::Watcher;
+use base qw(POE::Watcher);
+
 use Scalar::Util qw(weaken);
 use Carp qw(croak);
 use POE::Kernel;
@@ -62,7 +65,7 @@ remain active.  Destroy this object to cancel it.
 
 =cut
 
-sub new {
+sub init {
 	my ($class, %args) = @_;
 
 	my $seconds = delete $args{seconds};

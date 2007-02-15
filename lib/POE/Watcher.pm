@@ -5,7 +5,7 @@ package POE::Watcher;
 use warnings;
 use strict;
 
-1;
+use POE::Callback;
 
 =head1 NAME
 
@@ -31,6 +31,32 @@ stage's request closure.  Should the request be canceled for some
 reason, its closure will be destroyed, and so will all the watchers
 stored within it.  Use of this convention automates automatic cascaded
 cleanup when a request is canceled.
+
+=head2 new HASHREF
+
+Create a new POE::Watcher.  Calls init() on the subclass to do the
+actual constructing.
+
+=cut
+
+sub new {
+	my ($class, %arg) = @_;
+	foreach my $arg_name (keys %arg) {
+		next unless $arg_name =~ /^on_(\S+)/ and ref($arg{$arg_name}) eq "CODE";
+		$arg{$arg_name} = POE::Callback->new(
+			{
+				name => "$class $arg_name",
+				code => $arg{$arg_name},
+			}
+		);
+	}
+
+	return $class->init(%arg);
+}
+
+sub init {
+	warn "subclass without init";
+}
 
 =head1 DESIGN GOALS
 
@@ -81,3 +107,5 @@ reserved.  You may use, modify, and/or distribute this module under
 the same terms as Perl itself.
 
 =cut
+
+1;

@@ -27,6 +27,9 @@ package POE::Watcher::Wheel;
 use warnings;
 use strict;
 
+use POE::Watcher;
+use base qw(POE::Watcher);
+
 use Scalar::Util qw(weaken);
 use Carp qw(croak);
 use POE::Kernel;
@@ -79,7 +82,7 @@ Destroy this object to cancel it.
 
 my %wheel_id_to_object;
 
-sub new {
+sub init {
 	my ($class, %args) = @_;
 
 	my $wheel_class = $class->get_wheel_class();

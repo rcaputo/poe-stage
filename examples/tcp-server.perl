@@ -108,9 +108,6 @@ use lib qw(./lib ../lib);
 	sub interact :Handler {
 		my $arg_socket;
 
-		use Data::Dumper;
-		warn Dumper($_[1]);
-
 		my $req_input_watcher = POE::Watcher::Input->new(
 			handle    => $arg_socket,
 			on_input  => "process_input",
@@ -118,9 +115,9 @@ use lib qw(./lib ../lib);
 	}
 
 	sub process_input :Handler {
-		my $arg_socket;
+		my $arg_handle;
 
-		my $ret = sysread($arg_socket, my $buf = "", 65536);
+		my $ret = sysread($arg_handle, my $buf = "", 65536);
 
 		use POSIX qw(EAGAIN EWOULDBLOCK);
 
@@ -139,7 +136,7 @@ use lib qw(./lib ../lib);
 
 		my ($offset, $rest) = (0, $ret);
 		while ($rest) {
-			my $wrote = syswrite($arg_socket, $buf, $rest, $offset);
+			my $wrote = syswrite($arg_handle, $buf, $rest, $offset);
 
 			# Nasty busy loop for rapid prototyping.
 			unless ($wrote) {

@@ -271,6 +271,20 @@ sub _request_constructor {
 		croak "$class is missing the '$param' parameter";
 	}
 
+	# Wrap the on_foo arguments.  At least the coderef ones.
+
+	foreach (keys %$args) {
+		next unless /^on_(\S+)$/;
+		if (ref($args->{$_}) eq 'CODE') {
+			$args->{$_} = POE::Callback->new(
+				{
+					name => $_,
+					code => $args->{$_},
+				},
+			);
+		}
+	}
+
 	# TODO - What's the "right" way to make fields inheritable without
 	# clashing in Perl?
 
@@ -374,7 +388,8 @@ sub new_without_send {
 	my %returns;
 	foreach (keys %args) {
 		next unless /^on_(\S+)$/;
-		$returns{$1} = delete $args{$_};
+		my $return = delete $args{$_};
+		$returns{$1} = $return;
 	}
 
 	$self->[REQ_RETURNS] = \%returns;
