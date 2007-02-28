@@ -189,11 +189,17 @@ sub DESTROY {
 
 	if (_free_request_id($id)) {
 		if ($self->[REQ_CREATE_STAGE]) {
-			tied(%{$self->[REQ_CREATE_STAGE]})->_request_context_destroy($id);
+			my $tied = tied(%{$self->[REQ_CREATE_STAGE]});
+			if (defined $tied) {
+				$tied->_request_context_destroy($id);
+			}
 		}
 
 		if ($self->[REQ_TARGET_STAGE]) {
-			tied(%{$self->[REQ_TARGET_STAGE]})->_request_context_destroy($id);
+			my $tied = tied(%{$self->[REQ_TARGET_STAGE]});
+			if (defined $tied) {
+				$tied->_request_context_destroy($id);
+			}
 		}
 	}
 }
