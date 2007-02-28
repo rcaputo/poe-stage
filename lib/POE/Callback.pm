@@ -295,7 +295,7 @@ sub Destroyer::DESTROY {
 
 END {
 	if (keys %callbacks) {
-		warn "!!! callback leak:";
+		warn "\n!!! callback leak:";
 		foreach my $callback (sort keys %callbacks) {
 			warn "!!!   $callback = ", $callbacks{$callback}[CB_NAME], "\n";
 		}
