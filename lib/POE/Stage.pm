@@ -66,7 +66,7 @@ use warnings;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '0.01_00';
+$VERSION = '0.02_00';
 
 use POE::Session;
 
