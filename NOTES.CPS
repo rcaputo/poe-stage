@@ -11,271 +11,381 @@ Continuations
 	that were in scope when it was created, as well as remembering the
 	call sequence you took to get there."  -- Dan Sugalski
 
-Continuations
+Continuations Encapsulate Call
 
-	Encapsulate Call
-		Specify where to resume on return.
-		Remember lexical state, so it can be restored on return.
-		Are passed to subroutines as just another parameter.
+	Specify where to resume on return.
+	Remember lexical state, so it can be restored on return.
+	Are passed to subroutines as just another parameter.
 
-	"Return" when invoked.
-		Restore the caller's lexical state.
-		Resume where the caller left off, maybe passing along output.
+Continuations Implement Return
 
-POE::Request
+	Caller's execution resumes.
+	Caller's lexical state is restored.
+	Caller may receive some result from the returning method.
 
-	Encapsulates Call
-		Specifies where to resume on return.
-		Remembers lexical state, so it can be restored on return.
-		Are passed to methods magically (more shortly).
+POE::Request Encapsulates Call
 
-POE::Response
+	Defines where to resume on return.
+	Remembers lexical state, so it can be restored on return.
+	Is passed as a message to another object.
+
+POE::Response Implements Return
 
 	Implicitly created when an inbound POE::Request is invoked.
+
 		$inbound_request->return( ... );
 
-	Restores the caller's lexical state.
-	Resumes the caller at a location specified in the request.
+	Resumes caller's execution.
+	Caller's lexical state is restored.
+	May include results of a Stage's work.
 
 POE::Request Example
 
 	my $outbound_request = POE::Request->new(
-		{
-			stage => $target_stage_object,
-			method => $target_method_name,
-			args => \%maybe_some_parameters,
-			on_success => \&resume_here_on_success,
-			on_failure => \&or_here_on_failure,
-		}
+		stage => $target_stage_object,
+		method => $target_method_name,
+		args => \%maybe_some_parameters,
+		on_success => \&resume_here_on_success,
+		on_failure => \&or_here_on_failure,
 	);
 
 POE::Response Return
 
 	$inbound_request->return(
-		{
-			type => "success",  # could be "failure"
-			args => \%maybe_some_return_values,
-		}
+		type => "success",  # could be "failure"
+		args => \%maybe_some_return_values,
 	);
 
-Multiple Resume Points
+Typed Responses
 
-	Caller maps return types resume points
+	Responses are typed.
+	Requests map response types to handlers.
+	Called Stages define an interface.
+	Callers use the interface.
+	Eliminates need for inside information.
+	Decouples Stages.
+	Permits dynamic flow control.
 
-		on_success => \&resume_here_on_success,
-		on_failure => \&or_here_on_failure,
+Call Stacks
 
-	Return "type" determines which branch to take
+	Limited to serial call/return.
+	Execution returns in order of call (LIFO).
 
-		type => "success",
+	one calls two
+		two calls three
+			three calls four
+				four returns to three
+			three returns to two
+		two returns to one
 
-Benefits of Multiple Resume Points
+Call Trees
 
-	Decouples caller and callee interfaces.
-		Neither end of the call needs special information about the other.
-	Dynamic flow control.
+	Serial or parallel call/return.
+	Parallel returns occur in order of completion.
 
-Call State
+	method 1 calls method 2
+	method 1 calls method 2 (again)
+		method 2a calls method 3a
+		method 2b calls method 3b
+			method 3b returns to method 2b
+		method 2b returns to method 1
+			method 3a returns to method 2a
+		method 2a returns to method 1
 
-	Tree-based rather than stack based.
-		Requests are asynchronous.
-		One request may trigger multiple sub-requests.
+Call Cancelation
 
-		Parent Request
-			-> Sub Request 1
-			-> Sub Request 2
-			-> ...
+	Requests can be canceled before they return.
+	Sometimes you don't want to wait.
 
-Call State
-
-	Asynchronous calls may be canceled before responses are returned.
-	Cancelation prunes the call tree.
-
+		my $outbound_request = POE::Request->new( ... );
+		# ... later on:
 		$outbound_request->cancel();
 
-		Sub-requests under the canceled request are also canceled.
-		Lexical contexts are also destroyed.
-		Resources stored in those contexts are automatically freed.
-		Perl (not POE) GC rules apply here.
+Cancelation Effects
 
-Call State
+	Prunes the call tree rooted at the canceled request.
+	Sub-requests (if any) canceled too.
+	Their remembered lexical states are destroyed.
+	Resources stored in those lexicals automatically freed.
+	Perl (not POE) GC rules apply here.
 
-	Asynchronous replies may be out of order.
+Non-Final Returns
 
-		Parent Request
-			-> Sub Request 1
-			-> Sub Request 2
-			<- Response 1
-			<- Response 2
+	Returns don't have to be final.
+	Returns happen when a response is invoked.
+	Why can't a response be invoked more than once?
+	They can, but the name is different.
 
-Call State
+		# Many happy returns.
+		$inbound_request->emit( type => "happy" );
 
-	One request may have multiple responses.
+Final Returns
 
-		Parent Request
-			-> Sub Request 1
-			<- Response 1a
-			<- Response 1b
-			...
+	return() implies request is finished.
+	Implicitly triggers request destruction after delivery.
+	Calling return() twice is prohibited.
+	Also cannot emit() after return().
 
-Call State
+Re-calling in Same Request
 
-	Two kinds of response: interim and final.
-	Already seen final response: return().
-	Interim response: emit().
+	Parent can respond to emitter without a new continuation.
+	Simpler than POE::Request:
 
-	$inbound_request->emit(
-		{
-			type => "status",
-			args => \%some_status_values,
-		}
-	);
-
-More on Emit
-
-	Parent may want to respond to emit() without creating a new
-	continuation: recall()
-
-	$inbound_response->recall(
-		{
+		$inbound_emit->recall(
 			method => $target_method_name,
 			args   => \%maybe_some_more_parameters,
-		}
-	);
+		);
 
-	Simpler than POE::Request.
-		Inherits target stage from original POE::Request.
-		Also inherits role or return mapping.
+		(No target stage.  Goes back to emitter.)
+		(No response type mapping.  Inherited from original request.)
 
-Lexical State
+	emit() and recall() implement two-way dialogue.
+	Can continue until return() or cancel().
 
-	Not entire lexical state, just lexicals with certain prefixes.
-	For example, state associated with an inbound request:
-		$req_member @req_member %req_member
-	Implemented with pad manipulation before methods are called.
-	Lexical::Persistence spun off so anyone can enjoy this magic.
-	Method parameters while we're at it (because we can):
-		$arg_name @arg_name %arg_name
+Lexical States
+
+	There can't be only one.
+	Lexical pad may contain data from three or more relevant states.
+	Prefixes identify different states.
+	Also prevent identical member names from colliding in the pad.
+	Prefixes don't affect member names.
+		$prefix_member refers to "member".
+	@ and % sigils also supported.
+
+Inbound Request State
+
+	Temporary storage scoped to the inbound request.
+	Used as scratch space for handling the request.
+	Conveniently autodestructs when request is finalized.
+	Prefixed by "req_"
+
+		$req_member
+		@req_member
+		%req_member
+
+Outbound Request State
+
+	Temporary storage for data scoped to an outbound request.
+	Members exposed with expose().
+	Prefixes are arbitrary (but not reserved, duh).
+
+		my $outbound_request = POE::Request->new( ... );
+		expose $outbound_request => my $prefixed_member;
+		$prefixed_member = "spay or neuter your pets";
+
+Inbound Response State
+
+	Only available inside emit() or return() handlers.
+	Recalls and mutates previously exposed outbound request state.
+	Prefixed with "rsp_".
+
+	sub on_success {
+		my $rsp_member; # "spay or neuter your pets"
+	}
+
+Parameter State
+
+	IM IN UR PAD INITIALIZIN UR LEXICALS (obligatory lolcats)
+	So I can also stuff arguments into them.
+	Prefixed with "arg_"
+
+		$arg_thingy
+		@arg_thingy
+		%arg_thingy
+
+	Refer to the "thingy" argument, i.e.:
+
+		args => { thingy => "value" }
 
 Call Tree Revisited
 
-	Call tree is implemented by convention.
-	Sub-request stored in the current request.
-		my $req_subrequest = POE::Request->new( ... );
-	If the current request is canceled:
-		All its $req_* members destroyed.
-		Triggers $req_subrequest destruction.
-		Etc. down the tree branch.
+	Implemented by convention, not special code.
+	Sub-requests stored in the current request.
 
-Lexical State
+		my $req_do_something = POE::Request->new( ... );
 
-	Activated by a :Handler sub attribute
+	When current request finishes:
+		All $req_foo members destroyed.
+		Implicitly triggering $req_do_something cancelation.
+		Effectively pruning branch of call tree.
+
+Activating Lexical State
+
+	Only pertains to message handlers.
+	Activate with the :Handler method attribute.
 
 		sub resume_here_on_success :Handler { ... }
 
-	Or methods whose names begin with "on_".
-		See next slide.
+	Also implied for methods named "on_" something.
+	Will be explained in a few slides.
 
-Request Roles
+Request Roles Are Shorthand
+
+	Replace on_foo parameters in a request.
 
 	my $req_subrequest = POE::Request->new(
-		{
-			stage   => $target_stage_object,
-			method  => $target_method_name,
-			args    => \%maybe_some_parameters,
-			role    => "rolename",
+		stage   => "resolver",
+		method  => "resolve",
+		args    => { host => "poe.perl.org" },
+		on_success => \&handle_address,
+		on_failure => \&handle_error,
+		on_timeout => \&handle_timeout,
+	);
+
+	Bleh.
+
+Request Roles Are Shorthand
+
+	Replace on_foo parameters in a request.
+
+	my $req_subrequest = POE::Request->new(
+		stage   => "resolver",
+		method  => "resolve",
+		args    => { host => "poe.perl.org" },
+		role    => "dnslookup",
+	);
+
+	And it scales, too.
+
+Role-Based Response Dispatch
+
+	Methods matching "on_" . $role . "_" . $response_type are called.
+
+	sub on_dnslookup_success { ... }
+	sub on_dnslookup_failure { ... }
+	sub on_dnslookup_timeout { ... }
+
+	TODO: on_dnslookup_autoload { ... }
+
+	:Handler attribute implied by "on_" so not needed.
+
+Now About POE::Stage
+
+	Standard base class for POE::Stage
+	Implements about 75% of the magic
+		(Rest is in POE::Request)
+
+POE::Stage Standard Methods
+
+	new() implemented by the base class
+	on_init() initialization callback during new()
+	Tried to keep it light, so the rest can be yours.
+
+POE::Stage Exported Functions
+
+	Oh, some more pollution.
+
+	self() accessor to $self.  self->method()
+	req() inbound request accessor:  req->return(...)
+	rsp() inbound response accessor:  rsp->recall(...)
+	expose() seen before
+
+	Ok, really, that's it.
+	So far.
+	We'll try to be good.
+
+Standard POE::Stage Classes
+
+	App - The top-level application.
+
+	The rest have unstable interfaces.
+	We could use your help here.
+
+What About POE?
+
+	POE::Stage uses POE for lower-level services.
+	POE::Watcher classes are OO versions of POE features.
+	Design still in flux.
+	We could use your help here, too.
+
+POE::Watcher Classes
+
+	OO versions of POE things.
+	Follow Perl GC rules, not POE's.
+	Cancel by destroying the object.
+	Store in $req_ to auto-cancel if parent request finalized.
+
+POE::Watcher::Delay
+
+	OO version of POE::Kernel->delay() family.
+
+	my $req_timeout = POE::Watcher::Delay->new(
+		seconds => 10,
+		on_success => "handle_timeout",
+		args => \%handle_timeout_parameters,
+	);
+
+POE::Watcher::Input
+
+	OO version of POE::Kernel->select_read().
+
+	my $req_input = POE::Watcher::Input->new(
+		handle => $io_handle,
+		on_input => "read_from_handle",
+		args => \%passed_along,
+	);
+
+POE::Watcher::Wheel
+
+	Encapsulates POE::Wheel classes.
+
+	my $req_wheel = POE::Watcher::Wheel->new(
+		wheel_class => "POE::Wheel::Run",
+		wheel_parameters => {
+			...,
+			StdoutMethod => "handle_child_stdout",
 		}
 	);
 
-	role replaces on_success and on_failure parameters.
-	So how are returns routed?
+	Wheel's "Event" parameters become "Method" in POE::Stage.
 
-Requets Roles
+Why Doing This
 
-	Return routing is done by a method naming convention.
-		"on_" . $role_name . "_" . $return_type
+	TIMTOWTDI didn't scale.
+	Everybody did something different.
+	Interoperability suffered.
 
-		sub on_rolename_success { ... }
-		sub on_rolename_failure { ... }
-		sub on_rolename_timeout { ... }
-		etc.
+Why Doing This
 
-	:Handler attribute implied.
+	Design Patterns Aren't.
+	A lot of repeated work became apparent.
+	It's time to subsume them.
 
-Response Continuation
+Why Doing This
 
-	POE::Request encapsulates one more lexical context.
-	This one's for the caller.
-		Caller can associate data with a request.
-		Caller gets that data back with a response.
-		Request target never sees this data.
+	Separate project for fun.
+	Backward compatability not an issue.
+	Can use modern Perl.
 
-Response Continuation
+Why Doing This
 
-	At request time, members must be exposed into lexical space.
-
-		my $outbound_request = POE::Request->new( ... );
-		expose $outbound_request => my $prefix_member;
-		$prefix_member = "this is stored in the request";
-
-	$prefix_member is an exposed lexical representing $member within
-	$outbound_request.
-
-	Prefix is arbitrary.  Added to prevent lexical collision.
-
-Response Continuation
-
-	Response continuation is available when handling a response.
-		Either return() or emit().
-
-	Special rsp prefix.
-		$rsp_member @rsp_member %rsp_member
-
-	sub on_rolename_success {
-		my $rsp_member; # "this is stored in the request"
-		...;
-	}
-
-Standard POE::Stage Interface
-
-	init
-	... ? TODO
-
-Standard Stages
-
-	App
-	... ? TODO
-
-Loose Ends
-
-	It's 05:00.
-	I can't think of them right now.
-	TODO
-
-Design Goals
-
-	Standardize the strongest, best POE design patterns.
-		TIMTOWTDI didn't scale.
-		Subsume the good patterns into the framework.
-
-	Ignore backward compatibility.
-		Nobody's using this yet.
-		We can -Ofun rather than -Ostability at this point.
-
-Design Goals
-
-	More Community Involvement
-		Here's a chance to improve on what you like least about POE.
-		Avoid puzzling over things named "Wheel". :)
+	Can involve community earlier in the development process.
+	More chance to avoid strange names for things. :)
 
 What You Can Do
 
-	Just about anything.
-		Design something.
-		Implement something.
-		Smash the system!
-		Document stuff.
-		Sieze a need and run with it.
+	Need peaple to push the design.
+	Core concepts done, barring insurmountable design problems.
+	Catch problems before things go too far.
+
+What You Can Do
+
+	Help keep things sane.
+	Single mad scientest model produces monsters.
+	Multiple mad scientists can check and balance.
+	Or at least brainstorm over insurmountable design problems.
+
+What You Can Do
+
+	Develop standard libraries.
+	Or at least guide their development.
+	It's easier to get features designed in early than wedged in later.
+
+What You Can Do
+
+	Sieze a need and run with it.
+	Unless that need is scissors.
+	Unless they're blunt.
 
 Questions?
 
