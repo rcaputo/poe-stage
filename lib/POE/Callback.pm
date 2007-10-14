@@ -11,7 +11,7 @@ POE::Callback - object wrapper for callbacks with lexical closures
 		name => "Pkg::sub",
 		code => \&coderef,
 	);
-  $callback->(@arguments);
+	$callback->(@arguments);
 
 =head1 DESCRIPTION
 
@@ -72,199 +72,221 @@ sub new {
 		return $self->_track($name);
 	}
 
-	my $self = bless sub {
+	my $b_self = '';        # build $self
+	my $b_tied_self = '';   # build $tied_self
+	my $b_rsp = '';         # build $rsp
+	my $b_req = '';         # build $req
+	my $b_arg = '';         # build $arg
+	my $b_req_id = '';      # build $req->get_id()
+	my $b_rsp_id = '';      # build $rsp->get_id()
 
-		# Cache these for speed.
-		my ($self, $tied_self, $arg, $req, $rsp);
+	my $a_self = '';
+	my $a_rsp = '';
+	my $a_req = '';
 
-		my $pad = peek_sub($code);
-		foreach my $var_name (@persistent) {
-			my $var_reference = $pad->{$var_name};
+	my @vars;
 
-			if ($var_name eq '$self') {
-				$self = POE::Stage::self() unless defined $self;
-				lexalias($code, $var_name, \$self);
-				next;
-			}
+	foreach my $var_name (@persistent) {
+		if ($var_name eq '_b_self') {
+			$b_self = q{  my $self = POE::Stage::self();};
+			next;
+		}
 
-			if ($var_name eq '$req') {
-				unless (defined $req) {
-					unless (defined $tied_self) {
-						$self = POE::Stage::self() unless defined $self;
-						$tied_self = tied(%$self);
-					}
-					$req = $tied_self->_get_request();
-				}
+		if ($var_name eq '_b_req') {
+			push @persistent, '$tied_self' unless $b_tied_self;
+			$b_req = q{  my $req = $tied_self->_get_request();};
+		}
 
-				lexalias($code, $var_name, \$req);
-				next;
-			}
+		if ($var_name eq '_b_rsp') {
+			push @persistent, '$tied_self' unless $b_tied_self;
+			$b_rsp = q{  my $rsp = $tied_self->_get_response(); };
+		}
 
-			if ($var_name eq '$rsp') {
-				unless (defined $rsp) {
-					unless (defined $tied_self) {
-						$self = POE::Stage::self() unless defined $self;
-						$tied_self = tied(%$self);
-					}
-					$rsp = $tied_self->_get_response();
-				}
+		if ($var_name eq '$self') {
+			push @persistent, '_b_self' unless $b_self;
+			$a_self = q{  lexalias($code, '$self', \$self);};
+			next;
+		}
 
-				lexalias($code, $var_name, \$rsp);
-				next;
-			}
+		if ($var_name eq '_b_rsp_id') {
+			push @persistent, '_b_rsp' unless $b_rsp;
+			$b_rsp_id = q{  my $rsp_id = $rsp->get_id();};
+			next;
+		}
 
-			next unless $var_name =~ /^([\$\@\%])(req|rsp|arg|self)_(\S+)/;
+		if ($var_name eq '_b_req_id') {
+			push @persistent, '_b_req' unless $b_req;
+			$b_req_id = q{  my $req_id = $req->get_id();};
+			next;
+		}
 
-			my ($sigil, $prefix, $base_member_name) = ($1, $2, $3);
-			my $member_name = $sigil . $base_member_name;
+		if ($var_name eq '$tied_self') {
+			push @persistent, '_b_self' unless $b_self;
+			$b_tied_self = q(  my $tied_self = tied %$self;);
+			next;
+		}
 
-			# Determine which object to use based on the prefix.
+		if ($var_name eq '$req') {
+			push @persistent, '_b_req' unless $b_req;
+			$a_req = q{  lexalias($code, '$req', \$req);};
+			next;
+		}
 
-			my $obj;
-			if ($prefix eq 'req') {
-				$req = POE::Request->_get_current_request() unless defined $req;
+		if ($var_name eq '$rsp') {
+			push @persistent, '_b_rsp' unless $b_rsp;
+			$a_rsp = q{lexalias($code, '$rsp', \$rsp);};
+			next;
+		}
 
-				unless (defined $tied_self) {
-					$self = POE::Stage::self() unless defined $self;
-					$tied_self = tied(%$self);
-				}
+		next unless $var_name =~ /^([\$\@\%])(req|rsp|arg|self)_(\S+)/;
 
-				# Get the existing member reference.
+		my ($sigil, $prefix, $base_member_name) = ($1, $2, $3);
+		my $member_name = $sigil . $base_member_name;
 
-				my $member_ref = $tied_self->_request_context_fetch(
-					$req->get_id(),
-					$member_name,
+		# Arguments don't need vivification, so they come before @vivify.
+
+		if ($prefix eq 'arg') {
+			$b_arg ||= (
+				q/  my $arg; { package DB; my @x = caller(0); $arg = $DB::args[1]; }/
+			);
+
+			my $def = (
+				qq/  \$var_reference = \$pad->{'$var_name'};/
+			);
+
+			if ($sigil eq '$') {
+				push @vars, (
+					$def,
+					qq/  \$\$var_reference = \$arg->{'$base_member_name'};/
 				);
-
-				# Autovivify if necessary.
-
-				unless (defined $member_ref) {
-					if ($sigil eq '$') {
-						my $new_scalar;
-						$member_ref = \$new_scalar;
-					}
-					elsif ($sigil eq '@') {
-						$member_ref = [];
-					}
-					elsif ($sigil eq '%') {
-						$member_ref = {};
-					}
-
-					$tied_self->_request_context_store(
-						$req->get_id(),
-						$member_name,
-						$member_ref,
-					);
-				}
-
-				# Alias the member.
-
-				lexalias($code, $var_name, $member_ref);
 				next;
 			}
 
-			if ($prefix eq 'rsp') {
-				unless (defined $rsp) {
-					unless (defined $tied_self) {
-						$self = POE::Stage::self() unless defined $self;
-						$tied_self = tied(%$self);
-					}
-					$rsp = $tied_self->_get_response();
-				}
-
-				# Get the existing member reference.
-
-				my $member_ref = $tied_self->_request_context_fetch(
-					$rsp->get_id(),
-					$member_name,
+			if ($sigil eq '@') {
+				push @vars, (
+					$def,
+					qq/  \@\$var_reference = \@{\$arg->{'$base_member_name'}};/
 				);
-
-				# Autovivify if necessary.
-
-				unless (defined $member_ref) {
-					if ($sigil eq '$') {
-						my $new_scalar;
-						$member_ref = \$new_scalar;
-					}
-					elsif ($sigil eq '@') {
-						$member_ref = [];
-					}
-					elsif ($sigil eq '%') {
-						$member_ref = {};
-					}
-
-					$tied_self->_request_context_store(
-						$rsp->get_id(),
-						$member_name,
-						$member_ref,
-					);
-				}
-
-				lexalias($code, $var_name, $member_ref);
 				next;
 			}
 
-			if ($prefix eq 'arg') {
-				unless (defined $arg) {
-					package DB;
-					my @x = caller(0);
-					$arg = $DB::args[1];
-				}
-
-				if ($sigil eq '$') {
-					$$var_reference = $arg->{$base_member_name};
-					next;
-				}
-
-				if ($sigil eq '@') {
-					@$var_reference = @{$arg->{$base_member_name}};
-					next;
-				}
-
-				if ($sigil eq '%') {
-					%$var_reference = %{$arg->{$base_member_name}};
-					next;
-				}
-			}
-
-			if ($prefix eq 'self') {
-				unless (defined $tied_self) {
-					$self = POE::Stage::self() unless defined $self;
-					$tied_self = tied(%$self);
-				}
-
-				# Get the existing member reference.
-
-				my $member_ref = $tied_self->_self_fetch($member_name);
-
-				# Autovivify if necessary.
-
-				unless (defined $member_ref) {
-					if ($sigil eq '$') {
-						my $new_scalar;
-						$member_ref = \$new_scalar;
-					}
-					elsif ($sigil eq '@') {
-						$member_ref = [];
-					}
-					elsif ($sigil eq '%') {
-						$member_ref = {};
-					}
-
-					$tied_self->_self_store($member_name, $member_ref);
-				}
-
-				# Alias the member.
-
-				lexalias($code, $var_name, $member_ref);
-
+			if ($sigil eq '%') {
+				push @vars, (
+					$def,
+					qq/  \%\$var_reference = \%{\$arg->{'$base_member_name'}};/
+				);
 				next;
 			}
 		}
 
-		goto $code;
-	}, $class;
+		# Common vivification code.
 
+		my @vivify = ( q/  unless( defined $member_ref ) {/ );
+		if ($sigil eq '$') {
+			push @vivify, q(    my $new_scalar; $member_ref = \$new_scalar;);
+		}
+		elsif ($sigil eq '@') {
+			push @vivify, q(    $member_ref = [];);
+		}
+		elsif ($sigil eq '%') {
+			push @vivify, q(    $member_ref = {};);
+		}
+
+		# Determine which object to use based on the prefix.
+
+		my $obj;
+		if ($prefix eq 'req') {
+			push @persistent, '_b_req_id' unless $b_req;
+			push @persistent, '$tied_self' unless $b_tied_self;
+
+			# Get the existing member reference.
+			push @vars, (
+				q{  $member_ref = } .
+				q{$tied_self->_request_context_fetch(} .
+				qq{\$req_id, '$member_name');}
+			);
+
+			# Autovivify if necessary.
+			push @vars, (
+				@vivify,
+				q{    $tied_self->_request_context_store(} .
+				qq{\$req_id, '$member_name', \$member_ref);},
+				q(  }),
+				# Alias the member.
+				qq{  lexalias(\$code, '$var_name', \$member_ref);}
+			);
+			next;
+		}
+
+		if ($prefix eq 'rsp') {
+			push @persistent, '_b_rsp_id' unless $b_rsp;
+			push @persistent, '$tied_self' unless $b_tied_self;
+
+			# Get the existing member reference.
+			push @vars, (
+				q{  $member_ref = } .
+				q{$tied_self->_request_context_fetch(}.
+				qq{\$rsp_id, '$member_name');}
+			);
+
+			# Autovivify if necessary.
+			push @vars, (
+				@vivify,
+				q{    $tied_self->_request_context_store(} .
+				qq{    \$rsp_id, '$member_name', \$member_ref);},
+				q(  }),
+				# Alias the member.
+				qq{  lexalias(\$code, '$var_name', \$member_ref);}
+			);
+			next;
+		}
+
+		if ($prefix eq 'self') {
+			push @persistent, '$tied_self' unless $b_tied_self;
+
+			# Get the existing member reference.
+			push @vars, (
+				qq{\$member_ref = \$tied_self->_self_fetch('$member_name');}
+			);
+
+			# Autovivify if necessary.
+			push @vars, (
+				@vivify,
+				qq{    \$tied_self->_self_store('$member_name', \$member_ref);},
+				q(  }),
+				# Alias the member.
+				qq{  lexalias(\$code, '$var_name', \$member_ref);}
+			);
+
+			next;
+		}
+	}
+
+	unshift @vars, (
+		$b_self, $b_tied_self, $b_arg, $b_req, $b_rsp, $b_req_id, $b_rsp_id
+	);
+
+	my $sub = join "\n", (
+		"sub {",
+		"  my \$pad = peek_sub(\$code);",
+		"  my (\$member_ref, \$var_reference);",
+		@vars,
+		"  goto \$code;",
+		"};"
+	);
+	#die $sub; # for debugging generated code
+	my $coderef = eval $sub;
+	if( $@ ) {
+		while( $@ =~ /line (\d+)/g ) {
+			my $line = $1;
+			for( ($line-10) .. $line-4 ) {
+				warn $_+4, ": $vars[$_]\n";
+			}
+		}
+		die $@;
+	}
+
+	my $self = bless $coderef, $class;
 	return $self->_track($name);
 }
 
