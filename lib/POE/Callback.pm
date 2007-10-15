@@ -263,7 +263,8 @@ sub new {
 	}
 
 	unshift @vars, (
-		$b_self, $b_tied_self, $b_arg, $b_req, $b_rsp, $b_req_id, $b_rsp_id
+		$b_self, $b_tied_self, $b_arg, $b_req, $b_rsp, $b_req_id, $b_rsp_id,
+		$a_self, $a_rsp, $a_req,
 	);
 
 	my $sub = join "\n", (
@@ -274,7 +275,7 @@ sub new {
 		"  goto \$code;",
 		"};"
 	);
-	#die $sub; # for debugging generated code
+	#warn $sub; # for debugging generated code
 	my $coderef = eval $sub;
 	if( $@ ) {
 		while( $@ =~ /line (\d+)/g ) {

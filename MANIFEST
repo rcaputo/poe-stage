@@ -26,3 +26,4 @@ lib/POE/Watcher.pm
 lib/POE/Watcher/Delay.pm
 lib/POE/Watcher/Input.pm
 t/01_all_call_types.t
+t/10_callback.t
