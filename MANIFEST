@@ -3,6 +3,7 @@ MANIFEST
 Makefile.PL
 README
 examples/01_basics.perl
+examples/candygram.perl
 examples/log-resolver.perl
 examples/many-responses.perl
 examples/ping-pong.perl
