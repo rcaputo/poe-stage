@@ -306,7 +306,7 @@ sub _track {
 # When the callback object is destroyed, it's also removed from the
 # tracking hash.
 
-sub Destroyer::DESTROY {
+sub DESTROY {
 	my $self = shift;
 	warn "!!! Destroying untracked callback $self" unless (
 		exists $callbacks{$self}
@@ -317,11 +317,16 @@ sub Destroyer::DESTROY {
 # End-of-run leak checking.
 
 END {
-	if (keys %callbacks) {
+	my @leaks;
+	foreach my $callback (sort keys %callbacks) {
+		no strict 'refs';
+		my $cb_name = $callbacks{$callback}[CB_NAME];
+		next if *{$cb_name}{CODE} == $callbacks{$callback}[CB_SELF];
+		push @leaks, "!!!   $callback = $cb_name\n";
+	}
+	if (@leaks) {
 		warn "\n!!! callback leak:";
-		foreach my $callback (sort keys %callbacks) {
-			warn "!!!   $callback = ", $callbacks{$callback}[CB_NAME], "\n";
-		}
+		warn @leaks;
 	}
 }
 
