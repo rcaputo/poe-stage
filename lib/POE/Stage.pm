@@ -66,7 +66,7 @@ use warnings;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '0.02_00';
+$VERSION = '0.03';
 
 use POE::Session;
 
@@ -711,11 +711,9 @@ See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
 issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
 report a problem.
 
-POE::Stage is not ready for production.  You can safely assume that it
-won't be as long as the BUGS section says so.  For example,
-POE::Stage's syntax is changing rapidly and in ways that aren't
-necessarily backwards compatible.  Please let the author know how he's
-doing.  Your feedback is really helpful.
+POE::Stage is not ready for production.  Check back here early and
+often to find out when it will be.  Please contact the author if you
+would like to see POE::Stage production-ready sooner.
 
 =head1 SEE ALSO
 
