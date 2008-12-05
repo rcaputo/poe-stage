@@ -326,6 +326,15 @@ sub _send_to_target {
 	);
 }
 
+sub pass_to {
+	my ($self, $arg) = @_;
+
+	my $sub_arg = delete $arg->{args} || { };
+	my $method = delete $arg->{method} or croak "method required";
+
+	$self->deliver($method, $sub_arg);
+}
+
 =head1 PUBLIC METHODS
 
 Request methods are called directly on the objects themselves.

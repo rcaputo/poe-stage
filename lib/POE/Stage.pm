@@ -273,8 +273,11 @@ sub new {
 	# TODO - In theory, new() could also be given parameters that are
 	# passed to the hidden request.
 
+	my %on = map { $_ => delete $args{$_} } grep /^on_/, keys %args;
+
 	my $req = POE::Request->new_without_send(
 		stage => $self,
+		%on,
 		method => "on_init",
 		(
 			exists($args{role}) ? (role => delete($args{role})) : ()
@@ -310,6 +313,7 @@ The init() callback is optional.
 
 sub init {
 	# Do nothing.  Don't even throw an error.
+	undef;
 }
 
 # TODO - Make these internal?  Possibly part of the tied() interface?

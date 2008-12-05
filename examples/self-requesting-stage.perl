@@ -1,14 +1,6 @@
 #!/usr/bin/perl
 # $Id$
 
-die(
-	"* For consistency, on_init(), aka init(), is called in the new\n",
-	"* object's context rather than the creator's context.  Therefore\n",
-	"* it cannot successfully create requests on the creator's behalf.\n",
-	"* Self-requesting stages may be brought back in the future, but\n",
-	"* they currently do not work.\n",
-);
-
 # Create a very simple stage that performs a task and returns a
 # mesage.  The magic here is that the stage makes its own request in
 # init() so the creator isn't required to go through the two-step
@@ -19,41 +11,30 @@ die(
 	use POE::Stage qw(:base self);
 	use POE::Watcher::Delay;
 
-	# My first try was to set a delay in init(), but the delay never
-	# triggered time_is_up().  The program took the time to complete,
-	# but the method didn't trigger.
-	#
-	# I think the rule is that you can't set Watchers from init()
-	# because the current stage is that of the creator.  Or something.
-	# My second attempt will be to fire a request and set the timer from
-	# the method it triggers.
-	#
-	# The second attempt works.  I'm not sure I can force init() to be
-	# executed within the new stage.  If it were, then the new request
-	# here would be a child of that request, and it would probably
-	# return() here instead of upstream one stage.
-	#
-	# TODO - Test that hypothesis.  I was pleasantly surprised when I
-	# found out that init() could throw a request.  Maybe I will be
-	# again, or the results will be close enough to make work without
-	# too much ugliness.
+	# The "init" request, rather than returning immeditately, is passed
+	# on to the rest of the stage for further processing.
 
 	sub init :Handler {
 		my $args = $_[1];
 
-		warn 0;
+#		my $self_request = 
+		my $req;
+
+		warn "selfrequester on_init";
+
 		my $passthrough_args = delete $args->{args} || {};
-		my $self_auto_request = POE::Request->new(
-			stage   => self,
-			method  => "set_thingy",
-			%$args,
-			args    => { %$passthrough_args },
+		use YAML; warn YAML::Dump($passthrough_args);
+		$req->pass_to(
+			{
+				args => $passthrough_args,
+				method => "set_thingy",
+			}
 		);
 	}
 
 	sub set_thingy :Handler {
 		my $arg_seconds;
-		warn 1;
+		warn "selfrequester set_thingy";
 
 		my $req_delay = POE::Watcher::Delay->new(
 			seconds     => $arg_seconds,
@@ -62,9 +43,10 @@ die(
 	}
 
 	sub time_is_up :Handler {
-		my $self_auto_request;
-		warn 2;
-		$self_auto_request->return(
+		my $req;
+		warn "selfrequester time_is_up";
+
+		$req->return(
 			type => "done",
 		);
 
@@ -80,20 +62,20 @@ die(
 	use POE::Stage::App qw(:base self);
 
 	sub on_run {
-		warn 3;
-		self->spawn_requester();
+		warn "app on_run";
+		my $req->pass_to( { method => "spawn_requester" } );
 	}
 
-	sub do_again {
-		warn 4;
-		self->spawn_requester();
+	sub on_selfrequester_done {
+		warn "app do_again";
+		my $req->pass_to( { method => "spawn_requester" } );
 	}
 
-	sub spawn_requester {
-		warn 5;
+	sub on_spawn_requester {
+		warn "app spawn_requester";
 
 		my $req_requester = SelfRequester->new(
-			on_done   => "do_again",
+			role      => "selfrequester",
 			args      => {
 				seconds => 0.001,
 			},
