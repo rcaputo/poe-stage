@@ -27,7 +27,7 @@ WriteMakefile(
     SUFFIX     => 'gz',
     PREOP      => (
       'svn-log.perl | tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES;' .
-      'perldoc lib/POE/Stage.pm > README'
+      'LANG=C perldoc lib/POE/Stage.pm > README'
     ),
   },
 );
