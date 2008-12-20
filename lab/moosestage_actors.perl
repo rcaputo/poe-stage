@@ -69,7 +69,7 @@
     has id => (
         isa     => 'Str',
         is      => 'ro',
-        default => sub { time },    # this should be a UID
+        default => sub { join(" ", $$, time(), times() }, # this should be a UID
     );
 
     has namespace => (
@@ -249,3 +249,7 @@
     $namespace->run();
     exit;
 }
+
+# Rocco uses tabs by default.  This sets his editor to follow the
+# author's personal style.
+# vim: ts=4 sw=4 expandtab
