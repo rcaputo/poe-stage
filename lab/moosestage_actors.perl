@@ -9,21 +9,6 @@
 
 {
 
-    package Namespace;    # in Erlang and Scala this is a Node
-    use Moose;
-
-    # TODO - Global registry of objects and their roles.
-    # May be distributed across a network.
-    # Message routing will be determined here.
-
-    has space => (
-        is  => 'rw',
-        isa => 'HashRef[Object]',
-    );
-}
-
-{
-
     package Call;    # a Message between Actors
     use Moose;
 
@@ -37,9 +22,9 @@
         isa => 'HashRef[Any]',
     );
 
-    has sender => (
-        is  => 'ro',
+    has [qw(target sender)] => (    # actor id's
         isa => 'Str',
+        is  => 'rw',
     );
 
     has context => (
@@ -81,10 +66,17 @@
     use Moose;
     use MooseX::AttributeHelpers;
 
-    has pid => (
+    has id => (
         isa     => 'Str',
         is      => 'ro',
         default => sub { time },    # this should be a UID
+    );
+
+    has namespace => (
+        isa     => 'Namespace',
+        is      => 'rw',
+        weaken  => 1,
+        handles => [qw(send)],
     );
 
     has mailbox => (
@@ -96,7 +88,7 @@
             empty => 'mailbox_empty',
             count => 'message_count',
             shift => 'next_message',
-            push  => 'send',
+            push  => 'receive',
         }
     );
 
@@ -108,22 +100,14 @@
     package Dispatcher;
     use Moose;
     use List::Util qw(sum);
-    
-    has actors => (
-        isa       => 'HashRef[Actor]',
-        is        => 'ro',
-        default   => sub { {} },
-        metaclass => 'Collection::Hash',
-        provides  => {
-            get    => 'get_actor_by_pid',
-            values => 'list_actors',
-        },
-    );
 
-    sub add_actor {
-        my ( $self, $actor ) = @_;
-        $self->actors->{ $actor->pid } = $actor;
-    }
+    has namespace => (
+        isa      => 'Namespace',
+        is       => 'ro',
+        weaken   => 1,
+        required => 1,
+        handles  => [qw(list_actors get_actor_by_id)],
+    );
 
     sub pending_messages {
         my ($self) = @_;
@@ -154,10 +138,56 @@
     }
 
     sub send {
-        my ( $self, $pid, $message ) = @_;
+        my ( $self, $id, $message ) = @_;
         $message->dispatcher($self);
-        $self->get_actor_by_pid($pid)->send($message);
+        $self->get_actor_by_id($id)->send($message);
     }
+}
+
+{
+
+    package Namespace;    # in Erlang and Scala this is a Node
+    use Moose;
+
+    # TODO - Global registry of objects and their roles.
+    # May be distributed across a network.
+    # Message routing will be determined here.
+
+    has space => (        # other namespaces
+        is  => 'rw',
+        isa => 'HashRef[Object]',
+    );
+
+    has actors => (       # actors in this namespace
+        isa       => 'HashRef[Actor]',
+        is        => 'ro',
+        default   => sub { {} },
+        metaclass => 'Collection::Hash',
+        provides  => {
+            get    => 'get_actor_by_id',
+            values => 'list_actors',
+        },
+    );
+
+    sub add_actor {
+        my ( $self, $actor ) = @_;
+        $actor->namespace($self);
+        $self->actors->{ $actor->id } = $actor;
+    }
+
+    sub send {
+        my ( $self, $message ) = @_;
+        $self->get_actor_by_id( $message->target )->receive($message);
+    }
+
+    has dispatcher => (
+        isa        => 'Dispatcher',
+        is         => 'ro',
+        lazy_build => 1,
+        handles    => [qw(run)],
+    );
+
+    sub _build_dispatcher { Dispatcher->new( namespace => $_[0] ) }
 }
 
 {
@@ -170,10 +200,11 @@
         my ( $self, $message ) = @_;
         my $whom  = $message->args->{whom};
         my $count = ++$message->context->{count};
-
+        
         print "hello, $whom! ($count)\n";
 
         if ( $count < 9 ) {
+            $message->sender($self->id);
             $self->send($message);
             return;
         }
@@ -181,8 +212,10 @@
         $self->send(
             Call->new(
                 {
-                    type => "say_goodbye",
-                    args => $message->args,
+                    sender => $self->id,
+                    target => $message->sender,
+                    type   => "say_goodbye",
+                    args   => $message->args,
                 },
             )
         );
@@ -199,20 +232,21 @@
 {
 
     package main;
-    my $dispatcher = Dispatcher->new();
-    my $app        = App->new();
+    my $namespace = Namespace->new();
+    my $app       = App->new();
 
-    $dispatcher->add_actor($app);
+    $namespace->add_actor($app);
 
-    $app->send(
+    $namespace->send(
         Call->new(
             {
-                type => "say_hello",
-                args => { whom => "world", count => 0 },
+                target => $app->id,
+                type   => "say_hello",
+                args   => { whom => "world", count => 0 },
             },
         )
     );
 
-    $dispatcher->run();
+    $namespace->run();
     exit;
 }
