@@ -83,6 +83,68 @@
 	}
 }
 
+{ package Event;
+	use Moose;
+}
+
+{ package Event::Timeout;
+	use Moose;
+	extends 'Event';
+}
+
+{ package Event::Interrupted;
+	use Moose;
+	extends 'Event';
+}
+
+{ package EventGenerator;
+	use Moose;
+
+	use Time::HiRes qw(time);
+
+	has pending_events => (
+		is => 'rw',
+		isa => 'ArrayRef[Event]',
+		default => sub { [] },
+	);
+
+	sub get_next_event {
+		my ($self, $arg) = @_;
+
+		# Stop time.  Assuming we fall through below, we don't want to
+		# include the minimal time it took.
+
+		my $now = time();
+
+		# A previous loop found something.  Return that.
+
+		my $pending = $self->pending_events();
+		return shift @$pending if @$pending;
+
+		# How long are we allowed to wait for events?
+
+		my $time_to_wait = $arg->{max_wait} || 0;
+		$time_to_wait -= time() - $now;
+
+		# Oops; we've been here too long.
+
+		return Event::Timeout->new() if $time_to_wait <= 0;
+
+		# TODO - Actually check for events.
+		# For now, let's pretend we're waiting for something.
+
+		sleep $time_to_wait;
+
+		# Note whether we were interrupted.
+
+		return Event::Interrupted->new() if $time_to_wait > time() - $now;
+
+		# We waited long enough.
+
+		return Event::Timeout->new();
+	}
+}
+
 { package Dispatcher;
 	use Moose;
 
@@ -95,10 +157,20 @@
 		default => sub { [] },
 	);
 
+	has event_generator => (
+		is => 'rw',
+		isa => 'EventGenerator',
+	);
+
 	sub run {
 		my $self = shift;
 
-		while (1) {
+		my $max_wait = 0; # return immediately if no event
+		while (
+			my $event = $self->event_generator->get_next_event(
+				{ max_wait => $max_wait }
+			)
+		) {
 			my $next_message = shift @{$self->queue()};
 			last unless defined $next_message;
 
@@ -159,7 +231,8 @@
 }
 
 { package main;
-	my $dispatcher = Dispatcher->new();
+	my $generator = EventGenerator->new();
+	my $dispatcher = Dispatcher->new( event_generator => $generator );
 	my $app = App->new();
 
 	my $request = Call->new(
@@ -174,3 +247,4 @@
 	$dispatcher->run();
 	exit;
 }
+
