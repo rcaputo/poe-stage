@@ -109,9 +109,9 @@
         handles  => [qw(list_actors get_actor_by_id)],
     );
 
-    sub pending_messages {
-        my ($self) = @_;
-        sum map { $_->message_count } $self->list_actors;
+    sub pending_messages { # dngor figured out to optimize the messages
+        my ($self) = $_[0];
+        map { $_->next_message || () } $self->list_actors;    
     }
 
     sub run {
@@ -119,20 +119,19 @@
 
         # This while loop should be replaced by a POE run loop
 
-        while ( $self->pending_messages ) {
-            for my $actor ( $self->list_actors ) {
-                next unless $actor->message_count;
-
-                my $next_message = $actor->next_message;
-                my $message_type = $next_message->type();
+        while ( my @messages = $self->pending_messages ) {
+            for my $message (@messages) {
+                last unless defined $message;
+                my $actor        = $self->get_actor_by_id( $message->target );
+                my $message_type = $message->type();
 
                 # TODO - Translate the message type into a method.  For now
                 # we're asuming the message type is a method name.  Later we
                 # should consult the target object for a type/method mapping.
 
-                $next_message->context( $next_message->target_context() );
-                $actor->$message_type($next_message);
-                $next_message->context( $next_message->sender_context() );
+                $message->context( $message->target_context() );
+                $actor->$message_type($message);
+                $message->context( $message->sender_context() );
             }
         }
     }
@@ -200,11 +199,11 @@
         my ( $self, $message ) = @_;
         my $whom  = $message->args->{whom};
         my $count = ++$message->context->{count};
-        
+
         print "hello, $whom! ($count)\n";
 
         if ( $count < 9 ) {
-            $message->sender($self->id);
+            $message->sender( $self->id );
             $self->send($message);
             return;
         }
