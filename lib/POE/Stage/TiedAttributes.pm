@@ -154,6 +154,7 @@ sub FIRSTKEY  { croak "firstkey directly from a stage"; }
 sub NEXTKEY   { croak "nextkey directly from a stage";  }
 sub EXISTS    { croak "exists directly from a stage";   }
 sub DELETE    { croak "delete directly from a stage";   }
+sub DESTROY   { undef }  # Do nothing; somehow avoids a Perl coredump.
 
 ### Helper for :Self members.
 
