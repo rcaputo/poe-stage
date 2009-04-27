@@ -69,7 +69,9 @@
     has id => (
         isa     => 'Str',
         is      => 'ro',
-        default => sub { join(" ", $$, time(), times() }, # this should be a UID
+        default => sub {
+            join(" ", $$, time(), times())
+        }, # this should be a UID
     );
 
     has namespace => (
