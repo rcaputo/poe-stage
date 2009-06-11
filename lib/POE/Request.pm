@@ -145,8 +145,6 @@ BEGIN {
 	);
 }
 
-use POE::Stage::TiedAttributes;
-
 my $last_request_id = 0;
 my %active_request_ids;
 
@@ -189,17 +187,11 @@ sub DESTROY {
 
 	if (_free_request_id($id)) {
 		if ($self->[REQ_CREATE_STAGE]) {
-			my $tied = tied(%{$self->[REQ_CREATE_STAGE]});
-			if (defined $tied) {
-				$tied->_request_context_destroy($id);
-			}
+			$self->[REQ_CREATE_STAGE]->_request_context_destroy($id);
 		}
 
 		if ($self->[REQ_TARGET_STAGE]) {
-			my $tied = tied(%{$self->[REQ_TARGET_STAGE]});
-			if (defined $tied) {
-				$tied->_request_context_destroy($id);
-			}
+			$self->[REQ_TARGET_STAGE]->_request_context_destroy($id);
 		}
 	}
 }
@@ -244,12 +236,12 @@ sub _invoke {
 	my ($self, $method, $override_args) = @_;
 
 	DEBUG and do {
-		my $tied_target = tied(%{$self->[REQ_TARGET_STAGE]});
+		my $target = $self->[REQ_TARGET_STAGE];
 
 		warn(
 			"\t$self invoking $self->[REQ_TARGET_STAGE] method $method:\n",
-			"\t\tMy req  = ", $tied_target->_get_request(), "\n",
-			"\t\tMy rsp  = ", $tied_target->_get_response(), "\n",
+			"\t\tMy req  = ", $target->_get_request(), "\n",
+			"\t\tMy rsp  = ", $target->_get_response(), "\n",
 			"\t\tPar req = $self->[REQ_PARENT_REQUEST]\n",
 		);
 	};
@@ -499,11 +491,10 @@ sub deliver {
 	my ($self, $method, $override_args) = @_;
 
 	my $target_stage = $self->[REQ_TARGET_STAGE];
-	my $target_stage_tied = tied(%$target_stage);
 
 	my $delivery_req = $self->[REQ_DELIVERY_REQ] || $self;
 
-	$target_stage_tied->_set_req_rsp($delivery_req, 0);
+	$target_stage->_set_req_rsp($delivery_req, 0);
 
 	# At this point we decide the final method.
 	my $target_method;
@@ -528,7 +519,7 @@ sub deliver {
 
 	$self->_pop($self, $target_stage, $target_method);
 
-	$target_stage_tied->_set_req_rsp(undef, undef);
+	$target_stage->_set_req_rsp(undef, undef);
 }
 
 # Return a response to the requester.  The response occurs in the

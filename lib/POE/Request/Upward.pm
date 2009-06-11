@@ -47,7 +47,6 @@ use POE::Request qw(
 use base qw(POE::Request);
 use Carp qw(croak confess);
 use Scalar::Util qw(weaken);
-use POE::Stage::TiedAttributes;
 
 use constant DEBUG => 0;
 
@@ -195,7 +194,7 @@ sub new {
 sub deliver {
 	my $self = shift;
 
-	my $target_stage = tied(%{$self->[REQ_TARGET_STAGE]});
+	my $target_stage = $self->[REQ_TARGET_STAGE];
 	$target_stage->_set_req_rsp(
 		$self->[REQ_DELIVERY_REQ],
 		$self->[REQ_DELIVERY_RSP],

@@ -75,13 +75,54 @@ use Carp qw(croak);
 use Devel::LexAlias qw(lexalias);
 use PadWalker qw(var_name);
 
-use POE::Stage::TiedAttributes;
+use Hash::Util::FieldHash;
 use POE::Callback;
 
 use POE::Request::Emit;
 use POE::Request::Return;
 use POE::Request::Recall;
 use POE::Request qw(REQ_ID);
+
+# Field hash tracks POE::Stage's inside-out data for each object.
+
+sub STAGE_DATA    () { 0 }  # The stage's object-scoped data.
+sub COMBINED_KEYS () { 1 }  # Temporary space for iteration.
+sub REQUEST       () { 2 }  # Currently active request.
+sub RESPONSE      () { 3 }  # Currently active response.
+sub REQ_CONTEXTS  () { 4 }  # Contexts for each request in play.
+sub REQ_INIT      () { 5 }  # The init request shares the stage's lifetime.
+
+die unless Hash::Util::FieldHash::fieldhash(my %private);
+
+sub _get_request  { return $private{$_[0]}[REQUEST] }
+sub _get_response { return $private{$_[0]}[RESPONSE] }
+sub _set_req_rsp  { $private{$_[0]}[REQUEST]  = $_[1]; $private{$_[0]}[RESPONSE] = $_[2] }
+sub _set_req_init { $private{$_[0]}[REQ_INIT] = $_[1] }
+
+sub _self_store {
+	my ($self, $key, $value) = @_;
+	return $private{$self}[STAGE_DATA]{$key} = $value;
+}
+
+sub _self_fetch {
+	my ($self, $key) = @_;
+	return $private{$self}[STAGE_DATA]{$key};
+}
+
+sub _request_context_store {
+	my ($self, $req_id, $key, $value) = @_;
+	return $private{$self}[REQ_CONTEXTS]{$req_id}{$key} = $value;
+}
+
+sub _request_context_fetch {
+	my ($self, $req_id, $key) = @_;
+	return $private{$self}[REQ_CONTEXTS]{$req_id}{$key};
+}
+
+sub _request_context_destroy {
+	my ($self, $req_id) = @_;
+	delete $private{$self}[REQ_CONTEXTS]{$req_id};
+}
 
 # Track classes that use() POE::Stage, and methods with explicit
 # :Handler magic (so we don't wrap them twice).
@@ -256,8 +297,15 @@ sub new {
 
 	my %args = @_;
 
-	tie my (%self), "POE::Stage::TiedAttributes";
-	my $self = bless \%self, $class;
+	my $self = bless { }, $class;
+	$private{$self} = [
+		{ },    # STAGE_DATA
+		[ ],    # COMBINED_KEYS
+		undef,  # REQUEST
+		undef,  # RESPONSE
+		{ },    # REQ_CONTEXTS
+		undef,  # REQ_INIT
+	];
 
 	# Set the context of init() to that of a new request to the new
 	# object.  Any resources created in on_init() will need to be stored
@@ -286,7 +334,7 @@ sub new {
 	);
 
 	$req->deliver();
-	tied(%$self)->_set_req_init($req);
+	$private{$self}[REQ_INIT] = $req;
 	$req->_weaken_target_stage();
 
 	return $self;
@@ -316,7 +364,7 @@ sub init {
 	undef;
 }
 
-# TODO - Make these internal?  Possibly part of the tied() interface?
+# TODO - Make these internal?
 
 sub self {
 	package DB;
@@ -325,14 +373,15 @@ sub self {
 }
 
 sub req {
-	my $stage = tied(%{POE::Request->_get_current_stage()});
+	my $stage = POE::Request->_get_current_stage();
 	return $stage->_get_request();
 }
 
 sub rsp {
-	my $stage = tied(%{POE::Request->_get_current_stage()});
+	my $stage = POE::Request->_get_current_stage();
 	return $stage->_get_response();
 }
+
 
 =head2 Handler
 
@@ -444,7 +493,7 @@ sub expose ($\[$@%];\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]\[$@%]
 		# Some prefixes fail.
 		croak "can't expose $var_name" if $prefix =~ /^(arg|req|rsp|self)$/;
 
-		my $stage = tied(%{POE::Request->_get_current_stage()});
+		my $stage = POE::Request->_get_current_stage();
 		my $member_ref = $stage->_request_context_fetch(
 			$request->get_id(),
 			$member_name,

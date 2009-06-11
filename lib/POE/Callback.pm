@@ -73,7 +73,6 @@ sub new {
 	}
 
 	my $b_self = '';        # build $self
-	my $b_tied_self = '';   # build $tied_self
 	my $b_rsp = '';         # build $rsp
 	my $b_req = '';         # build $req
 	my $b_arg = '';         # build $arg
@@ -93,13 +92,13 @@ sub new {
 		}
 
 		if ($var_name eq '_b_req') {
-			push @persistent, '$tied_self' unless $b_tied_self;
-			$b_req = q{  my $req = $tied_self->_get_request();};
+			push @persistent, '$self' unless $b_self;
+			$b_req = q{  my $req = $self->_get_request();};
 		}
 
 		if ($var_name eq '_b_rsp') {
-			push @persistent, '$tied_self' unless $b_tied_self;
-			$b_rsp = q{  my $rsp = $tied_self->_get_response(); };
+			push @persistent, '$self' unless $b_self;
+			$b_rsp = q{  my $rsp = $self->_get_response(); };
 		}
 
 		if ($var_name eq '$self') {
@@ -117,12 +116,6 @@ sub new {
 		if ($var_name eq '_b_req_id') {
 			push @persistent, '_b_req' unless $b_req;
 			$b_req_id = q{  my $req_id = $req->get_id();};
-			next;
-		}
-
-		if ($var_name eq '$tied_self') {
-			push @persistent, '_b_self' unless $b_self;
-			$b_tied_self = q(  my $tied_self = tied %$self;);
 			next;
 		}
 
@@ -197,19 +190,18 @@ sub new {
 		my $obj;
 		if ($prefix eq 'req') {
 			push @persistent, '_b_req_id' unless $b_req;
-			push @persistent, '$tied_self' unless $b_tied_self;
 
 			# Get the existing member reference.
 			push @vars, (
 				q{  $member_ref = } .
-				q{$tied_self->_request_context_fetch(} .
+				q{$self->_request_context_fetch(} .
 				qq{\$req_id, '$member_name');}
 			);
 
 			# Autovivify if necessary.
 			push @vars, (
 				@vivify,
-				q{    $tied_self->_request_context_store(} .
+				q{    $self->_request_context_store(} .
 				qq{\$req_id, '$member_name', \$member_ref);},
 				q(  }),
 				# Alias the member.
@@ -220,19 +212,19 @@ sub new {
 
 		if ($prefix eq 'rsp') {
 			push @persistent, '_b_rsp_id' unless $b_rsp;
-			push @persistent, '$tied_self' unless $b_tied_self;
+			push @persistent, '$self' unless $b_self;
 
 			# Get the existing member reference.
 			push @vars, (
 				q{  $member_ref = } .
-				q{$tied_self->_request_context_fetch(}.
+				q{$self->_request_context_fetch(}.
 				qq{\$rsp_id, '$member_name');}
 			);
 
 			# Autovivify if necessary.
 			push @vars, (
 				@vivify,
-				q{    $tied_self->_request_context_store(} .
+				q{    $self->_request_context_store(} .
 				qq{    \$rsp_id, '$member_name', \$member_ref);},
 				qq(  \}),
 				# Alias the member.
@@ -242,17 +234,17 @@ sub new {
 		}
 
 		if ($prefix eq 'self') {
-			push @persistent, '$tied_self' unless $b_tied_self;
+			push @persistent, '$self' unless $b_self;
 
 			# Get the existing member reference.
 			push @vars, (
-				qq{\$member_ref = \$tied_self->_self_fetch('$member_name');}
+				qq{\$member_ref = \$self->_self_fetch('$member_name');}
 			);
 
 			# Autovivify if necessary.
 			push @vars, (
 				@vivify,
-				qq{    \$tied_self->_self_store('$member_name', \$member_ref);},
+				qq{    \$self->_self_store('$member_name', \$member_ref);},
 				qq(  \}),
 				# Alias the member.
 				qq{  lexalias(\$code, '$var_name', \$member_ref);}
@@ -263,7 +255,7 @@ sub new {
 	}
 
 	unshift @vars, (
-		$b_self, $b_tied_self, $b_arg, $b_req, $b_rsp, $b_req_id, $b_rsp_id,
+		$b_self, $b_arg, $b_req, $b_rsp, $b_req_id, $b_rsp_id,
 		$a_self, $a_rsp, $a_req,
 	);
 
