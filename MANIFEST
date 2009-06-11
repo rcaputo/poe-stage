@@ -26,7 +26,6 @@ lib/POE/Stage/Echoer.pm
 lib/POE/Stage/Receiver.pm
 lib/POE/Stage/Resolver.pm
 lib/POE/Stage/Ticker.pm
-lib/POE/Stage/TiedAttributes.pm
 lib/POE/Watcher.pm
 lib/POE/Watcher/Delay.pm
 lib/POE/Watcher/Input.pm

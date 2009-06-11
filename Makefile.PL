@@ -21,6 +21,7 @@ WriteMakefile(
     'Test::More'            => 0,
     'Devel::LexAlias'       => 0.04,
 		'Lexical::Persistence'  => 0.95, # Currently unused.
+		'Hash::Util::FieldHash' => 1.03,
   },
   dist         => {
     COMPRESS   => 'gzip -9f',
