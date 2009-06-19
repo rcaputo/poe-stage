@@ -25,6 +25,11 @@ has on_done => (
 	is => 'ro',
 );
 
+has auto_repeat => (
+	isa => 'Bool',
+	is => 'rw',
+);
+
 sub BUILD {
 	my $self = shift;
 	$self->repeat();
@@ -53,6 +58,8 @@ sub _deliver {
 	}
 
 	$self->parent()->$on_done($self);
+
+	$self->repeat() if $self->auto_repeat();
 }
 
 sub DEMOLISH {

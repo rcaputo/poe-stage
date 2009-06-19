@@ -8,8 +8,9 @@ use Delay;
 
 my $delay_1 = Delay->new(
 	{
-		interval => 1,
 		on_done => \&coderef_callback,
+		interval => 1,
+		auto_repeat => 1,
 		data => {
 			name => "delay_1",
 		},
@@ -20,8 +21,9 @@ my $delay_1 = Delay->new(
 
 my $delay_2 = Delay->new(
 	{
-		interval => 1.33,
 		on_done => "package_method_callback",
+		interval => 1.33,
+		auto_repeat => 1,
 		data => {
 			name => "delay_2",
 		},
@@ -44,8 +46,9 @@ my $delay_2 = Delay->new(
 		$self->delay(
 			Delay->new(
 				{
-					interval => 1.66,
 					on_done => "object_method_callback",
+					interval => 1.66,
+					auto_repeat => 1,
 					data => {
 						name => "delay_3",
 					},
@@ -57,7 +60,6 @@ my $delay_2 = Delay->new(
 	sub object_method_callback {
 		my ($object, $delay) = @_;
 		warn $delay->data()->{name}, " delivered to $object at ", scalar(localtime);
-		$delay->repeat();
 	}
 }
 
@@ -69,11 +71,9 @@ exit;
 sub coderef_callback {
 	my $delay = shift;
 	warn $delay->data()->{name}, " delivered to coderef at ", scalar(localtime);
-	$delay->repeat();
 }
 
 sub package_method_callback {
 	my ($class, $delay) = @_;
 	warn $delay->data()->{name}, " delivered to $class at ", scalar(localtime);
-	$delay->repeat();
 }
