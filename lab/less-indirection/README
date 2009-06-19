@@ -1,0 +1,9 @@
+This directory explores the idea that we can tell an object's creator
+by examining the call stack.
+
+The idea only works for systems like Moose, where post-constructor
+initialization happens via callback.  Otherwise the newly created
+object won't be findable on the stack.
+
+Coderef, package-method and object-method examples are included in
+usecase.pl.
