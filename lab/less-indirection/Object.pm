@@ -3,6 +3,7 @@ package Object;
 use Moose;
 
 use Scalar::Util qw(weaken blessed);
+use Carp qw(croak);
 
 use Hash::Util qw(fieldhash);
 use Hash::Util::FieldHash qw(id);
@@ -13,6 +14,8 @@ fieldhash my %children;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
+
+POE::Kernel->run(); # disables a warning
 
 my $singleton_session_id = POE::Session->create(
 	inline_states => {
@@ -93,6 +96,43 @@ sub parent {
 
 sub _deliver {
 	die "@_";
+}
+
+sub manage {
+	my ($self, $sub_object) = @_;
+	croak "cannot manage an object we didn't create" unless (
+		exists $children{$self}{$sub_object}
+	);
+
+	# TODO - We could warn about redundant calls if the stored child
+	# isn't currently weak.
+
+	# Store a strong copy.
+	$children{$self}{$sub_object} = $sub_object;
+}
+
+sub abandon {
+	my ($self, $sub_object) = @_;
+	croak "cannot manage an object we didn't create" unless (
+		exists $children{$self}{$sub_object}
+	);
+
+	# TODO - We could warn about redundant calls if the stored child
+	# already is weak.
+	weaken $children{$self}{$sub_object};
+}
+
+sub spawn {
+	my ($class, @args) = @_;
+	my $self = $class->new(@args);
+	$parents{$self}->manage($self);
+}
+
+# TODO - Filter by class.
+# TODO - Filter by role.
+sub children {
+	my $self = shift;
+	return values %{$children{$self}};
 }
 
 1;
