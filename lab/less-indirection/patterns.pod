@@ -1,0 +1,1026 @@
+$Id: PATTERNS 101 2006-09-05 01:54:13Z rcaputo $
+
+=head1 Object Patterns
+
+A usable object framework must support every useful design pattern,
+either through core mechanisms or by extension.  Designers will not
+use object frameworks that impede their work.
+
+This document intends to be an exhaustive catalog of facets of
+asynchronous object design and interaction.  It aims to be generally
+applicable, but it focuses on concepts that relate to POE::Stage
+design and development.
+
+=head2 Task Commencement
+
+=head3 Task Commencement During Instantiation
+
+Objects creation and task commencement may be tightly coupled.  Object
+constructors will bootstrap the work to be performed.
+
+	my $resolver = POE::Stage::Resolver->new(
+		role => "resolver",
+		host => "poe.perl.org",
+		type => "A",
+	);
+
+	sub on_resolver_success {
+		# continue with successful path
+	}
+
+	sub on_resolver_failure {
+		# handle error
+	}
+
+=head3 Task Commencement Upon Request
+
+Task commencement may be delayed until an explicit request is made.
+This decouples the work from the object's constructor.  This pattern
+is useful for lazy objects and to allow task customization by
+mutators.
+
+	my $resolver = POE::Stage::Resolver->new(
+		role => "resolver",
+	);
+
+	$resolver->timeout(60);
+
+	$resolver->resolve(
+		host => "poe.perl.org",
+		type => "A",
+	);
+
+=head2 Number of Tasks Per Object
+
+=head3 Single-Shot Objects
+
+Some objects live to perform just one task.  These objects passivate
+when their tasks complete.
+
+	sub start_something {
+		my $self = shift;
+		$self->{something} = POE::Stage::SomethingHappensOnce->new(
+			role => "oneshot",
+		);
+	}
+
+	sub on_oneshot_success {
+		my $self = shift;
+		my $something = delete $self->{something};
+		print "done: ", $something->status(), "\n";
+	}
+
+=head3 Multi-Shot Objects
+
+Some objects may perform more than one task.
+
+=head4 One Task at a Time
+
+Some objects are designed to repeat a task.  These objects perform one
+instance of the task at a time.
+
+	sub start_delay {
+		my $self = shift;
+		$self->{delayer} = POE::Stage::Delayer->new(
+			role => "delay",
+			time => 60, # seconds
+		);
+	}
+
+	sub on_delay_complete {
+		$self->{delayer}->repeat();
+	}
+
+=head4 Multiple Simultaneous Tasks
+
+Some objects are designed to manage a pool of related tasks.  These
+objects may perform many instances of a task at once.  They may be
+global objects that act as services.  For instance:
+
+	my $connection_pool = POE::Stage::Client::KeepAlivePool->new();
+
+	sub start_connection {
+		$connection_pool->connect(
+			role    => "connector",
+			scheme  => "http",
+			host    => "poe.perl.org",
+			port    => 80,
+		);
+
+		$connection_pool->connect(
+			role    => "connector",
+			scheme  => "http",
+			host    => "delicious.com",
+			port    => 80,
+		);
+	}
+
+	sub on_connector_success {
+		# use the connection
+	}
+
+	sub on_connector_failure {
+		# handle an error
+	}
+
+=head2 Object Destruction
+
+=head3 Self-Destruction at Task Completion
+
+Objects may self-destruct when their work is done.  Posession of
+object references will interfere with self-destruction, so
+L<self-management|/Self-Managed Objects> is strongly implied.
+
+	POE::Stage::Resolver->new(
+		role => "resolver",
+		host => "poe.perl.org",
+		type => "A",
+	);
+
+Weak references are insufficient since an object can't guarantee that
+all references to it are weak.  Proxy objects would allow objects to
+self-destruct, but they introduce runtime indirection.  The proxy
+objects still must be explicitly managed, which reduces the benefits
+of self-management.
+
+=head4 Object Destructs Upon Request
+
+Destruction upon request is useful for canceling tasks before they
+complete.  The simplest way to cancel these objects is to trigger
+their destruction.
+
+	delete $self->{sub_object};
+
+Explicit shutdown() methods are also recommended, especially if
+shutdown is a complex process that can't be completed within a single
+destructor call.
+
+	$self->{sub_object}->shutdown();
+
+	sub on_subobject_destruction {
+		my $self = shift;
+		delete $self->{sub_object};
+	}
+
+=head4 Never Destructs
+
+Permanent objects are a subspecies of
+L<request-destroyed|/Object Destructs Upon Request> object, where the
+program terminates before destruction can be requested.
+
+=head2 Object Management
+
+=head3 Creator-Managed Objects
+
+Perl requires that objects be posessed and managed.  Usually creators
+store references to the object as long as necessary.  When objects
+become obsolete, their creators destroy them by destroying all
+references to them.
+
+	sub do_something {
+		my $self = shift;
+		$self->{object} = Object->new();
+	}
+
+	sub stop_doing_something {
+		my $self = shift;
+		delete $self->{object};
+	}
+
+Creator-managed object constructors must return object references.
+
+=head3 Self-Managed Objects
+
+Self-managed objects don't require the creator to refer to them.
+These objects keep themselves alive by implicitly registering
+themselves with a namespace, object space, or some other kind of
+object manager.  They trigger their own destruction when appropriate,
+or they provide interfaces for explicit destruction.
+
+	POE::Stage::Resolver->new(
+		role => "resolver",
+		host => "poe.perl.org",
+		type => "A",
+	);
+
+Self-managed object constructors aren't required to return object
+references.  If they do, it's expected that their creators ignore
+their references or relinquish them quickly.
+
+Self-managed objects are often
+L<self-destructing|/Self-Destruction at Task Completion>.
+
+=head4 Inspecting Self-Managed Objects
+
+Self-managed objects implicitly store themselves in the objects that
+create them.  The "parent" objects are able to inspect the active
+self-managed objects they have created.
+
+A parent object may retrieve a list of all its children.
+
+	my @children = $self->child_objects();
+
+A parent object may limit retrieval by object class and/or role.
+
+	my @resolvers = $self->child_objects(role => "resolver");
+	my @delayers  = $self->child_objects(class => "POE::Stage::Delayer");
+
+Retrieved objects may merely be counted.
+
+	while ($self->child_objects(role => "resolver") < 10) {
+		POE::Stage::Resolver->new(
+			role => "resolver",
+			host => shift(@hosts_to_resolve),
+			type => "A",
+		);
+	}
+
+=head4 Detaching Objects
+
+A program may wish to create a managed object then promote it to
+self-management after the fact.  The object may be I<detached> from
+its parent, allowing the object to manage itself.
+
+	my $object = Object->new();
+	$object->timeout(60);
+	$object->detach();
+
+Another possibility is to include a "detached" constructor parameter.
+This is more convenient in the case where the constructor parameters
+are good enough and we don't want to bother with detach().
+
+	Object->new( detached => 1 );
+
+A third option is to create a separate constructor, spawn(), that does
+the detachment itself.  In this prototype, spawn() returns undef.  It
+could also throw an exception if it's not called in void or boolean
+context.
+
+	package Object;
+
+	sub spawn {
+		my ($class, $args) = @_;
+		my $self = $class->new($args);
+		$self->detach();
+		undef;
+	}
+
+=head4 Transferring Objects to New Parents
+
+It's convenient to allow objects to be passed around and reparented.
+For example, an object factory wish for its users to own the objects
+it creates.
+
+The API for object transferrence should be implemented in the base
+class, and it should be called in terms of the object being
+transferred.  This gives the object itself a chance to validate the
+object transferrence and throw an exception if something is wrong.
+For example, if the class that would receive the object doesn't
+implement a compatible interface.
+
+Object transferrene should also involve resetting callbacks, since the
+recipient may wish to handle events differently.  Here a hypothetical
+accept_this_object() method is used to give an object away.
+
+	sub accept_this_object {
+		my ($self, $object) = @_;
+
+		$object->moved(
+			on_event => "recipient_method_name",
+		);
+	}
+
+accept_this_object() might be called by another object:
+
+	sub create_and_give_away_object {
+		my ($self, $recipient) = @_;
+
+		my $new_object = Object->new();
+		$recipient->accept_this_object($new_object);
+	}
+
+=head2 Object Scope
+
+=head3 Within One Object
+
+An object is created by another object, and it is stored within its
+creater for use by its creator.  The object is generally used directly
+only by its parent.
+
+	package Object;
+
+	sub do_something {
+		my $self = shift;
+		$self->{another_object} = AnotherObject->new();
+	}
+
+=head4 Within Multiple Objects
+
+An object is created and passed among (or exposed to) two or more
+objects (users).  Use is generally not coordinated, so the object must
+handle being called at odd times.
+
+	package ObjectFactory;
+
+	sub create {
+		return Object->new(@stuff);
+	}
+
+=head4 Within a Namespace
+
+An object is created and stored in a namespace which publishes it to
+one or more other objects.  Users tend to look up these objects as
+needed rather than hold onto them.
+
+	package Something;
+
+	my %namespace;
+
+	sub do_something {
+		my ($self, $name) = @_;
+		$namespace{$name} = AnotherObject->new();
+	}
+
+=head1 Messaging Transaction Patterns
+
+Messages transactions occur between I<requesters> and I<responders>.
+Transactions are initiated when a requester sends a request to a
+responder.  Transactions remain open until the request is canceled by
+either party, either deliberately or as part of either party's
+destruction.  Responders may return zero, one or many responses to a
+request.  Requesters may continue bidirectional chatter in a
+transaction by replying to a responders' responses.
+
+Requesters and responders are subjective roles.  A responder may also
+be a requester.  For example, POE::Component::Client::HTTP acts as
+both a responder (to application code) and a requester (to other
+components, such as POE::Component::Client::Keepalive).
+
+=head2 One Requester, One Responder
+
+The responder is created to service requests from one requester.
+Usually the requester creates and manages the responder.
+
+=head2 One Requester, Many Responders
+
+One requester creates many responders, either serially or in parallel.
+In the serial pattern, the requester creates a responder for a single
+task and replaces it each time the task completes.  In the parallel
+pattern, the requester creates a pool of responders and optionally
+replaces each responder as they finish.
+
+Responders may be multi-shot.  In this case, each responder may be
+configured differently.  For example, an object may use multiple HTTP
+clients, each configured to connect through a different proxy.
+
+=head2 One Responder, Many Requesters
+
+A persistent or shared responder is created to handle tasks for many
+requesters.  This is a common pattern for POE::Component modules.
+
+=head2 Many Requesters, Many Responders
+
+This is a combination of the other message transaction patterns.
+
+=head2 Requests as Channels
+
+I<Overloading requests with connection semantics seems awkward.>
+
+Transactions remain open until a request is canceled by the requester
+or responder, or either party destructs.  The responder may emit
+multiple responses.  The requester may reply to emitted responses.
+
+=over 2
+
+=item * Requester makes a request.
+
+=item * Responder emits a non-terminal response.
+
+=item * Requester replies to the non-terminal response.
+
+=item * Repeat until done.
+
+=item * Requester cancels the request, or a terminal response is returned.
+
+=back
+
+=head3 Requests Aren't Channels
+
+Third-sortie POE::Stage focuses on creating requests and delivering
+them to their destinations.  It doesn't handle well the issues and
+semantics of receiving responses and dealing with them.
+
+The current context has a member, _req, that identifies the request
+that is a parent of the current context: the request being handled.
+
+There is also a _rsp member, but it's only valid when handling a
+non-terminal emitted response.
+
+A third member is needed to identify the request object that is parent
+of the _rsp.  This third member would be the original request that the
+current state sent.  Call it _moo for want of a better name.  Even so,
+there is a disconnect between _moo and the contextual member in which
+a program stored the main response.  For example:
+
+	$self->{_some_request} = POE::Request->new(...);
+
+Receiving a response from _some_request sets _moo = $request_object.
+There is no convenient way to determine that $self->{_moo} represents
+the request in $self->{_some_request}.  They are equal, but it's
+inconvenient to determine which member to delete when ending a
+request:
+
+	sub handle_response {
+		my ($self, $args) = @_;
+		my $responding_request = $self->{_moo};
+
+		# How do we know that $responding_request is equivalent to
+		# $self->{_some_request}?
+	}
+
+I<New syntax is needed for bidirectional transactions.>
+
+=head3 Caveats With Emit and Recall
+
+I<This less-prescriptive section comes from an older document.>
+
+A way is needed to post new requests down the old request.  This  may
+invalidate the idea of a "request" since it changes the original
+request context, losing any original data that might still be needed.
+
+The issue appeared with a UDP responder and its requester, in a 1:1
+use pattern.
+
+=over 2
+
+=item * The requester asks the responder to listen on a port.
+
+=item * The responder emits "datagram" messages to the requester.
+
+=item * The requester generates a response, sending it to the responder.
+
+=back
+
+Some prototypical code, assuming that recall() is the method to push
+another request down an existing bidirectional connection between two
+objects:
+
+	sub handle_datagram {
+		my ($self, $args) = @_;
+
+		my $datagram = $args->{datagram};
+		$datagram =~ tr[a-zA-Z][n-za-mN-ZA-M];
+
+		$self->{_rsp}->recall(
+			_method        => "send",
+			remote_address => $args->{remote_address},
+			datagram       => $datagram,
+		);
+	}
+
+Some issues to consider:
+
+=over 2
+
+=item *
+
+The request's _args will be overwritten by new arguments.  Clobbering
+_args may be an issue if there are multiple recall()s on the same
+_rsp.
+
+=item *
+
+Just as emit() creates a new Request (POE::Request::Response), so
+should recall().
+
+=item *
+
+The recalled method is called in the context of the _req that
+generated the response.  That's _rsp at the time recall() is invoked.
+
+=back
+
+Whatever mechanism is used must be shown to work for arbitrary nesting
+of requests and responses.
+
+Response contexts were first needed while writing POE::Stage::Receiver
+and the UDP example to use it.  These objjects don't nest arbirarily,
+but they do nest a level beyond what was needed to date.  Here's a
+synopsis of the interaction between POE::Stage::Receiver and the UDP
+example.
+
+=over 2
+
+=item * Consumer requests that the producer listen for datagrams.
+
+The original listen request maps all interesting return types to
+methods, including ones like _on_send_error that may never be needed.
+
+	$self->{_udp_peer} = POE::Stage::Receiver->new(...);
+	$self->{_udp_req} = POE::Request->new(
+		_stage          => $self->{_udp_peer},
+		_method         => "listen",
+		_on_datagram    => ...,
+		_on_recv_error  => ...,   # Handle recv() errors.
+		_on_sock_error  => ...,   # Handle socket creation errors.
+		_on_send_error  => ...,   # Handle send() errors.
+	);
+
+=item * Producer may return a fatal socket error.
+
+	$self->{_req}->return(
+		_type => "sock_error",
+		...,
+	);
+
+=item * Producer may emit a nonfatal recv() error.
+
+	$self->{_req}->emit(
+		_type => "recv_error",
+		...,
+	);
+
+=item * Producer may return a fatal recv() error.
+
+	$self->{_req}->emit(
+		_type => "recv_error",
+		...,
+	);
+
+=item * Producer may emit a datagram.
+
+	$self->{_req}->emit(
+		_type     => "datagram",
+		datagram  => $message,
+	);
+
+=item * Consumer recall()s the producer with a response.
+
+Sending a response also specifies a handler for send() errors.
+
+	$self->{_rsp}->recall(
+		_method         => "send",
+		datagram        => $response,
+		_on_send_error  => ...,  # Handle send() errors.
+	);
+
+The new _on_send_error is evaluated in the same context as the
+original one in the first "listen" request.  What is the scope of this
+subsequent _on_send_error?
+
+=over 2
+
+=item * Does it override _on_send_error for the remaining life of the producer's _req?
+
+=item * Does it override _on_send_error for the lifetime of the send() method's invocation?
+
+=item * Does it do something else entirely?
+
+=back
+
+=item * Producer emits a nonfatal send() error.
+
+	$self->{_req}->emit(
+		_type => "send_error",
+		...
+	);
+
+=item * Producer returns a fatal send() error.
+
+	$self->{_req}->return(
+		_type => "send_error",
+		...
+	);
+
+=back
+
+In light of the preceding evidence, it seems that an arbitrary level
+of nesting isn't necessary.  The act of recall()ing a producer pops
+off a nesting level, just as emit() or return() do when the responder
+calls them.
+
+_req always points up the request tree, into requests made of you.
+
+_rsp always points down, into requests you've made.
+
+At least this is how it works in the current implementation.
+
+=head2 Connections as Shared Memory
+
+I<This is another descriptive section that needs to be made into spec.>
+
+The poetalk project implemented observable object members and
+observers that would be apprised of changes as they happen.
+Connections between objects caused data to be shared from observables
+to the objects that observed changes.
+
+POE::Stage objects could mimic this behavior with watchers that can
+observe members of other objects.
+
+	$self->{watcher} = POE::Watcher->new(
+		stage     => $observable_stage,
+		member    => "observable_member_name",
+		on_change => "handle_observed_change",
+	);
+
+=head1 Continuations
+
+Continuations bridge the gaps between asynchronous requests and their
+responses.  Two or more continuations may be active at once.
+
+=head2 Task Continuation
+
+When a responder is created or requested to perform a task, it
+receives a continuation associated with that task.  This I<task
+continuation> lives in the responder until the task is completed or
+the request is canceled.
+
+I<Task variables> are lexical variables whose names begin with
+"task_".  They are aliased into the task continuation, and their
+values will persist and be shared between responder methods called
+upon to complete the task.
+
+Task variables are not shared between objects, even ones that work
+together to perform the same task.
+
+	TODO - Example.
+
+Only one task continuation may be active during a task.  Many tasks
+may be performed simultaneously, but a method will only see one of
+them at a time.
+
+=head2 Subtask Continuations
+
+Requesters may associate continuations with objects and requests they
+create to perform subtasks.  These I<subtask continuations> are
+visible to the requester, and they persist for the lifespan of the
+object.
+
+I<Subtask variables> are lexical variables whose names begin with
+"sub_".  They are aliased into the subtask continuation, and their
+values will persist and be shared between requester methods called
+upon to handle subtask responses.
+
+Subtask variables may be primed at the time a subtask is created or
+requested, either using the expose() method or a method parameter.
+
+	TODO - Example.
+
+Only one subtask continuation may be active during any response.  Many
+subtasks may be pending, but a response handler will only see one of
+them at a time.
+
+=head2 Self Continuation
+
+The object's $self acts as a continuation.  The object itself will be
+aliased to $self.  Members will be aliased to lexical variables
+beginning with self_.
+
+	sub method {
+		my $self_member;      # magic
+		my $self->another();  # more magic
+	}
+
+=head1 Object Categories
+
+=head2 Helpers
+
+Helpers objects are created and owned by another object to perform one
+or more tasks.
+
+	sub do_something {
+		my ($self, $args) = @_;
+		$self->{helper} = POE::Helper->new();
+	}
+
+Helpers often have synchronous-looking interfaces.  They will behave
+asynchronously if necessary.  Synchronous methods may in fact be
+hiding asynchronous message creation on behalf of the caller.
+
+This can be very confusing.
+
+I<To-do:> Devise a convention that differentiates between synchronous
+and asynchronous methods.
+
+=head2 Services
+
+Services are stand-alone objects that handle asynchronous events.
+They may be stored in a widely-scoped registry or namespace.  They may
+be singletons that respond to class methods.
+
+=head1 Calling Patterns
+
+=head2 Standard Parameters
+
+All POE::Stage methods receive two simple parameters:
+
+=over 2
+
+=item * $self - The POE::Stage object itself.
+
+=item * $args - A hashref containing the actual named parameters.
+
+=back
+
+Magic may be available to alias $self and $args members to lexical
+variables within methods.
+
+=head2 Return Values
+
+TODO
+
+=head2 Tracking Object Relationships
+
+Inter-object relationships are commonly between an object and its
+creator.  Creator/object relationships are so important that the
+framework described in this document tracks them implicitly.  At any
+moment, the framework knows
+
+=over 2
+
+=item * the currently active object,
+
+=item * every object's creator (or parent),
+
+=item * and every object's child objects.
+
+=back
+
+Helper objects must know which objects created them, so they know
+which objects to help.  Services may need to know which objects made
+requests so they may send responses to the right ones.  This object
+may be passed as a constructor parameter, but that's a lot of passing
+$self around.  It would be more convenient for everything to just know
+which object is currently active.
+
+There are at least two ways to track the current object.  Examine the
+call stack via caller() in package DB, or have the framework call
+everything.  The former is more convenient from the user's point of
+view, but it's harder to implement reliably.  The latter imposes more
+restrictions on application design, but it's more reliable.
+
+I<Todo:> Nick Pereze suggests a couple possibilities: It seems like
+there should be an easier way to determine your immediate parent
+without having to walk the caller stack.  Maybe using a decorator that
+injects the current $self.  A scope hack.  You could also try using
+something rjbs has been working on: MRO::Magic.  If you want to know
+more about custom delarators, take a look at Devel::Declare and
+MooseX::Declare.  A simple C<< parent SomeObject->new() >> could
+deliver what you want.  It is a little magicky, but it might inject
+$self a lot easier than walking the caller stack.
+
+All objects are I<not> created equal.  Basic, entirely local and
+synchronous objects need not be tracked at all.
+
+=head1 Stages and Actors
+
+Consideration must be given whether to separate POE::Stage from
+POE::Actor.  As in the 5.005-threaded POE prototype, it may be useful
+to divide a program into multiple I<groups>, each of which may be
+running in a separate thread or process.  It makes a certain sense to
+call these groups I<stages> in the new design.  Objects themselves may
+be considered I<actors> which play their parts in their respective
+stages.
+
+I<To-do:> This section is mainly thumbnail outlines.  It requires more
+thought and work.
+
+=head2 POE::Kernel
+
+POE::Kernel acts as the central dispatcher for cooperative,
+single-tasking stages.  As POE events occur, they are dispatched to
+their respective stages, which in turn may forward the events to the
+appropriate actors.
+
+=head2 Stages
+
+Stages act as sidecar event queues.  Stages forward POE::Kernel events
+to actors through means appropriate to the stages' types.
+
+=head3 Cooperative Stages
+
+Cooperative stages act as thin interfaces between POE::Kernel and
+actors.  These stages don't really have queues.  They immediately
+forward POE::Kernel events to the appropriate actors.
+
+=head3 Threaded Stages
+
+Threaded stages act as bidirectional queues between POE::Kernel (which
+lives in the main thread) and the stage that lives in some subthread.
+It's quite likely that many things cannot run in threaded stage since
+it would require straddling the thread boundary.
+
+For example, it would be difficult (if not impossible) for Tk to
+dispatch POE::Kernel events in one thread while creating widgets in
+another.
+
+=head3 Forked Stages
+
+It should also be convenient to create actors in child processes.
+These actors will also be unable to share resources with POE::Kernel.
+
+=head3 Remote Stages
+
+A program should be able to find an actor on a stage in another
+process or on another machine across a network.
+
+=head1 Callback Types
+
+I<Todo:> Define the calling conventions for each kind of callback.
+Ideally they would be identical.
+
+=head2 Coderef Callbacks
+
+Coderef callbacks trigger a plain function call when one object
+signals another.  Coderef callbacks are the kind that most Perl
+libraries use.
+
+	my $object = Class->new(
+		on_callback => \&handler,
+	);
+
+	sub handler {
+		print "I'm handling a callback!\n";
+	}
+
+=head2 Method Callbacks
+
+Method callbacks allow classes and objects to handle responses from
+other objects.  POE::Session defines them in its object_states and
+package_states constructor parameters.
+
+Class and object methods are invoked identically in Perl, so the
+syntax to specify them is the same.  Not coincidentally, POE::Session
+treats them the same under the hood.
+
+Method callbacks require two parameters: the method name to invoke,
+and the object that implements that method.  The common case is for an
+object's creator to call a child object and receive the child's
+result.  The object parameter isn't needed since the framework already
+L<tracks parent-child relationships/Tracking Object Relationships>.
+The framework already knows which object to call.
+
+=head3 Methods Callbacks by Name
+
+The most direct way to specify method callbacks is by method name.
+Strings as callbacks are considered to be method names.  The object to
+be called is the one that created the object doing the calling.
+
+=over 2
+
+=item * A parent object creates a child object.
+
+=item * The child object's callbacks will go to the parent.
+
+=back
+
+Objects may be
+L<transferred to new parents/Transferring Objects to New Parents>.
+The framework's notion of the object's parent will change, and the
+method callbacks will resolve to the new parent.
+
+Objects can use multiple callback types, so it may be possible to
+L<direct callbacks to specific objects/Multiple Callback Objects>, or
+even multiple objects.
+
+Here an Owner object creates a Posession.  The Posession object
+notifies its parent by invoking invoking
+C<< $parent->handle_posession_response() >>.
+
+	package Owner;
+	use Posession;
+
+	sub own_something {
+		my $self = shift;
+		$self->{posession} = Posession->new(
+			on_callback => "handle_posession_response",
+		);
+	}
+
+	sub handle_posession_response {
+		my $self = shift;
+		print "$self is handling a callback!\n";
+	}
+
+=head3 Methods by Role and Type
+
+Calls and callbacks are a contract between objects.  Role-based
+callbacks are a convenient way to implement these contracts.  The
+rules:
+
+=over 2
+
+=item * Use explicit callbacks, if specified.
+
+=item * If a role is specified, build a callback named on_${role}_$type
+
+=back
+
+Methods by role and type use a different emit() than is described
+elsewhere.  The two forms of emit() are similar, although one is tied
+to an asynchronous request, while the other is tied to an object.
+
+Objects must be able to return typed responses for the on_role_type()
+method to be formed.  We can do this in at least two ways.
+
+First, we can add the requirement that return() always include type
+information.  Overloading return() limits an object to zero or one
+response per method invocation, which seems restrictive:
+
+	return(
+		type => {
+			key_1 => "value_1",
+			...
+		}
+	);
+
+A second way is to specify a new method that allows an object to emit
+a response.  An object may emit() multiple responses per method
+invocation, which may be convenient:
+
+	$self->emit(
+		type => {
+			key_1 => "value_1",
+			...
+		}
+	);
+
+The two message return mechanisms are not incompatible.  It may be
+possible (and even convenient) to support both.  However, emit() is
+the safest option since it introduces entirely new syntax without
+existing semantic baggage.
+
+In the following example, an Owner object creates a Posession with the
+role of "doer".  The posession does something and emits either a
+"done" message on success or an "error" message on failure.  The
+"error" message is explicitly handled via Posession's "on_error"
+constructor parameter.  Doneness is implicitly handled by Owner's
+on_doer_done() method.
+
+	package Owner;
+	use Posession;
+
+	sub own_something {
+		my $self = shift;
+		$self->{posession} = Posession->new(
+			role => "doer",
+			on_error => "handle_doer_error",
+		);
+	}
+
+	sub on_doer_done {
+		my $self = shift;
+		print "$self is handling doer's doneness!\n";
+	}
+
+	sub handle_doer_error {
+		my $self = shift;
+		print "$Self is handling doer's error!\n";
+	}
+
+=head3 Multiple Callback Objects
+
+I<Todo:> It may be useful to specify a callback that goes somewhere
+other than the child object's parent, but the semantics feel brittle.
+Role-based callbacks implement a contract between parent and child
+object.  The contractual responsibilities are less clear when a
+third-party object enters the mix.
+
+I<Todo:> Consider a poetalk style framework for specifying
+higher-level contracts between third-party objects.  This might
+clarify contractual responsibilities of all objects in play.
+
+=head2 Emit Semantics
+
+This section is almost entirely I<todo>.
+
+The emit() method is used to send a message from a child object to its
+parent.  The child object "emits" a message which is caught by the
+parent through some callback mechanism.
+
+emit() may have multiple semantics, none of which are considered
+stable at this time.
+
+=head3 Synchronous Emit
+
+When appropriate, emit() should trigger a synchronous callback.
+Appropriate times are when the parent object is local and the
+synchronous callback will be brief.  We can tell the former, but the
+latter is unknown and requires more consideration.
+
+=head3 Asynchronous Emit
+
+emit() could in fact use POE to post() responses back to parents.  The
+first implementation may do this unconditionally since the logic is
+simpler, more consistent, and easier to explain.
+
+=head3 Hybrid Emit
+
+In some (ideally all) cases, emit() may be able to recognize when it's
+safe to invoke callbacks synchronously or asynchronously and do the
+right thing.  For example, emit() may perform a synchronous callback
+until it notices circular synchronous calls.  At the point where deep
+recursion might be likely, it could switch to post() and break the
+loop.
+
+=cut

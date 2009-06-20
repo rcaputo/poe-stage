@@ -7,7 +7,3 @@ object won't be findable on the stack.
 
 Coderef, package-method and object-method examples are included in
 usecase.pl.
-
-To do:
-
-Explore roles.
