@@ -786,63 +786,79 @@ recursion would begin, it could fall back to asynchronous semantics to
 break the loop.  If successful, this would provide the best balance
 between safety and performance.
 
-=head1 Message Transaction Patterns
+=head1 Messaging Patterns
 
-Message transactions are explicit communication between I<requesters>
-and I<responders>.  Requester and responder are subjective roles.  An
-object may be a responder in one situation but a requester in another.
-For example, POE::Component::Client::HTTP acts as both a responder to
-application code and a requester to other components that help it make
-requests.
+=head2 Discrete Transactions
 
-Requester and responder roles may overlap with parents and children,
-respectively, but they are not required to.  Requesters may be
-children.  Responders may be parents.  It depends on who shoots first.
+Discrete message transactions are generally single request/response
+pairs between a I<client object> and a I<service object>.  Clients
+initiate transactions by sending request messages to services.
+Services handle requests, perform work, and eventually return response
+messages to their clients.
 
-Transactions are often initiated when a requester sends a request to a
-responder.  Transactions remain open until the request elicits a
-terminal response or is canceled.  Either party may cancel a request
-deliberately or as a consequence of the party's destruction.
+Client and service are relative roles.  An object may be a service in
+one situation and a client in another.  POE::Component::Client::HTTP
+acts as a service to application code, but it's a client to other
+components that help it fetch information from the web.
 
-In short, a transaction may end with zero, one or many responses to a
-single request.
+Client and service roles may correspond to parent and child objects,
+but they are not required to.  Clients may be children, and responders
+may be parents.  It depends on who shoots first.
 
-Ad-hoc connections may be continued by allowing the requester to
-respond to responses.  This may be considered convenient, but the
-semantics are not as tidy as if the requester deliberately opened a
-bidirectional connection with the responder.
+Clients are sometimes called I<requesters> because they initiate
+requests.  Likewise, services and helpers are also known collectively
+as I<responders>.
 
-I<Todo:> Define the mechansim for requests and responses.  Will
-POE::Stage's be sufficient?
+Transactions begin with a client request and remain active until
+canceled or a service's response is elicited.  Either party may cancel
+a request deliberately or as a consequence of their destruction.
+Transactions may end with zero, one or many responses to a single
+request.
 
-I<Todo:> Consider a separate mechanism for persistent inter-object
-connections.  It's been suggested to examine Haskell, Erlang and Scala
-for inspiration.
+Responses may be nonterminal or terminal.  Nonterminal responses keep
+the transaction open.  Terminal responses are followed by implicit
+transaction cancelation.
 
-=head2 One Requester, One Responder
+Limited bidirectional communication is supported.  A client may
+respond to nonterminal responses from the service.  The service is
+allowed to send as many responses as it likes without restriction.
+This pattern's asymmetry is restrictive and may indicate a flaw that
+needs more work.
 
-The responder is created to service one or more requests from one
-requester.
+Message transactions are mainly used to communicate with multi-shot
+services.  Single-shot objects are usually implicitly triggered during
+creation, so it's more convenient to configure their tasks with the
+constructor.
+
+The mechanisms for message transactions aren't finalized.  POE::Stage
+implements the asymmetrical pattern, but a symmetric one would be
+better.  I<Todo:> Consider how POE::Stage's messaging could be made
+symmetric.
+
+=head3 One Requester, One Responder
+
+A responder, either a service or a helper object, is created to handle
+one or more requests from a single requester.
 
 It's common for the responder to be an
-L<implicitly managed/Implicit Management During Creation>
-L<single-shot/Single-Shot Objects> object that
-L<begins work on creation/Task Commencement During Instantiation>,
-L<cancels work upon exhaustion/Task Completion by Exhaustion> and
-L<automatically self-destructs/Automatic Self-Destruction>.
+L<implicitly managed|Implicit Management During Creation>
+L<single-shot|Single-Shot Objects> object that
+L<begins work on creation|Task Commencement During Instantiation>,
+L<cancels work upon exhaustion|Task Completion by Exhaustion> and
+L<automatically self-destructs|Automatic Self-Destruction>.
 
-=head2 One Requester, Many Responders
+=head3 One Requester, Many Responders
 
 One requester creates many responders, either serially or in a pool to
 do work in parallel.
 
-=head3 Serial Responders
+=head4 Serial Responders
 
 In the serial pattern, the requester creates a responder for a single
 task and replaces it each time the task completes.  One-shot objects
 tend to be used for serial responders.
 
-=head3 Parallel Responders
+=head4 Parallel Responders
 
 In the parallel pattern, the requester creates a pool of responders
 and optionally replaces each responder as they finish.  The requester
@@ -852,51 +868,184 @@ Parallel responders are often one-shot objects that are replaced
 between requests.
 
 Parallel responders may also be multi-shot.  In this case, each
-responder may be configured differently.  For example, a requester may
-use multiple HTTP clients, each configured to connect through a
-different proxy.
+responder may be configured differently to handle a separate class of
+requests.  For example, a requester may use multiple HTTP clients,
+each configured to connect through a different proxy.
 
-=head2 One Responder, Many Requesters
+=head3 One Responder, Many Requesters
 
 A persistent or responder is created to do work for many requesters.
 The responder is often a service, just as many POE::Component modules
 are.
 
-=head2 Many Requesters, Many Responders
+=head3 Many Requesters, Many Responders
 
 This is a combination of the other message transaction patterns.  It's
 documented for completeness and as a prompt for more consideration.
 
-=head2 Inter-Object Channels or Connections
+=head2 Persistent Inter-Object Channels
 
-I<Todo:> Consider this.
+I<Todo:> Research and decide on semantics, then syntax.  Look at
+Erlang, Haskell and Scala.  Check out various POE publish/subscribe
+models, as well as message queues.
 
-=head2 Requests as Channels
+=head3 Transactions as Channels
 
-POE::Stage uses requests as ad hoc channels.  In POE::Stage, message
-transactions remain open until a response is returned by the
-responder, the requester or responder cancels the request, or either
-party destructs.  The responder may emit any number of responses
-during the transaction.  The requester may itself respond to responses
-from the responder.
+Message transactions may be used as a form of ad hoc channels, but
+limitations on when messages may be sent break the metaphor and
+introduce potentially burdensome restrictions.  A true persisten
+channel would allow entities on either end to send messages without
+restriction.
 
-The relative semantics of requester and responder are somewhat vague.
-I<Todo:> A better metaphor might fix this.  Explicit connections are
-worth consideration as an alternative.
+=head2 Connections as Shared Memory
 
-=over 2
+Poetalk is an experimental framework that builds upon Smalltalk
+observable members and watchers.  It provides a framework where
+objects can watch others' public members.  Watching objects are
+automatically notified when these observed members change.  In a
+sense, data is shared by message passing along unidirectional
+connections.
 
-=item * The requester makes a request.
+The framework might mimic this behavior with watchers that can observe
+members of other objects.
 
-=item * The responder emits a non-terminal response.
+	$self->{watcher} = Watcher->new(
+		object    => $another_object_reference,
+		member    => "observable_member_name",
+		on_change => "handle_observed_change",
+	);
 
-=item * The requester replies to the non-terminal response.
+The requirement to use object references limits this pattern to
+explicitly managed objects.  However, since watchers are holding
+reference, it may be enough to hold references to the watchers.
 
-=item * Repeat until done.
+Care must be taken to avoid circular references.  Heightened
+indirection between objects and the code that manages them makes it
+easier to lose track of objects.  Ideally the framework should detect
+circular references and intelligently weaken key references to avoid
+them without releasing objects entirely.
 
-=back
+I<Todo:> Develop the semantics and syntax for this mechanism.
 
-=head3 Caveats With Contiuations
+I<Todo:> What about objects in remote processes?
+
+=head1 Continuations
+
+Continuations are encapsulated bits of program state that can be
+passed around and swapped in and out as needed.  They're used to
+bridge the gaps between asynchronous requests and their responses.
+They're also used to provide continuity between methods called during
+a task.
+
+For example, a continuation is created when a request is made.  This
+continuation is associated with the request.  Responses to that
+request will include the same continuation.  Client data that belongs
+with the reqest may be stored in the request's continuation, and
+response handlers will have access to it later.
+
+This illustrates one continuation scenario, but it's not the mechanism
+that will be used.  A request is created and given a name.  The
+request's continuation is available when the response comes back.
+
+	sub send_request {
+		my $self = shift();
+		my $request = Request->new();
+		$request->{name} = "gorf";
+	}
+
+	sub handle_response {
+		my ($self, $response) = @_;
+		print "This response is to request $response->{name}\n";
+	}
+
+Multiple continuations may be active at once.  A continuation may be
+created for a subrequest while the parent request's continuation is
+active.
+
+Continuations are most often associated with asynchronous requests and
+responses.
+
+=head2 Task Continuation
+
+When a service receives a request to perform a task, it's also given a
+continuation within which to store temporary state related to that
+task.  This I<task continuation> lives in the service until the
+request is terminated or completed.
+
+Lexical variables may be aliased into the task continuation.  These
+I<task variables> will begin with "task_" to visually differentiate
+them from other variables.
+
+Task variables are not shared between objects, even ones that work
+together to perform the same task.  Task variables are not shared
+between tasks, even ones that are performed by the same object.
+
+	TODO - Example.
+
+Only one task continuation may be active during a method call.  Many
+tasks may be performed simultaneously, but a method will only see one
+of them at a time.
+
+=head2 Subtask Continuations
+
+Clients may associate continuations with the objects and requests they
+create to perform subtasks.  These I<request continuations> live in
+their requesting clients until the request is terminated or completed.
+Request continuations are available wherever the request or one of its
+responses is.
+
+Request continuation members may be aliased to lexical variables whose
+names begin with "req_".  This variable prefix is a visual indicator
+of the variable's scope and helps prevent collision between
+continuations that contain the same members.
+
+Request variables are usually set at the time a request is created,
+either using the expose() function or a request's constructor
+parameter.
+
+	TODO - Example.
+
+Multiple request continuations may be active while requests are being
+created.  However since only one response may be handled at a time,
+there may be only one request continuation available in a response
+handler.
+
+=head2 Other Magic Variables
+
+Continuations are managed by the Lexical::Persistence module.
+Lexical::Persistence may also be used to support additional magic
+variables.
+
+=head3 Self Variables
+
+The lexical $self variable may be mapped to the first method
+parameter, which is often the object itself.
+
+Variables beginning with "self_" may be aliased to data members within
+$self, either directly or via accessors created with Moose.
+
+	sub method {
+		my $self_member;      # magic
+		my $self->another();  # more magic
+	}
+
+=head3 Parameter Variables
+
+Variables beginning with "arg_" may be mapped to members of the second
+method parameter, which should always be a hashref of parameter
+name/value pairs.  These two methods may be equivalent.
+
+	sub mundane_way {
+		my ($self, $args) = @_;
+		print "$self called with $args->{name}\n";
+	}
+
+	sub magic_way {
+		my ($self, $arg_name); # magic
+		print "$self called with $arg_name\n";
+	}
+
+=head2 Caveats With Contiuations XXX AM HERE XXX
 
 POE::Stage focuses on creating and delivering requests.  It seems to
 have some questionable edge cases regarding response handling.
@@ -1123,90 +1272,6 @@ req() always points up the request tree, into requests made of you.
 rsp() always points down, into requests you've made.
 
 At least this is how it works in the current implementation.
-
-=head2 Connections as Shared Memory
-
-I<Todo:> This describes some work in poetalk, a Smalltalk inspired POE
-object system.  It needs to be formalized into a proper extension of
-the current framework under design.
-
-The poetalk project implemented observable object members and
-observers that would be apprised of changes as they happen.
-Connections between objects caused data to be shared from observables
-to the objects that observed changes.
-
-Framework objects could mimic this behavior with watchers that can
-observe members of other objects.
-
-	$self->{watcher} = Watcher->new(
-		stage     => $observable_stage,
-		member    => "observable_member_name",
-		on_change => "handle_observed_change",
-	);
-
-=head1 Continuations
-
-Continuations bridge the gaps between asynchronous requests and their
-responses.  Two or more continuations may be active at once.
-
-I<Todo:> Scrape the POE::Stage serial numbers off.  These are useful
-generic concepts.
-
-I<Todo:> Consider promoting up to the tasks section, or to the basics
-section near the top of the document.
-
-=head2 Task Continuation
-
-When a responder is created or requested to perform a task, it
-receives a continuation associated with that task.  This I<task
-continuation> lives in the responder until the task is completed or
-the request is canceled.
-
-I<Task variables> are lexical variables whose names begin with
-"task_".  They are aliased into the task continuation, and their
-values will persist and be shared between responder methods called
-upon to complete the task.
-
-Task variables are not shared between objects, even ones that work
-together to perform the same task.
-
-	TODO - Example.
-
-Only one task continuation may be active during a task.  Many tasks
-may be performed simultaneously, but a method will only see one of
-them at a time.
-
-=head2 Subtask Continuations
-
-Requesters may associate continuations with objects and requests they
-create to perform subtasks.  These I<subtask continuations> are
-visible to the requester, and they persist for the lifespan of the
-object.
-
-I<Subtask variables> are lexical variables whose names begin with
-"sub_".  They are aliased into the subtask continuation, and their
-values will persist and be shared between requester methods called
-upon to handle subtask responses.
-
-Subtask variables may be primed at the time a subtask is created or
-requested, either using the expose() method or a method parameter.
-
-	TODO - Example.
-
-Only one subtask continuation may be active during any response.  Many
-subtasks may be pending, but a response handler will only see one of
-them at a time.
-
-=head2 Self Continuation
-
-The object's $self acts as a continuation.  The object itself will be
-aliased to $self.  Members will be aliased to lexical variables
-beginning with self_.
-
-	sub method {
-		my $self_member;      # magic
-		my $self->another();  # more magic
-	}
 
 =head1 Stages and Actors
 
