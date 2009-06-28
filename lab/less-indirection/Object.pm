@@ -5,6 +5,12 @@ use Moose;
 use Scalar::Util qw(weaken blessed);
 use Carp qw(croak);
 
+# TODO - I would like %parents and %children to be part of each
+# object, but they're currently beyond my Moose skills.  %parents may
+# be class names if an Object is created from top-level code.
+# %children are weak references by default but may be strengthened on
+# the fly.
+
 use Hash::Util qw(fieldhash);
 use Hash::Util::FieldHash qw(id);
 fieldhash my %parents;

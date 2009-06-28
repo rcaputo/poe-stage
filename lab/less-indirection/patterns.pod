@@ -897,6 +897,14 @@ introduce potentially burdensome restrictions.  A true persisten
 channel would allow entities on either end to send messages without
 restriction.
 
+Perhaps the largest problem with transactions as channels is what to
+do when the client wants to send an entirely new request down an
+existing channel.  Does the new request replace the old one?  Does it
+create a sub-request?  If it creates a sub-request, should that
+postpone the parent request?  If not, what happens when the parent
+request completes first?  It's just ugly.  There should probably be a
+better way.
+
 =head2 Connections as Shared Memory
 
 Poetalk is an experimental framework that builds upon Smalltalk
@@ -958,23 +966,34 @@ request's continuation is available when the response comes back.
 		print "This response is to request $response->{name}\n";
 	}
 
+Continuations are most often associated with asynchronous requests and
+responses.
+
 Multiple continuations may be active at once.  A continuation may be
 created for a subrequest while the parent request's continuation is
 active.
 
-Continuations are most often associated with asynchronous requests and
-responses.
+Lexical variables may be aliased into continuations as a shortcut.
+The Lexical::Persistence module was developed as a spin-off of
+research in this area.  Because continuations may reuse data member
+names, it's important for their members to be aliased into the lexical
+context with different prefix names.  A request and sub-request
+continuation may both contain a $timeout member.  The current code may
+wish to access both without variable collision.  We might
+automatically map $req_timeout to C<< $request->{timeout} >>, and
+$sub_timeout to C<< $sub_request->{timeout} >>.
+
+The framework can walk message handler pads to find lexical variables
+with known prefixes and automatically map them to their associated
+contexts.
 
 =head2 Task Continuation
 
 When a service receives a request to perform a task, it's also given a
 continuation within which to store temporary state related to that
 task.  This I<task continuation> lives in the service until the
-request is terminated or completed.
-
-Lexical variables may be aliased into the task continuation.  These
-I<task variables> will begin with "task_" to visually differentiate
-them from other variables.
+request is terminated or completed.  The recommended lexical prefix
+for I<task variables> is "task_".
 
 Task variables are not shared between objects, even ones that work
 together to perform the same task.  Task variables are not shared
@@ -992,12 +1011,8 @@ Clients may associate continuations with the objects and requests they
 create to perform subtasks.  These I<request continuations> live in
 their requesting clients until the request is terminated or completed.
 Request continuations are available wherever the request or one of its
-responses is.
-
-Request continuation members may be aliased to lexical variables whose
-names begin with "req_".  This variable prefix is a visual indicator
-of the variable's scope and helps prevent collision between
-continuations that contain the same members.
+responses is.  "req_" is the recommended lexical variable prefix for
+I<request variables>.
 
 Request variables are usually set at the time a request is created,
 either using the expose() function or a request's constructor
@@ -1012,17 +1027,16 @@ handler.
 
 =head2 Other Magic Variables
 
-Continuations are managed by the Lexical::Persistence module.
-Lexical::Persistence may also be used to support additional magic
-variables.
+Lexical::Persistence supports generic lexical aliasing to other
+contexts.
 
 =head3 Self Variables
 
 The lexical $self variable may be mapped to the first method
-parameter, which is often the object itself.
-
-Variables beginning with "self_" may be aliased to data members within
-$self, either directly or via accessors created with Moose.
+parameter, which is often the object itself.  I<Self variables> may
+begin with "self_" and be aliased to data members within $self.  $self
+itself may be automatically populated from $_[0] to avoid the explict
+assignment.
 
 	sub method {
 		my $self_member;      # magic
@@ -1031,9 +1045,10 @@ $self, either directly or via accessors created with Moose.
 
 =head3 Parameter Variables
 
-Variables beginning with "arg_" may be mapped to members of the second
-method parameter, which should always be a hashref of parameter
-name/value pairs.  These two methods may be equivalent.
+I<Parameter variables> may begin with "par_" and be mapped to members
+of $_[1].  This parameter is specified by the framework to always be
+the method's parameters, passed in as a hash reference.  These two
+methods may be equivalent.
 
 	sub mundane_way {
 		my ($self, $args) = @_;
@@ -1045,40 +1060,58 @@ name/value pairs.  These two methods may be equivalent.
 		print "$self called with $arg_name\n";
 	}
 
-=head2 Caveats With Contiuations XXX AM HERE XXX
+=head2 Caveats With Contiuations
 
-POE::Stage focuses on creating and delivering requests.  It seems to
-have some questionable edge cases regarding response handling.
-Luckily it's still early in development when these things are free to
-change.
+This section contains notes about edge cases found in POE::Stage.
 
-POE::Stage provides responders with a continuation representing the
-requests they are handling.  These I<request continuations> are
-accessed by the req() function among other ways.  Multiple responder
-methods can share a request continuation for as long as needed to
-formulate a response.
+=head3 Continuation Clash
 
-When a response arrives to a requester, it includes access to a
-I<response continuation>, accessed by rsp().  Response continuations
-are associated with the original requests that triggered the
-responses.  Requesters may use response continuations to pass data
-back to themselves through requests.
+This flavor of continuation was previously explored and developed in
+POE::Stage.  There were some unresolved issues at the time,
+particularly when handling a response from a sub-object.  For example,
+this situation creates a context where three continuations are active:
+an inbound request continuation, an inbound response continuation, and
+a continuation for the outbout request that triggered the inbout
+response.
 
-You may notice the metaphor starting to break under the strain of
-subjective roles at this point.  Requests have associated response
-continuations, and responders receive request continuations.  It's
-even difficult to explain clearly.
+=over 2
 
-Finally, when a requester handles a response, it also has req()
-available to access the continuation that was active when the request
-that triggered the response was created.  I<Todo:> Describe this
-better in the morning.
+=item * Client object makes a request to current object.
 
-The metaphor breaks down further because responses cannot be
-associated with their original requests.  For example, a requester may
-wish to destroy a request when it receives the corresponding response.
-POE::Stage currently doesn't provide a clean way to tell where the
-request lives so that it may be cleaned up.
+=item * Current object makes a request to a sub-object.
+
+=item * Sub-object returns a response to the current object.
+
+=back
+
+It's vital for a clean metaphor to clearly differentiate between the
+inbound and outbound requests.  POE::Stage does not do this well.
+
+The problem may be genericised into the question, "How do we handle
+more than one continuation of the same type?"  It's a problem because
+of type-based prefixes.  Which request does $req_foo map into?
+
+An obvious solution is to assign each continuation a different named
+role and use the role names as prefixes.  In theory this scales to a
+modest amount of role overlap.  I<Todo:> Determine the most complex
+practical case of continuation overlap to see whether the framework
+can subsume this overhead.
+
+POE::Stage also provides req() and rsp() as functional accessors to
+the current request and response.  To scale this concept up, the roles
+for each continuation must be known in advance.  The roles and their
+quantities must be known in advance for this to succeed.
+
+POE::Stage used the relative terms I<request continuation> and
+I<response continuation>, but these are confusing because their roles
+change depending on the narrator's point of view.  It's important to
+move to more objective terms.
+
+=head3 Request Cleanup
+
+It's also imperative that an inbound response may be used to find the
+outbound requests that triggered them.  This is commonly used to
+remove defunct requests after their responses have arrived.
 
 One way to do this might be to place the location in the response
 continuation.
@@ -1098,215 +1131,55 @@ $self member to destroy.
 		delete $self->{ rsp()->{member_name} };
 	}
 
-This should be common enough to warrant a standard mechanism.
+This will be common enough that the framework should provide a
+standard mechanism.
 
-=head3 Caveats With Emit and Recall
+=head1 Metaphors
 
-I<Todo:> Written very late at night.  Consider alternating editorial
-passes at the start and middle of the file, so that alertness is
-evenly distributed over the document.
+=head2 Extending the Actor Metaphor
 
-Sometimes it's useful to post entirely new requests down an existing
-transaction.  This invalidates many aspects of the transaction,
-invalidating it.  The issue appeared with an example UDP responder and
-its requester, in a 1:1 use pattern.
+I<Todo:> The descriptions here are a bit off.  Clarify and specify
+them better.  For example, Stage and Director seem to have overlapping
+concerns.
 
-=over 2
+=head3 Actor
 
-=item * The requester asks the responder to listen on a port.
+Actors are objects that can receive command messages.  They are
+described as L<services|Services> earlier in this document.
+POE::Session is a kind of actor.
 
-=item * The responder emits "datagram" messages to the requester.
+Actors are not quite like computer-science actors.  They do not
+necessarily include mailboxes, nor do they necessarily actively await
+messages.
 
-=item * The requester generates a response, sending it to the responder.
+=head3 Prop
 
-=back
+Props are L<helper|Helpers> objects.  They are intended to be
+instantiated and held by some actor, not to live on their own.  They
+may receive events, but they do so in service to some actor.
+POE::Watchers from POE::Stage are similar to props, as are POE::Wheel
+classes.
 
-Some prototypical code, assuming that recall() is the method to push
-another request down an existing bidirectional connection between two
-objects:
+=head3 Director
 
-	sub handle_datagram {
-		my ($self, $args) = @_;
+Director represents message routing and dispatching.  It may represent
+the equivalent of POE::Kernel, or it may be an abstracted interface to
+POE::Kernel.
 
-		my $datagram = $args->{datagram};
-		$datagram =~ tr[a-zA-Z][n-za-mN-ZA-M];
+=head3 Stage
 
-		$self->{rsp}->recall(
-			_method        => "send",
-			remote_address => $args->{remote_address},
-			datagram       => $datagram,
-		);
-	}
+Stages represent isolated computational units, such as processes or
+iThreads.  Stages act as a shared mailbox and dispatch loop for
+multiple related actors.  POE::Group from POE's 5.005-threaded design
+is similar.
 
-Some issues to consider:
-
-=over 2
-
-=item *
-
-The request's args will be overwritten by new arguments.  Clobbering
-args may be an issue if there are multiple recall()s on the same
-rsp().
-
-=item *
-
-Just as emit() creates a new Request (POE::Request::Response), so
-should recall().
-
-=item *
-
-The recalled method is called in the context of the req() that
-generated the response.  That's rsp() at the time recall() is invoked.
-
-=back
-
-Whatever mechanism is used must be shown to work for arbitrary nesting
-of requests and responses.
-
-Response contexts were first needed while writing POE::Stage::Receiver
-and the UDP example to use it.  These objjects don't nest arbirarily,
-but they do nest a level beyond what was needed to date.  Here's a
-synopsis of the interaction between POE::Stage::Receiver and the UDP
-example.
-
-=over 2
-
-=item * Consumer requests that the producer listen for datagrams.
-
-The original listen request maps all interesting return types to
-methods, including ones like _on_send_error that may never be needed.
-
-	$self->{_udp_peer} = POE::Stage::Receiver->new(...);
-	$self->{_udp_req} = POE::Request->new(
-		_stage          => $self->{_udp_peer},
-		_method         => "listen",
-		_on_datagram    => ...,
-		_on_recv_error  => ...,   # Handle recv() errors.
-		_on_sock_error  => ...,   # Handle socket creation errors.
-		_on_send_error  => ...,   # Handle send() errors.
-	);
-
-=item * Producer may return a fatal socket error.
-
-	$self->{req}->return(
-		_type => "sock_error",
-		...,
-	);
-
-=item * Producer may emit a nonfatal recv() error.
-
-	$self->{req}->emit(
-		_type => "recv_error",
-		...,
-	);
-
-=item * Producer may return a fatal recv() error.
-
-	$self->{req}->emit(
-		_type => "recv_error",
-		...,
-	);
-
-=item * Producer may emit a datagram.
-
-	$self->{req}->emit(
-		_type     => "datagram",
-		datagram  => $message,
-	);
-
-=item * Consumer recall()s the producer with a response.
-
-Sending a response also specifies a handler for send() errors.
-
-	$self->{rsp}->recall(
-		_method         => "send",
-		datagram        => $response,
-		_on_send_error  => ...,  # Handle send() errors.
-	);
-
-The new _on_send_error is evaluated in the same context as the
-original one in the first "listen" request.  What is the scope of this
-subsequent _on_send_error?
-
-=over 2
-
-=item *
-
-Does it override _on_send_error for the remaining life of the
-producer's req?
-
-=item *
-
-Does it override _on_send_error for the lifetime of the send()
-method's invocation?
-
-=item *
-
-Does it do something else entirely?
-
-=back
-
-=item * Producer emits a nonfatal send() error.
-
-	$self->{req}->emit(
-		_type => "send_error",
-		...
-	);
-
-=item * Producer returns a fatal send() error.
-
-	$self->{req}->return(
-		_type => "send_error",
-		...
-	);
-
-=back
-
-In light of the preceding evidence, it seems that an arbitrary level
-of nesting isn't necessary.  The act of recall()ing a producer pops
-off a nesting level, just as emit() or return() do when the responder
-calls them.
-
-req() always points up the request tree, into requests made of you.
-
-rsp() always points down, into requests you've made.
-
-At least this is how it works in the current implementation.
-
-=head1 Stages and Actors
-
-Consideration must be given whether to separate POE::Stage from
-POE::Actor.  As in the 5.005-threaded POE prototype, it may be useful
-to divide a program into multiple I<groups>, each of which may be
-running in a separate thread or process.  It makes a certain sense to
-call these groups I<stages> in the new design.  Objects themselves may
-be considered I<actors> which play their parts in their respective
-stages.
-
-I<Todo:> This section is mainly thumbnail outlines.  It requires more
-thought and work.
-
-I<Todo:> It doesn't even discuss actors.
-
-=head2 POE::Kernel
-
-POE::Kernel acts as the central dispatcher for cooperative,
-single-tasking stages.  As POE events occur, they are dispatched to
-their respective stages, which in turn may forward the events to the
-appropriate actors.
-
-=head2 Stages
-
-Stages act as sidecar event queues.  Stages forward POE::Kernel events
-to actors through means appropriate to the stages' types.
-
-=head3 Cooperative Stages
+=head4 Cooperative Stages
 
 Cooperative stages act as thin interfaces between POE::Kernel and
 actors.  These stages don't really have queues.  They immediately
 forward POE::Kernel events to the appropriate actors.
 
-=head3 Threaded Stages
+=head4 Threaded Stages
 
 Threaded stages act as bidirectional queues between POE::Kernel (which
 lives in the main thread) and the stage that lives in some subthread.
@@ -1317,14 +1190,125 @@ For example, it would be difficult (if not impossible) for Tk to
 dispatch POE::Kernel events in one thread while creating widgets in
 another.
 
-=head3 Forked Stages
+=head4 Forked Stages
 
 It should also be convenient to create actors in child processes.
 These actors will also be unable to share resources with POE::Kernel.
 
-=head3 Remote Stages
+=head4 Remote Stages
 
 A program should be able to find an actor on a stage in another
-process or on another machine across a network.
+process or on another machine across a network.  Remote stages are
+implicit in the use of remote actors.
+
+=head3 Propmaster
+
+Propmaster is a hypothetial ORM or object loader.  This metaphor is a
+bit off since a propmaster would also manage actors.
+
+=head1 Ideas to Consider
+
+=head2 XPath to Find Objects
+
+POE's aliases are too restrictive.  The framework will implement its
+own.  This topic considers using object roles as aliases.
+
+Object roles are important to this framework.  They simplify callback
+interfaces and object management.  They may also be used as a
+hierarchical namespace for registering and finding objects.
+
+Consider a program that crawls a static list of URLs to verify whether
+they exist.  It may have a structure similar to the following roles
+and structure.
+
+	<main>
+		<object role="application">
+			<object role="http client">
+				<object role="dns client">
+					<object role="worker"/>
+					<object role="worker"/>
+					<object role="worker"/>
+				</object>
+				<object role="keepalive connector">
+					<object role="socket"/>
+					<object role="socket"/>
+				</object>
+				<object role="request"/>
+				<object role="request"/>
+				<object role="request"/>
+			</object>
+		</object>
+	</main>
+
+Unlike POE aliases, the framework supports multiple objects per role.
+
+Since the program is structured like an object tree, we can represent
+it in XML.
+
+We can find objects using XPath, either by manipulating a DOM in
+memory or using a module like Tree::XPathEngine to access a native
+Perl tree structure.
+
+Objects may be found by absolute path, relative path, or role
+regardless of path.
+
+	my @workers = Object->find('//object[@role="worker"]');
+	my @http_requests = Object->find(
+		'//object[@role="http_client"]/object[@role="request"]'
+	);
+	my @http_clients = Object->find(
+		'/main/object[@role="application"]/object[@role="http client"]'
+	);
+
+It quickly becomes apparent that roles as object attributes is
+tedious.  It might be better to assume everything is an object and
+name the tags after the roles:
+
+	<main>
+		<application>
+			<http_client>
+				<dns_client>
+					<worker/>
+					<worker/>
+					<worker/>
+				</dns_client>
+				<keepalive_connector>
+					<socket/>
+					<socket/>
+				</keepalive_connector>
+				<request/>
+				<request/>
+				<request/>
+			</http_client>
+		</application>
+	</main>
+
+We can now use shorter notation.
+
+	my @workers = Object->find('//worker');
+	my @http_requests = Object->find('//http_client/request');
+	my @http_clients = Object->find( '/main/application/http client');
+
+While XPath may not be the right choice, it at least comes close to
+eliminating POE::Kernel's aliases' restrictions.
+
+Storing the program structure in a DOM also allows it to be serialized
+and shared trivially.  It could be
+
+=head2 Connections as Helpers
+
+Helper objects may be a way to represent connections between objects.
+These helpers would be proxy interfaces for the hidden systems that
+connect objects between processes.
+
+Threads aren't considered since processes work better in Perl.
+Forking uses fewer resources on UNIX systems, and it is an interface
+to threading on Windows.  Multiprocessing is also more robust in
+either case; a process may die off and be restarted, but a thread
+failure would most likely kill off the entire program.
+
+=head3 XXX AM HERE XXX TRANSCRIBE EXAMPLES
+
+I<Todo:> Transcribe examples from paper notes.
 
 =cut
