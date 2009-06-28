@@ -39,20 +39,14 @@ $doc->setDocumentElement($main);
 		my $parent = $self->parent();
 
 		unless (exists $elements{$parent}) {
-			my $parent_element = $doc->createElement("object");
-			$parent_element->setAttributeNode(
-				$doc->createAttribute("role", "unknown")
-			);
+			my $parent_element = $doc->createElement("unknown");
 			$main->addChild($parent_element);
 
 			$elements{$parent} = $parent_element;
 			$parent_elements{$parent} = $elements{main};
 		}
 
-		my $self_element = $doc->createElement("object");
-		$self_element->setAttributeNode(
-			$doc->createAttribute("role", $self->role() || "unknown")
-		);
+		my $self_element = $doc->createElement($self->role() || "unknown");
 		$self_element->setAttributeNode(
 			$doc->createAttribute("class", ref($self))
 		);
@@ -126,11 +120,11 @@ my $resolver = Resolver->new(
 my @workers = map {
 	ResolverWorker->new(
 		parent => $resolver,
-		role => "resolver_worker",
+		role => "worker",
 	)
 } (1..5);
 
 print $main->toString(), "\n";
 
 # Find all resolver workers.
-$_->work() foreach Object->find('//object[@role="resolver_worker"]');
+$_->work() foreach Object->find('//resolver/worker');
