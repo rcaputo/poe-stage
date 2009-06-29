@@ -937,6 +937,29 @@ I<Todo:> Develop the semantics and syntax for this mechanism.
 
 I<Todo:> What about objects in remote processes?
 
+While working on poecall, it became apparent that more that both edge
+and level notifications may be useful.
+
+=head2 Notification on Change
+
+An "on_change" callback would be triggered whenever the watched data
+member actually changes.  Merely setting it to the same value would
+not be sufficient to trigger a callback.  This is "edge triggered"
+semantics in digital circuits.
+
+=head2 Notification on Set
+
+An "on_set" callback would be triggered for every set, regardless
+whether the data changed.  This is similar to but not exactly the same
+as "level triggered" semantics in digital circuits.
+
+=head2 Multiple Observers
+
+A single data member may be observed by many watchers.  If we know
+this in advance---for example when a parent object is wiring up its
+children---then there should be a convenient way to specify them all
+at once.
+
 =head1 Continuations
 
 Continuations are encapsulated bits of program state that can be
@@ -1222,49 +1245,6 @@ they exist.  It may have a structure similar to the following roles
 and structure.
 
 	<main>
-		<object role="application">
-			<object role="http client">
-				<object role="dns client">
-					<object role="worker"/>
-					<object role="worker"/>
-					<object role="worker"/>
-				</object>
-				<object role="keepalive connector">
-					<object role="socket"/>
-					<object role="socket"/>
-				</object>
-				<object role="request"/>
-				<object role="request"/>
-				<object role="request"/>
-			</object>
-		</object>
-	</main>
-
-Unlike POE aliases, the framework supports multiple objects per role.
-
-Since the program is structured like an object tree, we can represent
-it in XML.
-
-We can find objects using XPath, either by manipulating a DOM in
-memory or using a module like Tree::XPathEngine to access a native
-Perl tree structure.
-
-Objects may be found by absolute path, relative path, or role
-regardless of path.
-
-	my @workers = Object->find('//object[@role="worker"]');
-	my @http_requests = Object->find(
-		'//object[@role="http_client"]/object[@role="request"]'
-	);
-	my @http_clients = Object->find(
-		'/main/object[@role="application"]/object[@role="http client"]'
-	);
-
-It quickly becomes apparent that roles as object attributes is
-tedious.  It might be better to assume everything is an object and
-name the tags after the roles:
-
-	<main>
 		<application>
 			<http_client>
 				<dns_client>
@@ -1283,23 +1263,69 @@ name the tags after the roles:
 		</application>
 	</main>
 
-We can now use shorter notation.
+Unlike POE aliases, the framework supports multiple objects per role.
+
+Since the program is structured like an object tree, we can represent
+it in XML.
+
+We can find objects using XPath, either by manipulating a DOM in
+memory or using a module like Tree::XPathEngine to access a native
+Perl tree structure.
+
+Objects may be found by absolute path, relative path, or role
+regardless of path.
 
 	my @workers = Object->find('//worker');
 	my @http_requests = Object->find('//http_client/request');
 	my @http_clients = Object->find( '/main/application/http client');
 
-While XPath may not be the right choice, it at least comes close to
-eliminating POE::Kernel's aliases' restrictions.
+It quickly becomes apparent that roles as object attributes is
+tedious.  It might be better to assume everything is an object and
+name the tags after the roles:
+
+XPath may not be the right choice, but it seems very flexible.  What
+kinds of edge cases make it undesirable?
 
 Storing the program structure in a DOM also allows it to be serialized
-and shared trivially.  It could be
+and shared trivially.  How hard would it be to include public
+interfaces in the DOM?
+
+=head3 Problems with XPath Object Addressing
+
+As Robert Grimes pointed out, there seems to be very little actual
+need for finding objects like this.  Most objects interact with each
+other in local ways:
+
+=over 2
+
+=item * Parent interacts with children.
+
+=item * Children interact with parents.
+
+=back
+
+Children may interact with siblings, but this usually happens through
+a mediator such as the parent.
+
+XPath addressing may also permit objects to sidestep encapsulation.
+Objects may need to tag their children as "private" in order to keep
+them out of the DOM or to only make them visible by the parent.
+
+While nifty, the drawbacks may negate the benefits.  There need to be
+compelling reasons to follow down this path.  Are there useful use
+cases?
 
 =head2 Connections as Helpers
 
-Helper objects may be a way to represent connections between objects.
-These helpers would be proxy interfaces for the hidden systems that
-connect objects between processes.
+Helper objects could act as proxies for remote helpers and services.
+They would expose remote object interfaces locally.  All calls would
+be asynchronous commands with asynchronous callbacks.
+
+Synchronous calls may be possible using event loop features like
+run_one_timeslice() or coroutines.  Many mechanisms to support
+synchronous calls limit compatibility or portability, which limits
+their usefulness for a portabile class framework.  For example, some
+event loops don't support run_one_timeslice().
 
 Threads aren't considered since processes work better in Perl.
 Forking uses fewer resources on UNIX systems, and it is an interface
@@ -1307,8 +1333,126 @@ to threading on Windows.  Multiprocessing is also more robust in
 either case; a process may die off and be restarted, but a thread
 failure would most likely kill off the entire program.
 
-=head3 XXX AM HERE XXX TRANSCRIBE EXAMPLES
+=head3 Remote Object Type
 
-I<Todo:> Transcribe examples from paper notes.
+=head4 Remote Helper
+
+A local helper may represent a remote helper.  The remote helper is
+created during the local helper's setup.
+
+=head4 Remote Service
+
+A local helper may represent a remote service.  The local helper
+attackes to a remote service already running.
+
+=head3 Remote Object Existence
+
+=head4 Remote Object Already Exists
+
+The remote object may already exist.  This is true in the case of
+services.
+
+=head4 Remote Object Created on Demand
+
+Remote helpers are always created on demand.  Remote services may be
+created on demand if needed or upon request.
+
+=head3 Remote Process Existence
+
+=head4 Remote Process Already Exists
+
+The remote process may already exist.  Creating the local helper
+triggers a connection to the remote process.
+
+=head4 Remote Process Created on Demand
+
+The helper constructor may specify that a new process be created to
+drive the remote object.  This may be done by forking or spawning a
+new program on the local machine, or by contacting a remote machine to
+start a process.
+
+The remote machine may include an incompatible version of Perl, which
+could complicate running programs on demand.
+
+=head3 Remote Class Existence
+
+=head4 Remote Process Has Required Class
+
+The remote process may already have the required helper or service
+class installed.  Complications arise when that class is of a version
+that isn't compatible with the local program.
+
+=head4 Remote Process Needs Required Class
+
+The remote process may not have the required class installed.  It
+may be possible to push the class into the remote process, but this
+has serious drawbacks.
+
+The class pushed to the remote process may not function with the
+version of Perl running there.
+
+The required class may be pushed across only for the program to
+discover that dependencies are also missing.  This may be worked
+around if the remote process has access to install modules from CPAN.
+Another option is to bundle up the entire application and its
+dependencies as a tarball and transmit that across.
+
+Compiled modules have their own problems, especially if architectures
+differ between machines.
+
+=head3 Further Considerations
+
+=head4 Blocking Constructors
+
+Proxy objects imply a measure of blocking, which follows as a
+consequence of the expectation that an object's constructor
+immediately returns a usable object.  This is usually not a concern.
+Objects generally construct rapidly, so their blocking is minimal.
+
+Remote procedure calls involve network operations, which may block
+significantly.  This introduces problems in a cooperative multitasking
+framework.
+
+The framework could return helper objects right away but also require
+asynchronous notification of their readiness.  POE::Wheel classes do
+this, although it's somewhat awkward to people who expect normal
+constructor semantics.
+
+Promises are another option.  Constructors may return objects which
+block until completion when they are dereferenced rather than within
+new().  Programs which wait long enough between construction and use
+may not notice blocking.  The semantics are somewhat misleading since
+the interface implies immediate use.
+
+=head4 Conserving TCP Sockets
+
+One TCP connection per remote object is heavy.  Each remote object
+construction or connection incurs TCP setup delays.  Destroying
+objects incurs TCP wait state congestion in the operating system.
+
+It makes sense to multiplex object relationships across a limited
+number of sockets, perhaps as few as one per remote process.  This may
+be reduced to a single connection if an external message router is
+available.
+
+BXXP seems to be a generic protocol for meultiplexing virtual
+connections over a socket.  It may be worth considering.
+
+=head1 Technology Questions
+
+=head2 How are new Moose types defined?
+
+=head2 How may hooks be affixed to Moose members?
+
+Attribute traits allow accessors and mutators to take on new
+behaviors.  Change notification hooks may be added to public members
+that a class wishes to define observable.
+
+=head2 How does Moose map to this framework's features?
+
+Moose features seem to be coupled to classes rather than individual
+objects.  The framework needs more dynamic meta-object support.  How
+much of Moose can be used to support this framework's desired feature
+set?
 
 =cut
