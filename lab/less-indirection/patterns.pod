@@ -963,19 +963,24 @@ at once.
 =head1 Continuations
 
 Continuations are encapsulated bits of program state that can be
-passed around and swapped in and out as needed.  They're used to
-bridge the gaps between asynchronous requests and their responses.
-They're also used to provide continuity between methods called during
-a task.
+passed around and swapped in and out as needed.  Each includes an
+instruction pointer and all the program state required to resume a
+program from that point in its execution.
 
-For example, a continuation is created when a request is made.  This
+Perl supports coroutines by grafting its interpreter onto an event
+dispatcher.  This is done deep in its implementation using seriously
+sharp implements.
+
+This framework explores continuations as explicit objects to manage
+execution state between method calls in a larger task.  For example,
+the framework creates a continuation when a request is made.  This
 continuation is associated with the request.  Responses to that
-request will include the same continuation.  Client data that belongs
-with the reqest may be stored in the request's continuation, and
-response handlers will have access to it later.
+request will include the same continuation, so that response handlers
+may remember what was happening at the time the request was initiated.
 
-This illustrates one continuation scenario, but it's not the mechanism
-that will be used.  A request is created and given a name.  The
+The following example illustrates a continuation scenario, but it
+doesn't necessarily use the mechanism that will be in the framework.
+In this scenario, a request is created and given a name.  The
 request's continuation is available when the response comes back.
 
 	sub send_request {
