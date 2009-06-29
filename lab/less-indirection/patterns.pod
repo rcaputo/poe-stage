@@ -11,6 +11,23 @@ strives to make common things easy, it must not preclude useful
 patterns.  One reason for cataloging as many patterns as possible is
 to ensure that all possible patterns are considered.
 
+=head2 Design Roadmap
+
+This document will be developed in alternating phases of expansionary
+braindumps and consolidating edits.  Braindumps will expand the
+document's breadth at the expense of overall depth.  Edits will deepen
+the good concepts while explaining away the bad, making the document
+deeper and more focused.
+
+=head2 Contributing
+
+You can help by adding your braindumps and discussing features in more
+depth.  The author is not omniscient.  Useless features will be
+documented and (hopefully) discarded.  Important considerations will
+be omitted.  Everyone's priorities are different, so what matters to
+one reader may not be important to the author.  The only way to be
+sure is to speak up.
+
 =head1 Object Categories
 
 =head2 Helpers
