@@ -1,4 +1,4 @@
-=head1 Introduction
+=head1 POE & Object Patterns
 
 This document intends to be an exhaustive catalog of runtime object
 use and interaction patterns.  It aims to be generally applicable, but
@@ -30,7 +30,7 @@ sure is to speak up.
 
 =head1 Object Categories
 
-=head2 Helpers
+=head2 Helper Objects
 
 Helper objects are created and owned by another object to perform one
 or more tasks.  Most objects are helpers.
@@ -48,7 +48,7 @@ I<Todo:> Is this confusing?  How can the framework clarify when a
 method is synchronous or asynchronous?  Do we need a naming convention
 to differentiate between synchronous and asynchronous methods?
 
-=head2 Services
+=head2 Service Objects
 
 Services are stand-alone objects that handle asynchronous events.
 They may be stored in a widely-scoped registry or namespace.  They may
@@ -329,14 +329,24 @@ I<Todo:> The single owner model implies certain restrictions to
 parental benefits.  Are these restrictions limiting?  Can they be
 lifted through a different ownership mechanism?
 
-The exact mechanism for object movement isn't firm yet, but it may be
-as simple as calling a method from the new owner.  The object's new
-parent would call the method on the object being claimed.  This
-take_object() method might be implemented on the parent.
+An object may be transferred by calling a method from the new owner.
+The object's new parent would call the method on the object being
+claimed.  This take_object() method might be implemented on the
+parent.
 
 	sub take_object {
 		my ($self, $object) = @_;
 		$object->move();
+	}
+
+Implicit management provides an API where one object declares
+ownership of another.  This may be used to transfer ownership as well
+as initially set it.  The proposed detach() method is poorly named for
+this purpose.
+
+	sub take_object {
+		my ($self, $object) = @_;
+		$object->detach();
 	}
 
 Transferrence failure should be reported with an exception, which
@@ -1190,8 +1200,10 @@ concerns.
 =head3 Actor
 
 Actors are objects that can receive command messages.  They are
-described as L<services|Services> earlier in this document.
-POE::Session is a kind of actor.
+described as services earlier in this document.  POE::Session is a
+kind of actor, as are POE::Component objects.  POE::Wheel objects
+aren't really actors because they colonize the sessions that create
+them.
 
 Actors are not quite like computer-science actors.  They do not
 necessarily include mailboxes, nor do they necessarily actively await
@@ -1460,6 +1472,40 @@ available.
 BXXP seems to be a generic protocol for meultiplexing virtual
 connections over a socket.  It may be worth considering.
 
+=head2 Reflexive Data Members
+
+POE's early object environment experiments were very MUD-like.  Nearly
+every object required a container---another object within which it
+existed.  Changing an object's place required updates in its old and
+new containers.
+
+This was such a fundamental aspect of the system that it defined a
+reflexive attribute trait.  For example, one class's "place" member
+could be flagged as the reflexive data for another's "contents".
+Storing an object ID in $place would do a few things:
+
+=over 2
+
+=item * Ask the object whether changing $place was allowed.
+
+=item * Ask the old $place whether the object could be removed.
+
+=item * Ask the new $place whether the object could be added.
+
+=item * Remove the object from the old $place.
+
+=item * Add the object to the new $place.
+
+=item * Finally, change the object's $place.
+
+=back
+
+This was slow, but it guaranteed fundamental referential integrity in
+the system.
+
+The new framework can do similar, although encapsulated and hidden in
+the implicit object management API.
+
 =head1 Technology Questions
 
 =head2 How are new Moose types defined?
@@ -1469,6 +1515,9 @@ connections over a socket.  It may be worth considering.
 Attribute traits allow accessors and mutators to take on new
 behaviors.  Change notification hooks may be added to public members
 that a class wishes to define observable.
+
+Chris Williams suggested Variable::Magic for watching POE HEAP or
+object data members.
 
 =head2 How does Moose map to this framework's features?
 
