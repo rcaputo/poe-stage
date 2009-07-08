@@ -19,6 +19,14 @@ document's breadth at the expense of overall depth.  Edits will deepen
 the good concepts while explaining away the bad, making the document
 deeper and more focused.
 
+Currently to do:
+
+=over 2
+
+=item * Restructure into descriptive and prescriptive sections.
+
+=back
+
 =head2 Contributing
 
 You can help by adding your braindumps and discussing features in more
