@@ -1,9 +1,11 @@
-=head1 POE & Object Patterns
+=head1 Object Patterns and Framework
 
-This document intends to be an exhaustive catalog of runtime object
-use and interaction patterns.  It aims to be generally applicable, but
-it also recommends "best of breed" patterns for a particular object
-framework design called I<the framework>.
+This document intends to be two things.  First, it presents an
+exhaustive catalog of runtime object use and interaction patterns.
+Second, it builds upon them an abstract set of specifications for an
+object framework, focusing mainly on runtime usage and effects.
+
+The framework is not named, in order to keep discussion abstract.
 
 Any usable object framework must support every useful design pattern,
 either through core mechanisms or by extension.  While the framework
@@ -1356,6 +1358,20 @@ them out of the DOM or to only make them visible by the parent.
 While nifty, the drawbacks may negate the benefits.  There need to be
 compelling reasons to follow down this path.  Are there useful use
 cases?
+
+=head3 JavaScript use of DOM
+
+Torsten Raudssus commented that Javascript uses the DOM for similar
+purposes.  Code may use XPath to manipulate page elements as groups.
+It can be very convenient.
+
+However this case seems to be a subset of Robert Grimes' earlier
+point.  Javascript is manipulating sibling objects within the same
+container---the page containing the code.
+
+In a larger application, it seems safer to limit each object's reach.
+The next question in this line of reasoning is: What sorts of
+limitations are reasonable?
 
 =head2 Connections as Helpers
 
