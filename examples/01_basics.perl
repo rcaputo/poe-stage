@@ -9,6 +9,8 @@
 	package Helper;
 	use POE::Stage qw(:base self req);
 
+	sub on_init { undef }
+
 	sub do_something :Handler {
 		print "Helper (", self, ") is executing a request.\n";
 		req->emit(args => { value => "EmitValue123" });
@@ -21,6 +23,8 @@
 {
 	package App;
 	use POE::Stage::App qw(:base expose);
+
+	sub on_init { undef }
 
 	sub on_run {
 		my $req_helper = Helper->new();

@@ -27,6 +27,8 @@ exit;
 
 	use POE::Stage::App qw(:base self req expose);
 
+	sub on_init { undef }
+
 	sub on_run {
 
 		# Variables with the self_ prefix expose members of the current

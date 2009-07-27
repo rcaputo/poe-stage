@@ -83,7 +83,7 @@ use POE::Request::Return;
 use POE::Request::Recall;
 use POE::Request qw(REQ_ID);
 
-# Field hash tracks POE::Stage's inside-out data for each object.
+# Field hash tracks POE::Stage's out-of-band data for each object.
 
 sub STAGE_DATA    () { 0 }  # The stage's object-scoped data.
 sub COMBINED_KEYS () { 1 }  # Temporary space for iteration.
@@ -92,7 +92,7 @@ sub RESPONSE      () { 3 }  # Currently active response.
 sub REQ_CONTEXTS  () { 4 }  # Contexts for each request in play.
 sub REQ_INIT      () { 5 }  # The init request shares the stage's lifetime.
 
-die unless Hash::Util::FieldHash::fieldhash(my %private);
+Hash::Util::FieldHash::fieldhash(my %private);
 
 sub _get_request  { return $private{$_[0]}[REQUEST] }
 sub _get_response { return $private{$_[0]}[RESPONSE] }
@@ -173,7 +173,7 @@ sub import {
 # 3 - Package wrapper magic.
 # 4 - track wrappers so they aren't rewrapped
 # TODO 5 - Anon coderefs are wrapped when passed to POE::Stage users.
-# TODO 6 - Built-in class reloader.  Wrapps reloaded classes.
+# TODO 6 - Built-in class reloader.  Wraps reloaded classes.
 # 7 - Magic at CHECK time to ensure initial wrap.
 
 sub _wrap_package {
@@ -760,13 +760,21 @@ together conceptually.
 
 =head1 BUGS
 
-See L<http://thirdlobe.com/projects/poe-stage/report/1> for known
-issues.  See L<http://thirdlobe.com/projects/poe-stage/newticket> to
-report a problem.
-
 POE::Stage is not ready for production.  Check back here early and
 often to find out when it will be.  Please contact the author if you
 would like to see POE::Stage production-ready sooner.
+
+=head1 BUG TRACKER
+
+https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=POE-Stage
+
+=head1 REPOSITORY
+
+http://thirdlobe.com/svn/poe-stage/
+
+=head1 OTHER RESOURCES
+
+http://search.cpan.org/dist/POE-Stage/
 
 =head1 SEE ALSO
 
@@ -782,11 +790,11 @@ Event Driven Architecture.  It's Java, though.
 
 =head1 AUTHORS
 
-Rocco Caputo <rcaputo@cpan.org>.
+Rocco Caputo.
 
 =head1 LICENSE
 
-POE::Stage is Copyright 2005-2006 by Rocco Caputo.  All rights are
+POE::Stage is Copyright 2005-2009 by Rocco Caputo.  All rights are
 reserved.  You may use, modify, and/or distribute this module under
 the same terms as Perl itself.
 

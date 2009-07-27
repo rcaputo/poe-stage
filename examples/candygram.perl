@@ -9,6 +9,8 @@
 	package Proc;
 	use POE::Stage qw(:base req);
 
+	sub on_init { undef }
+
 	sub on_knock {
 		my ($self, $req, $arg_name);
 		print "Heard knock from $arg_name\n";
@@ -46,6 +48,8 @@
 {
 	package App;
 	use POE::Stage::App qw(:base);
+
+	sub on_init { undef }
 
 	sub on_run {
 		my $req_proc = Proc->new();

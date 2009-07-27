@@ -506,12 +506,9 @@ sub deliver {
 	}
 
 	$target_method =~ s/^(on_)?/on_/;
-	unless ($target_stage->can($target_method)) {
-		$target_method =~ s/^on_//;
-		unless ($target_stage->can($target_method)) {
-			warn "can't figure out where to deliver $target_method";
-		}
-	}
+#	unless ($target_stage->can($target_method)) {
+#		warn "can't find the $target_method handler";
+#	}
 
 	$self->_push($self, $target_stage, $target_method);
 
