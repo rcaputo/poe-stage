@@ -19,7 +19,9 @@ my $key_value;
 	use POE::Stage qw(:base req rsp);
 	use Test::More;
 
-	sub do_emit :Handler {
+	sub on_init { undef }
+
+	sub on_do_emit {
 		ok(
 			ref(req) eq "POE::Request",
 			"do_emit req is a POE::Request object"
@@ -54,7 +56,7 @@ my $key_value;
 		#req->emit( type => "emit" );
 	}
 
-	sub do_return :Handler {
+	sub on_do_return {
 		ok(
 			ref(req) eq "POE::Request",
 			"do_return req is a POE::Request object"
@@ -102,7 +104,9 @@ my $key_value;
 
 	use Test::More;
 
-	sub run :Handler {
+	sub on_init { undef }
+
+	sub on_run {
 		my $req_something = Something->new();
 		my $req_go = POE::Request->new(
 			stage     => $req_something,

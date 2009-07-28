@@ -17,7 +17,7 @@ WriteMakefile(
     'Net::DNS'              => 0.53,
     'PadWalker'             => 1.0,
     'Scalar::Util'          => 1.18,
-    'POE'                   => 0.3502,
+    'POE'                   => 1.007,
     'Test::More'            => 0,
     'Devel::LexAlias'       => 0.04,
 		'Lexical::Persistence'  => 0.95, # Currently unused.
