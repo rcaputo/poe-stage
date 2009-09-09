@@ -766,11 +766,15 @@ would like to see POE::Stage production-ready sooner.
 
 =head1 BUG TRACKER
 
-https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=POE-Stage
+https://rt.cpan.org/Dist/Display.html?&Queue=POE-Stage
 
 =head1 REPOSITORY
 
-http://thirdlobe.com/svn/poe-stage/
+Github, browse: http://github.com/rcaputo/poe-stage/
+Github, clone: git://github.com/rcaputo/poe-stage.git
+
+Gitorious, browse: http://gitorious.org/poe-stage/
+Gitorious, clone: git://gitorious.org/poe-stage/poe-stage.git
 
 =head1 OTHER RESOURCES
 
