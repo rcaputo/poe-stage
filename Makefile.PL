@@ -33,7 +33,7 @@ WriteMakefile(
     COMPRESS   => 'gzip -9f',
     SUFFIX     => 'gz',
     PREOP      => (
-      'svn-log.perl | tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES;' .
+      'git-log.pl | tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES;' .
       'LANG=C perldoc lib/POE/Stage.pm > README'
     ),
   },
